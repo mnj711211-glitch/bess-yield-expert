@@ -311,9 +311,14 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <span class="hint">建議 = 尖峰契約 × 80%</span>
       </div>
       <div class="fi">
-        <label>基本電費費率 (NT$/kW/月)</label>
-        <input type="number" id="demandRate" value="260" min="0" step="10" oninput="onParamChange()">
-        <span class="hint">高壓約 NT$235~285/kW/月</span>
+        <label>離峰契約費率－夏月 (NT$/kW/月)</label>
+        <input type="number" id="offPeakRateSummer" value="47.20" min="0" step="0.1" oninput="onParamChange()">
+        <span class="hint">6～9月（高壓二/三段式）</span>
+      </div>
+      <div class="fi">
+        <label>離峰契約費率－非夏月 (NT$/kW/月)</label>
+        <input type="number" id="offPeakRateNonSummer" value="34.60" min="0" step="0.1" oninput="onParamChange()">
+        <span class="hint">其他月份（高壓二/三段式）</span>
       </div>
       <div class="fi">
         <label>超約罰款倍率</label>
@@ -875,7 +880,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <thead><tr><th>費項</th><th>夏月(NT$/kW/月)</th><th>非夏月(NT$/kW/月)</th></tr></thead>
         <tbody>
           <tr><td>高壓 尖峰契約容量費</td><td class="red">223.60</td><td class="orange">166.90</td></tr>
-          <tr><td>高壓 離峰契約容量費</td><td>44.70</td><td>33.30</td></tr>
+          <tr><td>高壓 離峰契約容量費（二/三段式）</td><td class="blue"><b>47.20</b></td><td class="blue"><b>34.60</b></td></tr>
           <tr><td>特高壓 尖峰契約容量費</td><td class="red">217.30</td><td class="orange">160.60</td></tr>
           <tr><td>特高壓 離峰契約容量費</td><td>43.40</td><td>32.10</td></tr>
         </tbody>
@@ -1264,8 +1269,11 @@ function calcContractOverload(){
   }
   const overload = Math.max(0, projectedOffpeak - contractOff);
   const addNeeded = Math.ceil(overload/50)*50;
-  const contractCostPerYear = addNeeded * v('demandRate') * 12 / 10000;
-  return { projectedOffpeak, overload, addNeeded, contractCostPerYear, noExpand: false };
+  // 夏月(6-9月)=4個月，非夏月=8個月，分別乘以對應離峰契約費率
+  const rateSummer    = v('offPeakRateSummer')    || 47.20;
+  const rateNonSummer = v('offPeakRateNonSummer') || 34.60;
+  const contractCostPerYear = addNeeded * (rateSummer * 4 + rateNonSummer * 8) / 10000;
+  return { projectedOffpeak, overload, addNeeded, contractCostPerYear, rateSummer, rateNonSummer, noExpand: false };
 }
 
 // 偵測目前費率方案是否支援真正的兩充兩放（午間 11-13h 需為離峰 code=0）
@@ -2012,7 +2020,7 @@ function renderRevenue(){
     {n:'補充備轉 — 容量費', b:`${f0(v('pcskW')*(document.getElementById('suppEnabled')?.checked?v('suppRatio'):0)/100)}kW × ${v('suppCeilingPrice')}NT$/MW·h × ${suppAnnualHours}h`, m:yld.supp/12, a:yld.supp},
     {n:'需量反應',          b:drDescMap[drType] || '—', m:yld.dr/12, a:yld.dr},
     {n:`聚合商抽成 ${v('vppPct')}%（扣）`, b:`（即時備轉 + 補充備轉）× ${v('vppPct')}%`, m:-yld.vppFee/12, a:-yld.vppFee},
-    {n:'離峰契約增購（扣）',b:`${f0(cc.addNeeded)}kW × NT$${v('demandRate')}/月 × 12月`, m:-yld.contractCost/12, a:-yld.contractCost},
+    {n:'離峰契約增購（扣）',b:`${f0(cc.addNeeded)}kW × (夏月${cc.rateSummer||47.2}×4月 + 非夏月${cc.rateNonSummer||34.6}×8月)`, m:-yld.contractCost/12, a:-yld.contractCost},
   ].filter(it => it.a !== 0 || it.n.includes('TOU'));
 
   document.querySelector('#tblRevenue tbody').innerHTML = items.map(it => `
@@ -2260,7 +2268,7 @@ function renderReport(){
             <tr><td>補充備轉</td><td style="color:#7c3aed;font-weight:700">${f(yld.supp,1)}</td><td>${pct(yld.supp,gross2)}</td><td>${f0(suppCap2)}kW × NT$${v('suppCeilingPrice')}/MW·h × ${v('suppDays')*v('suppDailyHours')}h</td></tr>
             <tr><td>需量反應</td><td style="color:#166534;font-weight:700">${f(yld.dr,1)}</td><td>${pct(yld.dr,gross2)}</td><td>${drDescR}</td></tr>
             ${yld.vppFee>0?`<tr style="background:#fef2f2"><td>聚合商抽成 ${v('vppPct')}%（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.vppFee,1)}</td><td>費用</td><td>所有收益合計 × ${v('vppPct')}%</td></tr>`:''}
-            <tr style="background:#fef2f2"><td>離峰契約增購（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.contractCost,1)}</td><td>成本</td><td>${cc.addNeeded>0?`增購 ${f0(cc.addNeeded)} kW × NT$${v('demandRate')}/月 × 12月`:'無需增購'}</td></tr>
+            <tr style="background:#fef2f2"><td>離峰契約增購（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.contractCost,1)}</td><td>成本</td><td>${cc.addNeeded>0?`增購 ${f0(cc.addNeeded)} kW × (夏${cc.rateSummer||47.2}×4月+非夏${cc.rateNonSummer||34.6}×8月)`:'無需增購'}</td></tr>
             <tr style="background:#f0fdf4;font-weight:700"><td>年度淨收益合計</td><td style="color:#16a34a">${f(yld.total,1)}</td><td>100%</td><td>扣除聚合商費用與契約成本後</td></tr>`;
             })()}
           </tbody>
@@ -3350,7 +3358,7 @@ function onDRSchemeChange(){
 // 專案儲存 / 載入
 // ══════════════════════════════════════════════════════════════
 const PARAM_IDS = [
-  'tariffType','contractPeak','contractOff','demandRate','overloadPenalty',
+  'tariffType','contractPeak','contractOff','offPeakRateSummer','offPeakRateNonSummer','overloadPenalty',
   'battKwh','pcskW','capex','opex','crate','analysisYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
