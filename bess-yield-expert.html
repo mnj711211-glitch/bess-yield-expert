@@ -2096,7 +2096,7 @@ function renderHeatmap(){
     return tou + spin + supp + dr;
   });
 
-  const allCells = monthlyBase.flatMap((mv,mi)=> weeks.map((_,wi)=> mv/4*(0.82+wi*0.06+IS_SUMMER[mi]*0.08)));
+  const allCells = monthlyBase.flatMap((mv)=> weeks.map(()=> mv/4));
   const minV = Math.min(...allCells), maxV = Math.max(...allCells);
 
   function heatColor(val){
@@ -2113,7 +2113,7 @@ function renderHeatmap(){
   weeks.forEach((w,wi) => {
     html += `<div class="hm-cell hm-lbl">${w}</div>`;
     MONTHS.forEach((_,mi) => {
-      const val = monthlyBase[mi]/4*(0.82+wi*0.06+IS_SUMMER[mi]*0.08);
+      const val = monthlyBase[mi]/4;
       const bg = heatColor(val);
       html += `<div class="hm-cell" style="background:${bg};color:#000" title="${MONTHS[mi]} ${w}: ${f(val,2)}萬元">${f(val,1)}</div>`;
     });
