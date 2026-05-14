@@ -1458,10 +1458,11 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     return Math.min(want, avail, baseLoad);
   }
 
-  // drDisHrs 覆蓋放電時段：若指定則只在這些小時放電（DR申報模式）
-  // 否則依 sched code=2 的尖峰時段全部放電（TOU純套利）
+  // drDisHrs 覆蓋放電時段：DR申報時段；DR模式下其他尖峰時段仍可放電（消耗剩餘電量）
   const disHrSet = drDisHrs ? new Set(drDisHrs) : null;
-  const isDischargeHour = (h) => disHrSet ? disHrSet.has(h) : sched[h] === 2;
+  const isDRMode = drDisHrs !== null && drCapKw > 0;
+  // DR模式：DR時段 + 其他尖峰時段都允許放電；TOU模式：只有尖峰時段
+  const isDischargeHour = (h) => isDRMode ? (disHrSet.has(h) || sched[h] === 2) : sched[h] === 2;
 
   if(!doubleMode){
     // ── 一充一放 (single cycle) ──────────────────────────────────────
@@ -1480,11 +1481,19 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       }
     }
     // Step 2：計算放電目標功率
-    //   DR模式：固定 drCapKw（申報容量），不做平滑計算
+    //   DR模式：DR時段固定抑低到 drCapKw；非DR尖峰時段：全力放電(Ptarget=0)
     //   TOU模式：二分搜尋平滑目標水位 Ptarget
     const availE  = (tempSoc - socMin) * battKwh;
-    const isDRMode = drDisHrs !== null && drCapKw > 0;
-    const Ptarget = isDRMode ? null : calcPtarget(disHrs, loadMapD, availE);
+    // 非DR尖峰時段的 Ptarget（消耗剩餘電量，目標電網=0即全力放）
+    const nonDRPeakHrs = isDRMode ? disHrs.filter(h => !disHrSet.has(h)) : disHrs;
+    const nonDRLoadMap  = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
+    // DR時段預計放電量（抑低到 drCap）
+    const drWindowEnergy = isDRMode
+      ? [...disHrSet].reduce((s, h) => s + Math.max(0, (loadMapD[h] || 0) - drCapKw), 0)
+      : 0;
+    const remainE   = Math.max(0, availE - drWindowEnergy);
+    const Ptarget   = isDRMode ? calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE)
+                               : calcPtarget(disHrs, loadMapD, availE);
 
     // Step 3：正式逐時建立 rows
     soc = socMin;
@@ -1497,21 +1506,21 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電'; }
       } else if(isDischargeHour(h)){
         let dp = 0;
-        if(isDRMode){
-          // DR抑低模式：放電讓電網需量降到申報容量(drCapKw)
-          // 需放電量 = max(0, 建物負載 - 申報抑低目標值)
+        if(isDRMode && disHrSet.has(h)){
+          // DR申報時段：放電讓電網需量降到申報目標值
           const avail = (soc - socMin) * battKwh;
           const disNeeded = Math.max(0, baseLoad - drCapKw);
           dp = Math.min(disNeeded, maxPow, avail);
         } else {
+          // 非DR尖峰時段：正常消峰放電（消耗剩餘電量）
           dp = applyDischarge(soc, baseLoad, Ptarget);
         }
         if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電'; }
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
-      // drExpected: DR時段的目標放電量（讓電網降到drCapKw所需的功率）
-      const drExpected = (isDRMode && isDischargeHour(h)) ? Math.max(0, baseLoad - drCapKw) : 0;
+      // drExpected：僅 DR 申報時段有目標值，其他時段為 0
+      const drExpected = (isDRMode && disHrSet.has(h)) ? Math.max(0, baseLoad - drCapKw) : 0;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100, drExpected});
     }
 
