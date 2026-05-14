@@ -1,0 +1,3456 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>綠源科技ESS 收益評估</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#f0f4f3;--surface:#ffffff;--surface2:#eaf3ef;--border:#c8ddd5;
+  --accent:#0b7a4f;--green:#0b7a4f;--orange:#c2720a;--red:#c0392b;--purple:#6d3bbf;
+  --text:#1a2e25;--text2:#5a7a6a;--shadow:0 4px 24px rgba(0,80,40,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+.shell{display:grid;grid-template-columns:268px 1fr;min-height:100vh}
+
+/* Sidebar */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+.logo h1{font-size:15px;font-weight:800;color:var(--accent);letter-spacing:-.3px}
+.logo p{font-size:11px;color:var(--text2);margin-top:3px}
+.logo .ver{display:inline-block;margin-top:6px;font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(88,166,255,.12);color:var(--accent)}
+.nav{padding:6px 0;flex:1}
+.nav-sec{padding:10px 16px 4px;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;color:var(--text2);transition:.15s;border-left:3px solid transparent;font-size:13px;user-select:none}
+.nav-item:hover{color:var(--text);background:var(--surface2)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(88,166,255,.07);font-weight:600}
+.nav-item .ic{font-size:14px;width:18px;text-align:center}
+.sidebar-footer{padding:12px}
+.btn-primary{width:100%;padding:11px;background:linear-gradient(135deg,#0b7a4f,#085e3c);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;transition:.15s;letter-spacing:.3px}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-pdf{width:100%;margin-top:8px;padding:10px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;color:var(--red);font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+.btn-pdf:hover{background:rgba(192,57,43,.18)}
+.btn-save{flex:1;padding:8px 4px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:block}
+.btn-save:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Input / Select 統一淺色底 */
+.fi input,.fi select{background:#f8fbfa!important;color:var(--text)!important}
+table td,table th{color:var(--text)}
+.card{box-shadow:0 2px 8px rgba(0,80,40,.06)}
+.badge-blue{background:rgba(11,122,79,.1)!important;color:var(--accent)!important}
+.nav-item.active{background:rgba(11,122,79,.09)!important}
+
+/* Main */
+.main{padding:28px 28px 40px;overflow-x:hidden}
+.panel{display:none}.panel.active{display:block}
+
+/* Page header */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:16px}
+.ph-left h2{font-size:20px;font-weight:700}
+.ph-left p{color:var(--text2);font-size:13px;margin-top:4px}
+.ph-badge{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+.badge-blue{background:rgba(88,166,255,.12);color:var(--accent)}
+.badge-green{background:rgba(63,185,80,.12);color:var(--green)}
+.badge-orange{background:rgba(255,166,87,.12);color:var(--orange)}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card-h{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.card-h .cb{font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(88,166,255,.12);color:var(--accent)}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.stat .sl{font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.stat .sv{font-size:21px;font-weight:800;line-height:1}
+.stat .ss{font-size:11px;color:var(--text2);margin-top:4px}
+.stat .delta{font-size:11px;font-weight:600;margin-top:3px}
+.green{color:var(--green)}.blue{color:var(--accent)}.orange{color:var(--orange)}.red{color:var(--red)}.purple{color:var(--purple)}
+
+/* Form */
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.fi{display:flex;flex-direction:column;gap:4px}
+.fi label{font-size:12px;color:var(--text2);font-weight:600;letter-spacing:.2px}
+.fi input,.fi select{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;transition:.15s;width:100%}
+.fi input:focus,.fi select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,.1)}
+.fi input[type=range]{padding:5px 0;accent-color:var(--accent)}
+.rv{font-size:12px;color:var(--accent);font-weight:700;margin-top:1px}
+.hint{font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4}
+.hint.warn{color:var(--orange)}
+.section-divider{height:1px;background:var(--border);margin:16px 0}
+.fi-wide{grid-column:1/-1}
+
+/* Alert */
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.alert-warn{background:rgba(255,166,87,.1);border:1px solid rgba(255,166,87,.3);color:var(--orange)}
+.alert-info{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.25);color:var(--accent)}
+.alert-ok{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);color:var(--green)}
+
+/* Table */
+.tw{overflow-x:auto;border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:9px 12px;text-align:left;color:var(--text2);font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap;font-size:11px}
+td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.4);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(28,35,51,.5)}
+.tag{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700}
+.tp{background:rgba(247,129,102,.15);color:var(--red)}
+.ts{background:rgba(255,166,87,.15);color:var(--orange)}
+.to{background:rgba(88,166,255,.15);color:var(--accent)}
+
+/* Chart */
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;margin-bottom:16px}
+.cb2{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.cb2 h3{font-size:12px;font-weight:600;color:var(--text);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px}
+.cb2 canvas{max-height:260px}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:8px 16px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;font-size:13px;transition:.15s;margin-bottom:-1px;border-radius:4px 4px 0 0}
+.tab:hover{color:var(--text);background:var(--surface2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tc{display:none}.tc.active{display:block}
+
+/* Heatmap */
+.hm-grid{display:grid;grid-template-columns:48px repeat(12,1fr);gap:2px}
+.hm-cell{height:34px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;cursor:default;transition:.1s}
+.hm-cell:hover{transform:scale(1.05);z-index:1;position:relative}
+.hm-lbl{display:flex;align-items:center;justify-content:flex-end;padding-right:6px;color:var(--text2);font-size:10px}
+.hm-mo{text-align:center;color:var(--text2);padding:4px 0;font-size:10px;font-weight:600}
+
+/* Timeline */
+.tl{display:grid;grid-template-columns:60px repeat(24,1fr);gap:1px}
+.tl-lbl{display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:10px;color:var(--text2)}
+.tl-cell{height:30px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;transition:.1s}
+.tl-cell:hover{filter:brightness(1.2)}
+.tl-h{font-size:9px;color:var(--text2);text-align:center;padding:2px 0}
+
+/* Progress */
+.pbar{height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:5px}
+.pfill{height:100%;border-radius:3px}
+
+/* Sensitivity matrix */
+.sm{display:grid;gap:2px;font-size:11px}
+.sm-cell{padding:9px 6px;border-radius:5px;text-align:center;font-weight:700}
+.sm-hdr{color:var(--text2);font-weight:500;background:transparent!important}
+
+/* PDF Preview */
+.pdf-preview{background:#fff;color:#000;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.pdf-cover{background:linear-gradient(135deg,#1a3a6e 0%,#0d1f42 100%);padding:48px;color:#fff}
+.pdf-cover h1{font-size:28px;font-weight:800;margin-bottom:8px}
+.pdf-cover .sub{font-size:14px;opacity:.8;margin-bottom:32px}
+.pdf-cover .meta{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pdf-cover .meta-item{background:rgba(255,255,255,.08);border-radius:8px;padding:12px 16px}
+.pdf-cover .meta-item .k{font-size:11px;opacity:.7;margin-bottom:4px}
+.pdf-cover .meta-item .val{font-size:16px;font-weight:700}
+.pdf-section{padding:32px 48px;border-bottom:1px solid #e5e7eb}
+.pdf-section h2{font-size:16px;font-weight:700;color:#1a3a6e;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #1a3a6e}
+.pdf-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.pdf-kpi-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px}
+.pdf-kpi-item .k{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;margin-bottom:4px}
+.pdf-kpi-item .v{font-size:20px;font-weight:800;color:#0f172a}
+.pdf-kpi-item .u{font-size:11px;color:#64748b}
+.pdf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+.pdf-table th{background:#1a3a6e;color:#fff;padding:8px 12px;text-align:left;font-size:11px}
+.pdf-table td{padding:7px 12px;border-bottom:1px solid #e5e7eb}
+.pdf-table tr:nth-child(even) td{background:#f8fafc}
+.pdf-footer{padding:20px 48px;background:#f8fafc;font-size:11px;color:#64748b;display:flex;justify-content:space-between}
+.chart-placeholder{background:#f1f5f9;border-radius:8px;height:220px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;margin:12px 0;border:2px dashed #e2e8f0}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:24px 32px 20px;text-align:center;transition:.2s;background:var(--bg);position:relative}
+.upload-zone.drag{border-color:var(--accent);background:rgba(88,166,255,.04)}
+.upload-zone .uz-icon{font-size:36px;margin-bottom:10px}
+.upload-zone .uz-title{font-size:14px;font-weight:600;color:var(--text)}
+.upload-zone .uz-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.uz-btn-row{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.uz-btn{padding:7px 16px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.uz-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.uz-btn.danger:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.uz-accum{font-size:12px;color:var(--accent);margin-top:8px;min-height:16px;font-weight:600}
+
+/* Annual grid day-dot tooltip */
+.grid-dot{cursor:pointer;display:inline-block;transition:transform .12s,box-shadow .12s}
+.grid-dot:hover{transform:scale(1.35);box-shadow:0 0 0 3px rgba(11,122,79,.25)}
+#gridTooltip{
+  position:fixed;z-index:9999;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:13px;box-shadow:0 10px 36px rgba(0,60,30,.18);
+  padding:15px 17px;width:296px;display:none;
+  font-size:12px;color:var(--text);
+  pointer-events:auto;
+}
+#gridTooltip .tt-row{display:flex;justify-content:space-between;align-items:center;padding:5px 9px;border-radius:7px;margin-bottom:4px}
+#gridTooltip .tt-close{position:absolute;top:10px;right:12px;cursor:pointer;font-size:16px;color:var(--text2);line-height:1;padding:2px 4px;border-radius:4px}
+#gridTooltip .tt-close:hover{background:var(--surface2);color:var(--text)}
+.load-status{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.25);margin-bottom:16px}
+.load-status .ls-icon{font-size:20px}
+.load-status .ls-info{flex:1}
+.load-status .ls-title{font-size:13px;font-weight:600;color:var(--green)}
+.load-status .ls-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.load-status .ls-clear{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:2px 6px;border-radius:4px;transition:.15s}
+.load-status .ls-clear:hover{color:var(--red);background:rgba(247,129,102,.1)}
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
+.mini-stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center}
+.mini-stat .mk{font-size:10px;color:var(--text2);margin-bottom:3px}
+.mini-stat .mv{font-size:16px;font-weight:700}
+.load-src-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:8px}
+.lsb-real{background:rgba(63,185,80,.15);color:var(--green)}
+.lsb-manual{background:rgba(255,166,87,.15);color:var(--orange)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="logo">
+    <h1>🌿 綠源科技ESS</h1>
+    <p>收益評估系統</p>
+    <span class="ver">Professional v3.0</span>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">參數設定</div>
+    <div class="nav-item active" data-panel="params"    onclick="nav(this)"><span class="ic">🔌</span>電力環境 & 電價</div>
+    <div class="nav-item" data-panel="loadimport" onclick="nav(this)"><span class="ic">📂</span>用電資料匯入<span id="navImportBadge" style="display:none;margin-left:auto;font-size:9px;padding:1px 5px;border-radius:10px;background:var(--green);color:#000;font-weight:700">已載入</span></div>
+    <div class="nav-item" data-panel="hardware"  onclick="nav(this)"><span class="ic">🔋</span>儲能硬體規格</div>
+    <div class="nav-item" data-panel="strategy"  onclick="nav(this)"><span class="ic">⚙️</span>操作策略設定</div>
+    <div class="nav-sec">分析報表</div>
+    <div class="nav-item" data-panel="dispatch"  onclick="nav(this)"><span class="ic">📊</span>24H 調度曲線</div>
+    <div class="nav-item" data-panel="revenue"   onclick="nav(this)"><span class="ic">💰</span>收益分解報表</div>
+    <div class="nav-item" data-panel="cashflow"  onclick="nav(this)"><span class="ic">📈</span>現金流 & 回收</div>
+    <div class="nav-item" data-panel="heatmap"   onclick="nav(this)"><span class="ic">🗓️</span>年度收益熱點圖</div>
+
+    <div class="nav-sec">工具</div>
+    <div class="nav-item" data-panel="tariff"    onclick="nav(this)"><span class="ic">📋</span>台電電價表</div>
+    <div class="nav-item" data-panel="report"    onclick="nav(this)"><span class="ic">📄</span>PDF 報告預覽</div>
+  </nav>
+  <div class="sidebar-footer">
+    <!-- 專案儲存列 -->
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn-save" onclick="quickSave()" title="儲存到瀏覽器（localStorage）">💾 快速儲存</button>
+      <button class="btn-save" onclick="quickLoad()" title="從瀏覽器載入上次儲存">📥 快速載入</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn-save" onclick="exportProject()" title="下載 .json 專案檔">📤 匯出專案</button>
+      <label class="btn-save" style="cursor:pointer;text-align:center" title="載入 .json 專案檔">
+        📂 匯入專案<input type="file" accept=".json" style="display:none" onchange="importProject(event)">
+      </label>
+    </div>
+    <div id="saveStatus" style="font-size:11px;color:var(--text2);text-align:center;min-height:16px;margin-bottom:6px"></div>
+    <button class="btn-primary" onclick="runAll()">▶執行全部計算</button>
+    <button class="btn-pdf" onclick="exportPDF()">⬇ 匯出 PDF 報告</button>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+<!-- ══ PARAMS ══ -->
+<div class="panel active" id="panel-params">
+  <div class="ph">
+    <div class="ph-left"><h2>電力環境 & 電價設定</h2><p>台電電價類別、契約容量、用電基線與充電超約判斷</p></div>
+    <div class="ph-badge"><span class="badge badge-blue">台電 2025 費率</span></div>
+  </div>
+  <div id="contractAlert"></div>
+  <div id="paramsImportStatus"></div>
+  <div class="card" style="background:linear-gradient(135deg,rgba(11,122,79,.06),rgba(11,122,79,.02));border-color:rgba(11,122,79,.25)">
+    <div class="card-h">📋 專案資訊</div>
+    <div class="fg">
+      <div class="fi">
+        <label>客戶名稱</label>
+        <input type="text" id="customerName" placeholder="例：台積電竹科廠" oninput="onParamChange()" style="font-size:15px;font-weight:600">
+      </div>
+      <div class="fi">
+        <label>專案名稱</label>
+        <input type="text" id="projectName" placeholder="例：A棟屋頂型儲能 2MW/4MWh" oninput="onParamChange()">
+      </div>
+      <div class="fi" style="grid-column:span 2">
+        <label>備註</label>
+        <input type="text" id="projectNote" placeholder="選填：版本、聯絡人等備註" oninput="onParamChange()">
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h">電價類別</div>
+    <div class="fg">
+      <div class="fi">
+        <label>電壓等級 & 電價類別</label>
+        <select id="tariffType" onchange="onParamChange()">
+          <option value="hv2">高壓電力 — 二段式時間電價</option>
+          <option value="hv3" selected>高壓電力 — 三段式時間電價</option>
+          <option value="ehv2">特高壓電力 — 二段式時間電價</option>
+          <option value="ehv3">特高壓電力 — 三段式時間電價</option>
+        </select>
+        <span class="hint">收益分析自動涵蓋夏月（5/16~10/15）與非夏月（10/16~5/15）全年計算</span>
+      </div>
+    </div>
+    <div id="rateDisplay" style="margin-top:16px"></div>
+  </div>
+  <div class="card">
+    <div class="card-h">契約容量設定 <span class="cb">超約自動計算</span></div>
+    <div class="fg">
+      <div class="fi">
+        <label>現有尖峰契約容量 (kW)</label>
+        <input type="number" id="contractPeak" value="1000" min="50" step="50" oninput="onParamChange()">
+      </div>
+      <div class="fi">
+        <label>現有離峰契約容量 (kW)</label>
+        <input type="number" id="contractOff" value="800" min="50" step="50" oninput="onParamChange()">
+        <span class="hint">建議 = 尖峰契約 × 80%</span>
+      </div>
+      <div class="fi">
+        <label>基本電費費率 (NT$/kW/月)</label>
+        <input type="number" id="demandRate" value="260" min="0" step="10" oninput="onParamChange()">
+        <span class="hint">高壓約 NT$235~285/kW/月</span>
+      </div>
+      <div class="fi">
+        <label>超約罰款倍率</label>
+        <select id="overloadPenalty">
+          <option value="2">2 倍（一般）</option>
+          <option value="3">3 倍（違規次數多）</option>
+        </select>
+      </div>
+      <div class="fi">
+        <label>平均用電量 (kW)</label>
+        <input type="number" id="avgLoadKw" value="0" min="0" step="50" oninput="onParamChange()">
+        <span class="hint" id="avgLoadKwHint">無匯入資料時作為調度計算基準；匯入後自動帶入</span>
+      </div>
+    </div>
+    <div id="contractCalc" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- ══ HARDWARE ══ -->
+<div class="panel" id="panel-hardware">
+  <div class="ph"><div class="ph-left"><h2>儲能硬體規格</h2><p>電池容量、PCS 功率、效率參數與 20 年衰退模型</p></div></div>
+  <div class="card">
+    <div class="card-h">系統規格 & 成本</div>
+    <div class="fg">
+      <div class="fi">
+        <label>電池容量 (kWh)</label>
+        <input type="number" id="battKwh" value="2000" min="100" step="100" oninput="onHwChange()">
+      </div>
+      <div class="fi">
+        <label>PCS 額定功率 (kW)</label>
+        <input type="number" id="pcskW" value="500" min="50" step="50" oninput="onHwChange()">
+      </div>
+      <div class="fi">
+        <label>系統總建置成本 CAPEX（萬元）</label>
+        <input type="number" id="capex" value="2400" min="100" step="100">
+        <span class="hint">含電池、PCS、BMS、工程</span>
+      </div>
+      <div class="fi">
+        <label>年度 OPEX（萬元/年）</label>
+        <input type="number" id="opex" value="48" min="0" step="4">
+        <span class="hint">約 CAPEX 的 1.5~2%</span>
+      </div>
+      <div class="fi">
+        <label>C-rate（充電倍率）</label>
+        <input type="number" id="crate" value="0.5" min="0.1" max="2" step="0.1" oninput="onHwChange()">
+        <span class="hint">0.5C = 2h 充飽</span>
+      </div>
+      <div class="fi">
+        <label>分析年限（年）</label>
+        <select id="analysisYears" onchange="onHwChange()">
+          <option value="10">10 年</option>
+          <option value="15" selected>15 年</option>
+          <option value="20">20 年</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h">效能參數</div>
+    <div class="fg">
+      <div class="fi">
+        <label>效率</label>
+        <input type="range" id="rte" min="80" max="98" value="92" oninput="document.getElementById('rteV').textContent=this.value+'%'">
+        <span class="rv" id="rteV">92%</span>
+      </div>
+      <div class="fi">
+        <label>放電深度 DoD</label>
+        <input type="range" id="dod" min="70" max="100" value="90" oninput="document.getElementById('dodV').textContent=this.value+'%'">
+        <span class="rv" id="dodV">90%</span>
+      </div>
+    </div>
+    <!-- SOC 固定值（隱藏）：socMin=10%, socMax=95% -->
+    <input type="hidden" id="socMin" value="10">
+    <input type="hidden" id="socMax" value="95">
+  </div>
+  <div class="card">
+    <div class="card-h">衰退模型</div>
+    <div class="fg">
+      <div class="fi">
+        <label>年均容量衰退率</label>
+        <input type="range" id="degradation" min="1" max="5" step="0.1" value="2" oninput="document.getElementById('degV').textContent=this.value+'%';renderDegTable()">
+        <span class="rv" id="degV">2%</span>
+      </div>
+      <div class="fi">
+        <label>折現率 Discount Rate</label>
+        <input type="number" id="discRate" value="5" min="0" max="15" step="0.5">
+        <span class="hint">用於計算 NPV / IRR</span>
+      </div>
+    </div>
+    <div id="degTable" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- ══ STRATEGY ══ -->
+<div class="panel" id="panel-strategy">
+  <div class="ph"><div class="ph-left"><h2>操作策略設定</h2><p>各收益來源的參與方式、容量分配與投標參數</p></div></div>
+
+  <!-- TOU -->
+  <div class="card">
+    <div class="card-h">🔄 TOU 時間電價套利</div>
+    <div class="fg">
+      <!-- hidden tracker for save/load backward-compat -->
+      <input type="hidden" id="cycles" value="1c1d">
+
+      <!-- 充放電循環策略 — 夏月固定 + 非夏月可選兩充兩放 -->
+      <div class="fi fi-wide">
+        <label>充放電循環策略</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <!-- 夏月：固定一充一放 -->
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">🌞 夏月（5/16~10/15）</div>
+            <div style="padding:9px 13px;background:rgba(11,122,79,.07);border:1.5px solid rgba(11,122,79,.22);border-radius:8px">
+              <div style="font-size:13px;font-weight:700;color:var(--accent)">🔁 一充一放（固定）</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">離峰充電 → 超/尖峰放電</div>
+              <div style="font-size:11px;color:var(--text2)">超尖峰 NT$9.39/kWh，單循環即可最大套利</div>
+            </div>
+          </div>
+          <!-- 非夏月：一充一放 + 可勾選兩充兩放 -->
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">❄ 非夏月（10/16~5/15）</div>
+            <div style="padding:9px 13px;background:rgba(11,122,79,.07);border:1.5px solid rgba(11,122,79,.22);border-radius:8px">
+              <div style="font-size:13px;font-weight:700;color:var(--accent)">🔁 一充一放（基礎）</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">離峰充電 → 尖峰放電</div>
+            </div>
+            <label id="nsDoubleLabelWrap" style="display:flex;align-items:flex-start;gap:10px;padding:10px 13px;background:rgba(109,59,191,.06);border:1.5px solid rgba(109,59,191,.22);border-radius:8px;cursor:pointer;user-select:none;transition:.15s">
+              <input type="checkbox" id="nsDoubleCheckbox" onchange="onNsDoubleChange()" style="margin-top:2px;width:15px;height:15px;accent-color:var(--purple);flex-shrink:0">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--purple)">＋ 啟用兩充兩放</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">非夏月 11:00–14:00 為離峰，可午間再充一次後繼續放電，效益最大化</div>
+                <div style="font-size:11px;color:var(--text2)">00-06充① → 06-11放① → 11-14充② → 14-24放②</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <span class="hint" id="cyclesHint">非夏月採單循環：離峰充電、尖峰放電</span>
+      </div>
+
+      <!-- TOU 天數 -->
+      <div class="fi">
+        <label>🌞 夏月 TOU 天數（5/16~10/15）</label>
+        <input type="number" id="touDaysSummer" value="105" min="0" max="184" oninput="onParamChange()">
+        <span class="hint">夏月共約 153 天，扣除備轉/需量反應後</span>
+      </div>
+      <div class="fi">
+        <label>❄ 非夏月 TOU 天數（10/16~5/15）</label>
+        <input type="number" id="touDaysNonSummer" value="140" min="0" max="212" oninput="onParamChange()">
+        <span class="hint">非夏月共約 212 天，扣除備轉/需量反應後</span>
+      </div>
+    </div>
+    <div id="touStrategyPreview" style="margin-top:12px;padding:12px 16px;background:rgba(109,59,191,.05);border:1px solid rgba(109,59,191,.2);border-radius:10px;font-size:12px;display:none"></div>
+  </div>
+
+  <!-- 即時備轉 -->
+  <div class="card">
+    <div class="card-h">⚡ 即時備轉 (RT Reserve) <span class="cb">輔助服務市場 AFC</span></div>
+    <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
+      📌 <b>義電 Enel X Taiwan 代理投標</b>｜容量費市場上限 <b>400 NT$/MW·h</b>，<b style="color:var(--orange)">保守估算 150~200 NT$/MW·h</b>｜驗証調度費 <b>10 NT$/kWh</b><br>
+      應答加成：5分鐘 <b>+40</b>、3分鐘 <b>+60</b>、1分鐘 <b>+100</b> (NT$/MW·h)｜
+      估算基準：1MW × 得標160＋加成100＝260 NT$/MW·h × 15h × 280天 ≈ <b>109萬元/年</b>
+    </div>
+    <div class="fg">
+      <div class="fi">
+        <label>參與 PCS 容量 (kW)</label>
+        <input type="number" id="spinRatio" value="300" min="0" step="50" oninput="updateSpinPreview()">
+        <span class="hint">直接輸入申報容量，建議不超過 PCS 一半以保留 TOU 充放空間</span>
+      </div>
+      <div class="fi">
+        <label>應答時間 (Response Speed)</label>
+        <select id="spinResponseTime" onchange="updateSpinPreview()">
+          <option value="5">5 分鐘（+40 NT$/MW·h）</option>
+          <option value="3" selected>3 分鐘（+60 NT$/MW·h）</option>
+          <option value="1">1 分鐘（+100 NT$/MW·h）</option>
+        </select>
+        <span class="hint">越快響應加成費率越高，需確認硬體能力</span>
+      </div>
+      <div class="fi">
+        <label>得標費率 (NT$/MW·h)</label>
+        <input type="number" id="spinCeilingPrice" value="200" min="0" step="50" oninput="updateSpinPreview()">
+        <span class="hint">市場上限 400；保守估算可設 150~200</span>
+      </div>
+      <div class="fi">
+        <label>年可用天數</label>
+        <input type="number" id="spinDays" value="280" min="0" max="365" oninput="updateSpinPreview()">
+        <span class="hint">Enel X 估算約 280 天/年</span>
+      </div>
+      <div class="fi">
+        <label>每日待命時數 (h/日)</label>
+        <input type="number" id="spinDailyHours" value="15" min="0" max="24" oninput="updateSpinPreview()">
+        <span class="hint">即時備轉每日申報待命時段，台電一般約 15h</span>
+      </div>
+      <!-- 電能調度費（條件性收益，有被調度才有） -->
+      <div style="display:contents" title="條件性收益">
+        <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
+          <label style="color:#38bdf8;font-weight:700">⚡ 年度調度時數 (h/年)
+            <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
+          </label>
+          <input type="number" id="spinDispatch" value="30" min="0" step="10" oninput="updateSpinPreview()">
+          <span class="hint">全年實際被電網調用總時數，歷史約 20~100h；不確定可設 0</span>
+        </div>
+        <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
+          <label style="color:#38bdf8;font-weight:700">⚡ 調度單價 (NT$/kWh)
+            <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
+          </label>
+          <input type="number" id="spinDispatchPrice" value="10" min="0" step="1" oninput="updateSpinPreview()">
+          <span class="hint">台電驗証調度費 10 NT$/kWh（固定費率）</span>
+        </div>
+      </div>
+      <div class="fi" style="border-left:3px solid var(--accent);padding-left:10px;background:rgba(88,166,255,.04);border-radius:0 6px 6px 0">
+        <label style="color:var(--accent);font-weight:700">🔗 聚合商抽成比例 (%)</label>
+        <input type="number" id="vppPct" value="25" min="0" max="50" step="1" oninput="onParamChange();updateSpinPreview()">
+        <span class="hint">從即時備轉、補充備轉收益抽成；TOU 套利與需量反應不計入</span>
+      </div>
+    </div>
+    <div id="spinCalcPreview" style="margin-top:12px;padding:10px 14px;background:rgba(255,166,87,.08);border:1px solid rgba(255,166,87,.25);border-radius:8px;font-size:12px"></div>
+  </div>
+
+  <!-- 補充備轉 -->
+  <div class="card">
+    <div class="card-h">⚡ 補充備轉 (Supplemental Reserve) <span class="cb">輔助服務市場</span></div>
+    <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
+      📌 容量費上限 <b>350 NT$/MW·h</b>（低於即時備轉 400）｜可與即時備轉搭配或單獨參與，同一容量不重複計算
+    </div>
+    <div class="fg">
+      <div class="fi fi-wide">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="suppEnabled" onchange="updateSuppPreview()" style="width:16px;height:16px;accent-color:var(--accent)">
+          <span style="font-size:13px;font-weight:600">參與補充備轉</span>
+        </label>
+      </div>
+      <div class="fi">
+        <label>參與容量比例</label>
+        <input type="range" id="suppRatio" min="0" max="100" value="20" oninput="document.getElementById('suppRatioV').textContent=this.value+'%';updateSuppPreview()">
+        <span class="rv" id="suppRatioV">20%</span>
+      </div>
+      <div class="fi">
+        <label>得標費率 (NT$/MW·h)</label>
+        <input type="number" id="suppCeilingPrice" value="350" min="0" step="50" oninput="updateSuppPreview()">
+        <span class="hint">市場上限 350</span>
+      </div>
+      <div class="fi">
+        <label>年可用天數</label>
+        <input type="number" id="suppDays" value="260" min="0" max="365" oninput="updateSuppPreview()">
+      </div>
+      <div class="fi">
+        <label>每日可售時數 (h/日)</label>
+        <input type="number" id="suppDailyHours" value="18" min="0" max="24" oninput="updateSuppPreview()">
+      </div>
+    </div>
+    <div id="suppCalcPreview" style="margin-top:12px;padding:10px 14px;background:rgba(188,140,255,.08);border:1px solid rgba(188,140,255,.25);border-radius:8px;font-size:12px"></div>
+  </div>
+
+  <!-- 需量反應 -->
+  <div class="card">
+    <div class="card-h">📉 需量反應 (Demand Response) <span class="cb">台電方案</span></div>
+    <!-- 勾選開關 -->
+    <div style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="drEnabled" onchange="onDRSchemeChange()" style="width:17px;height:17px;accent-color:var(--accent)" checked>
+        <span style="font-size:13px;font-weight:600">參與需量反應</span>
+      </label>
+    </div>
+    <!-- 主要欄位（勾選後顯示） -->
+    <div id="drBody">
+      <div class="fg">
+        <div class="fi fi-wide">
+          <label>參與方案</label>
+          <select id="drScheme" onchange="onDRSchemeChange()">
+            <option value="simple">簡易型需量反應（5/1~10/31，夏月抑峰，最低 50kW 或 25%契約）</option>
+            <option value="immediate" selected>即時性需量反應（全年申報，電費優惠，最低 20kW）</option>
+            <option value="capacityService">即時備轉容量服務（全年平日 13:00~22:00，最低 1,000kW）</option>
+          </select>
+        </div>
+        <div id="drSchemeDesc" class="fi-wide" style="margin-top:-4px"></div>
+        <div class="fi">
+          <label>申報抑低容量 (kW)</label>
+          <input type="number" id="drCap" value="300" min="0" step="50" oninput="onDRSchemeChange()">
+          <span id="drCapHint" class="hint">依方案設定最低申報量</span>
+        </div>
+        <div class="fi">
+          <label>預期當日執行率 (%)</label>
+          <input type="number" id="drExecRate" value="95" min="0" max="100" step="5" oninput="onDRSchemeChange()">
+          <span class="hint">影響實際收益扣減比率（見下表）</span>
+        </div>
+        <div id="drDynamicFields" style="display:contents"></div>
+      </div>
+      <!-- 當日執行率 × 扣減比率對照表 -->
+      <div style="margin:12px 0 4px;overflow-x:auto">
+        <table style="border-collapse:collapse;font-size:12px;width:100%;min-width:340px">
+          <thead>
+            <tr>
+              <th style="background:#1e3a5f;color:#fff;padding:7px 10px;text-align:center;border:1px solid #2d5a9e;font-weight:700;line-height:1.4">當日<br>執行率 x</th>
+              <th style="background:#2d5a9e;color:#fff;padding:7px 10px;text-align:center;border:1px solid #2d5a9e">x &lt; 60%</th>
+              <th style="background:#2d5a9e;color:#fff;padding:7px 10px;text-align:center;border:1px solid #2d5a9e">60% ≤ x &lt; 80%</th>
+              <th style="background:#2d5a9e;color:#fff;padding:7px 10px;text-align:center;border:1px solid #2d5a9e">80% ≤ x &lt; 95%</th>
+              <th style="background:#2d5a9e;color:#fff;padding:7px 10px;text-align:center;border:1px solid #2d5a9e">x ≥ 95%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="background:#d0dff5;color:#1e3a5f;padding:8px 10px;text-align:center;border:1px solid #c0d0e8;font-weight:700">扣減比率</td>
+              <td style="background:#e8eef8;padding:8px 10px;text-align:center;border:1px solid #c0d0e8;font-weight:700;color:#c0392b">0%</td>
+              <td style="background:#e8eef8;padding:8px 10px;text-align:center;border:1px solid #c0d0e8;font-weight:700">80%</td>
+              <td style="background:#e8eef8;padding:8px 10px;text-align:center;border:1px solid #c0d0e8;font-weight:700">100%</td>
+              <td style="background:#e8eef8;padding:8px 10px;text-align:center;border:1px solid #c0d0e8;font-weight:700;color:#16a34a">120%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="drExecRateHint" style="font-size:11px;color:var(--text2);margin-top:6px"></div>
+      </div>
+    </div>
+    <div id="drCalcPreview" style="margin-top:12px;padding:10px 14px;background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.25);border-radius:8px;font-size:12px;display:none"></div>
+  </div>
+
+</div>
+
+<!-- ══ LOAD IMPORT ══ -->
+<div class="panel" id="panel-loadimport">
+  <div class="ph">
+    <div class="ph-left"><h2>用電資料匯入</h2><p>匯入台電 15 分鐘用電型態 CSV，自動建立實際負載基線取代手動輸入</p></div>
+    <div class="ph-badge" id="importStatusBadge"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">選擇或拖曳 CSV 檔案 <span class="cb">台電 15 分鐘格式</span></div>
+    <div class="upload-zone" id="uploadZone"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="onFileDrop(event)">
+      <input type="file" id="csvFileInput" accept=".csv" multiple style="display:none" onchange="onFileSelect(event)">
+      <input type="file" id="folderInput" webkitdirectory multiple style="display:none" onchange="onFolderSelect(event)">
+      <div class="uz-icon">📂</div>
+      <div class="uz-title" id="uzTitle">拖曳 CSV 檔案或資料夾至此，或使用下方按鈕選取</div>
+      <div class="uz-sub">支援多資料夾批次匯入｜格式：Time, Power(kW)　例：2025-1-1 00:15:00, 30</div>
+      <div class="uz-btn-row">
+        <button class="uz-btn" onclick="document.getElementById('csvFileInput').click()">📄 選擇 CSV 檔案</button>
+        <button class="uz-btn" onclick="document.getElementById('folderInput').click()">📁 選擇資料夾</button>
+        <button class="uz-btn danger" onclick="clearLoadData()">🗑 清除資料</button>
+      </div>
+      <div class="uz-accum" id="uzAccum"></div>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--text2)">
+      ⚙ 匯入後系統將自動：
+      <span style="color:var(--green);margin-left:6px">✓ 計算24小時平均負載曲線</span>
+      <span style="color:var(--green);margin-left:6px">✓ 分夏月/非夏月月度基線</span>
+      <span style="color:var(--green);margin-left:6px">✓ 更新尖峰/離峰負載數值</span>
+      <span style="color:var(--green);margin-left:6px">✓ 重新評估超約風險</span>
+    </div>
+    <!-- 契約增容選項 -->
+    <div style="margin-top:14px;padding:10px 14px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);border-radius:8px;display:flex;align-items:flex-start;gap:10px">
+      <input type="checkbox" id="noContractExpand" onchange="onParamChange()"
+             style="width:17px;height:17px;margin-top:2px;accent-color:var(--accent);flex-shrink:0">
+      <div>
+        <label for="noContractExpand" style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text)">
+          不申請增加契約容量
+        </label>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">
+          勾選後：充電功率受現有離峰契約限制，系統不建議增容，年度收益試算不扣除增容基本費
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="importResult" style="display:none">
+    <div id="importSummaryStats" class="stats"></div>
+    <div class="card">
+      <div class="card-h">實際 24H 平均負載曲線 <span class="cb">全資料集平均</span>
+        <span style="font-size:11px;font-weight:400;margin-left:8px;color:var(--text2)">
+          <span style="background:rgba(63,185,80,.25);padding:1px 6px;border-radius:3px;color:var(--green)">■ 離峰</span>
+          <span style="background:rgba(255,166,87,.25);padding:1px 6px;border-radius:3px;color:var(--orange);margin-left:4px">■ 半尖峰</span>
+          <span style="background:rgba(247,129,102,.25);padding:1px 6px;border-radius:3px;color:var(--red);margin-left:4px">■ 尖峰</span>
+        </span>
+      </div>
+      <canvas id="chartLoadProfile" height="100"></canvas>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card">
+        <div class="card-h">月度峰值需量（kW）</div>
+        <canvas id="chartMonthPeak" height="140"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-h">夏月 vs 非夏月平均負載</div>
+        <canvas id="chartSeasonLoad" height="140"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h">匯入資料統計</div>
+      <div class="tw"><table id="tblImportStats">
+        <thead><tr><th>月份</th><th>資料筆數</th><th>平均需量(kW)</th><th>峰值需量(kW)</th><th>離峰均值(kW)</th><th>月用電量(kWh)</th><th>季節</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DISPATCH ══ -->
+<div class="panel" id="panel-dispatch">
+  <div class="ph">
+    <div class="ph-left"><h2>24 小時電力調度曲線</h2><p>建物基線負載、儲能充放電行為與電網側優化負載</p></div>
+    <div class="ph-badge" id="dispatchDataBadge"></div>
+  </div>
+  <div class="card" style="padding:14px 20px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text2);font-weight:600">季節</span>
+        <select id="dispatchSeason" onchange="renderDispatch()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;outline:none">
+          <option value="nonsummer">非夏月（10/16～5/15）</option>
+          <option value="summer">夏月（5/16～10/15）</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text2);font-weight:600">負載來源</span>
+        <select id="dispatchMode" onchange="onDispatchModeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;outline:none">
+          <option value="manual" selected>平均用電容量（手動設定）</option>
+          <option value="avgAll">匯入資料 — 全期平均</option>
+          <option value="avgSeason">匯入資料 — 季節平均</option>
+          <option value="singleDay">匯入資料 — 指定單日</option>
+        </select>
+      </div>
+      <div id="dayPickerWrap" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+        <button onclick="stepDay(-1)" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);cursor:pointer;font-size:14px">◀</button>
+        <select id="dayPicker" onchange="renderDispatch()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;outline:none;max-width:220px"></select>
+        <button onclick="stepDay(1)"  style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);cursor:pointer;font-size:14px">▶</button>
+        <span id="dayIndex" style="font-size:11px;color:var(--accent);font-weight:700"></span>
+        <span id="dayStats" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+    </div>
+  </div>
+  <div id="dispatchStats" class="stats"></div>
+  <div id="contractWarning"></div>
+  <div class="card">
+    <div class="card-h">24H 負載 & 儲能調度曲線
+      <span style="font-size:11px;font-weight:400;margin-left:8px;color:var(--text2)">
+        <span style="background:rgba(63,185,80,.25);padding:1px 6px;border-radius:3px;color:var(--green)">■ 離峰充電</span>
+        <span style="background:rgba(255,166,87,.25);padding:1px 6px;border-radius:3px;color:var(--orange);margin-left:4px">■ 半尖峰</span>
+        <span style="background:rgba(247,129,102,.25);padding:1px 6px;border-radius:3px;color:var(--red);margin-left:4px">■ 尖峰放電</span>
+      </span>
+    </div>
+    <canvas id="chartDispatch" height="110"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-h">電池 SOC 狀態曲線
+      <span style="font-size:11px;font-weight:400;margin-left:8px;color:var(--text2)">背景色同調度曲線時段</span>
+    </div>
+    <canvas id="chartSOC" height="75"></canvas>
+  </div>
+  <!-- 年度收益分布網格 -->
+  <div class="card" id="annualGridCard">
+    <div class="card-h" style="justify-content:space-between">
+      <span>📅 年度收益分布網格</span>
+      <span style="font-size:11px;font-weight:400;display:flex;gap:10px;flex-wrap:wrap;color:var(--text2)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a;margin-right:4px"></span>夏月正收益</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#4ade80;margin-right:4px"></span>非夏月正收益</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d1fae5;border:1px solid #a7f3d0;margin-right:4px"></span>週末/休息</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fb923c;margin-right:4px"></span>DR未達80%</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f472b6;margin-right:4px"></span>DR未達60%</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fca5a5;margin-right:4px"></span>淨負收益</span>
+      </span>
+    </div>
+    <div id="annualGrid" style="overflow-x:auto"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">逐時電力流向明細</div>
+    <div id="drExecBanner"></div>
+    <div class="tw"><table id="tblDispatch">
+      <thead><tr><th>時段</th><th>時段別</th><th>電價(NT$/kWh)</th><th>建物負載(kW)</th><th>儲能動作</th><th>儲能功率(kW)</th><th>電網需量(kW)</th><th>契約餘裕(kW)</th><th>SOC(%)</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══ REVENUE ══ -->
+<div class="panel" id="panel-revenue">
+  <div class="ph"><div class="ph-left"><h2>收益分解報表</h2><p>四大收益來源明細、年度貢獻佔比與月度趨勢</p></div></div>
+  <div id="revenueStats" class="stats"></div>
+  <div class="cg">
+    <div class="cb2"><h3>年度收益組成</h3><canvas id="chartRevPie"></canvas></div>
+    <div class="cb2"><h3>月度收益趨勢（堆疊）</h3><canvas id="chartRevMonthly"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-h">收益來源明細</div>
+    <div class="tw"><table id="tblRevenue">
+      <thead><tr><th>收益來源</th><th>計算依據</th><th>月均（萬元）</th><th>年度（萬元）</th><th>佔比</th><th>貢獻度</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══ CASHFLOW ══ -->
+<div class="panel" id="panel-cashflow">
+  <div class="ph"><div class="ph-left"><h2>現金流 & 投資回收分析</h2><p>CAPEX / OPEX、NPV、IRR 與逐年現金流明細</p></div></div>
+  <div id="cashflowStats" class="stats"></div>
+  <div class="card">
+    <div class="card-h">累計現金流曲線</div>
+    <canvas id="chartCashflow" height="100"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-h">逐年現金流明細（含衰退修正）</div>
+    <div class="tw"><table id="tblCashflow">
+      <thead><tr><th>年度</th><th>有效容量(kWh)</th><th>容量留存率</th><th>年度收益(萬元)</th><th>OPEX(萬元)</th><th>淨現金流(萬元)</th><th>累計現金流(萬元)</th><th>折現值(萬元)</th><th>備註</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══ HEATMAP ══ -->
+<div class="panel" id="panel-heatmap">
+  <div class="ph"><div class="ph-left"><h2>年度收益熱點圖</h2><p>12 個月 × 週次的收益分布矩陣</p></div></div>
+  <div class="card">
+    <div class="card-h">月度 × 週次收益矩陣（萬元）</div>
+    <div id="heatmapContainer" style="overflow-x:auto"></div>
+  </div>
+  <div class="cg">
+    <div class="cb2"><h3>月度收益柱狀圖</h3><canvas id="chartMonthBar"></canvas></div>
+    <div class="cb2"><h3>夏月 vs 非夏月結構對比</h3><canvas id="chartSeason"></canvas></div>
+  </div>
+</div>
+
+
+
+<!-- ══ TARIFF TABLE ══ -->
+<div class="panel" id="panel-tariff">
+  <div class="ph"><div class="ph-left"><h2>台電電價表</h2><p>各電壓等級最新適用費率（2025年版）及尖離峰時段定義</p></div></div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab(this,'th1')">高壓電力費率</div>
+    <div class="tab" onclick="showTab(this,'th2')">特高壓電力費率</div>
+    <div class="tab" onclick="showTab(this,'th3')">時段排程圖</div>
+    <div class="tab" onclick="showTab(this,'th4')">輔助服務 & 需量反應費率</div>
+  </div>
+  <div class="tc active" id="th1">
+    <div class="card">
+      <div class="card-h">高壓電力 — 三段式時間電價 <span class="cb">2025 版（詳細電價表第五章）</span></div>
+      <div class="alert alert-info" style="margin-bottom:12px">夏月定義：<b>5/16～10/15</b>；非夏月：10/16～翌年5/15。尖峰時段依平日/假日不同。</div>
+      <div class="tw"><table>
+        <thead><tr><th>時段別</th><th>時段說明（平日）</th><th>夏月(NT$/kWh)</th><th>非夏月(NT$/kWh)</th><th>最大套利差價</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tp">超尖峰</span></td><td style="color:var(--text2);font-size:11px">16:00～22:00（夏月限定）</td><td class="red" style="font-weight:700">9.39</td><td style="color:var(--text2)">—</td><td style="color:var(--green);font-weight:700">↕ 6.86</td></tr>
+          <tr><td><span class="tag tp">半尖峰</span></td><td style="color:var(--text2);font-size:11px">夏月 09:00～16:00, 22:00～24:00<br>非夏月 06:00～11:00, 14:00～24:00（非夏月最高費率）</td><td class="red">5.85</td><td class="orange" style="font-weight:700">5.47</td><td style="color:var(--green)">↕ 3.15</td></tr>
+          <tr><td><span class="tag to">離峰</span></td><td style="color:var(--text2);font-size:11px">夏月 00:00～09:00；非夏月 00:00～06:00, <b>11:00～14:00</b>（兩充兩放充電窗口）</td><td class="blue">2.53</td><td class="blue">2.32</td><td></td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint" style="margin-top:10px">超尖峰-離峰差：夏月 NT$<b>6.86</b>/kWh｜半尖峰-離峰差：夏月 NT$<b>3.32</b>/kWh；非夏月 NT$<b>3.15</b>/kWh</p>
+    </div>
+    <div class="card">
+      <div class="card-h">高壓電力 — 二段式時間電價</div>
+      <div class="tw"><table>
+        <thead><tr><th>時段別</th><th>時段說明（平日）</th><th>夏月(NT$/kWh)</th><th>非夏月(NT$/kWh)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tp">尖峰</span></td><td style="color:var(--text2);font-size:11px">夏月 09:00～24:00；非夏月 06:00～11:00, 14:00～24:00</td><td class="red" style="font-weight:700">6.75</td><td class="orange" style="font-weight:700">6.37</td></tr>
+          <tr><td><span class="tag ts">平日半尖峰</span></td><td style="color:var(--text2);font-size:11px">夏月非尖峰平日時段</td><td>2.77</td><td>2.54</td></tr>
+          <tr><td><span class="tag to">離峰</span></td><td style="color:var(--text2);font-size:11px">夏月 00:00～09:00；非夏月 00:00～06:00, 11:00～14:00；假日全天</td><td class="blue">2.71</td><td class="blue">2.46</td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint" style="margin-top:10px">尖峰-離峰差：夏月 NT$<b>4.04</b>/kWh；非夏月 NT$<b>3.91</b>/kWh</p>
+    </div>
+    <div class="card">
+      <div class="card-h">基本電費（契約容量費）參考</div>
+      <div class="tw"><table>
+        <thead><tr><th>費項</th><th>夏月(NT$/kW/月)</th><th>非夏月(NT$/kW/月)</th></tr></thead>
+        <tbody>
+          <tr><td>高壓 尖峰契約容量費</td><td class="red">223.60</td><td class="orange">166.90</td></tr>
+          <tr><td>高壓 離峰契約容量費</td><td>44.70</td><td>33.30</td></tr>
+          <tr><td>特高壓 尖峰契約容量費</td><td class="red">217.30</td><td class="orange">160.60</td></tr>
+          <tr><td>特高壓 離峰契約容量費</td><td>43.40</td><td>32.10</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="tc" id="th2">
+    <div class="card">
+      <div class="card-h">特高壓電力 — 三段式時間電價</div>
+      <div class="tw"><table>
+        <thead><tr><th>時段別</th><th>時段說明</th><th>夏月(NT$/kWh)</th><th>非夏月(NT$/kWh)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tp">超尖峰</span></td><td style="color:var(--text2);font-size:11px">16:00～22:00（夏月限定）</td><td class="red" style="font-weight:700">8.69</td><td style="color:var(--text2)">—</td></tr>
+          <tr><td><span class="tag tp">尖峰</span></td><td style="color:var(--text2);font-size:11px">夏月 09:00～16:00, 22:00～24:00；非夏月 06:00～11:00, 14:00～24:00</td><td class="red">5.38</td><td class="orange">5.03</td></tr>
+          <tr><td><span class="tag ts">半尖峰</span></td><td style="color:var(--text2);font-size:11px">非夏月 11:00～14:00（⚠ 非離峰，兩充兩放不划算）</td><td style="color:var(--text2)">—</td><td>4.86</td></tr>
+          <tr><td><span class="tag to">離峰</span></td><td style="color:var(--text2);font-size:11px">夏月 00:00～09:00；非夏月 00:00～06:00；假日全天</td><td class="blue">2.40</td><td class="blue">2.18</td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint" style="margin-top:10px">超尖峰-離峰差：夏月 NT$<b>6.29</b>/kWh；尖峰-離峰差：非夏月 NT$<b>2.85</b>/kWh｜⚠ 非夏月午間(11-14h)為半尖峰，兩充兩放充電成本倒掛，系統自動採單循環策略</p>
+    </div>
+    <div class="card">
+      <div class="card-h">特高壓電力 — 二段式時間電價</div>
+      <div class="tw"><table>
+        <thead><tr><th>時段別</th><th>夏月(NT$/kWh)</th><th>非夏月(NT$/kWh)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tp">尖峰</span></td><td class="red" style="font-weight:700">6.17</td><td class="orange" style="font-weight:700">5.79</td></tr>
+          <tr><td><span class="tag ts">平日半尖峰</span></td><td>2.73</td><td>2.48</td></tr>
+          <tr><td><span class="tag to">離峰</span></td><td class="blue">2.55</td><td class="blue">2.28</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="tc" id="th3">
+    <div class="card"><div class="card-h">三段式時間電價 — 24H 尖離峰排程</div>
+      <div id="peakScheduleChart"></div>
+    </div>
+  </div>
+
+  <div class="tc" id="th4">
+    <div class="card">
+      <div class="card-h">即時備轉 (RT Reserve) 費率結構 <span class="cb">義電 Enel X Taiwan 2025</span></div>
+      <div class="alert alert-info" style="margin-bottom:12px">資料來源：義電智慧能源輔助服務說明（2025）。實際得標費率以台電輔助服務市場競標結果為準。</div>
+      <div class="tw"><table>
+        <thead><tr><th>費率項目</th><th>費率</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td>即時備轉容量費 上限</td><td class="orange" style="font-weight:700">400 NT$/MW·h</td><td>競標得標費率，以市場上限為估算基準</td></tr>
+          <tr><td>補充備轉容量費 上限</td><td class="purple" style="font-weight:700">350 NT$/MW·h</td><td>低於即時備轉，可搭配或單獨參與</td></tr>
+          <tr><td style="color:var(--text2)">應答加成：5 分鐘</td><td>+40 NT$/MW·h</td><td>在得標費率基礎上加算</td></tr>
+          <tr><td style="color:var(--text2)">應答加成：3 分鐘</td><td>+60 NT$/MW·h</td><td>需硬體支援快速響應</td></tr>
+          <tr><td style="color:var(--text2)">應答加成：1 分鐘</td><td>+100 NT$/MW·h</td><td>最高加成，硬體要求嚴格</td></tr>
+          <tr><td>驗証調度費（電能費）</td><td class="green" style="font-weight:700">10 NT$/kWh</td><td>實際被調度出力時按度計費</td></tr>
+          <tr><td style="color:var(--text2)">年收益估算基準</td><td>1MW × 280天 × 22h ≈ <b>224萬</b></td><td>Enel X Taiwan 案例說明（費率含加成估算 NT$400+60=460/MW·h）</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-h">需量反應費率一覽 <span class="cb">台電 115年2月起實施版本</span></div>
+      <div class="tw"><table>
+        <thead><tr><th>方案</th><th>適用期間</th><th>時槽 / 通知時距</th><th>費率</th><th>最低申報量</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>簡易型需量反應</b></td>
+            <td>5/1~10/31（夏月）</td>
+            <td>2h 為主</td>
+            <td class="green">2.47 NT$/kWh（2h）<br>1.84（4h）</td>
+            <td>max(契約×25%, 50kW)</td>
+          </tr>
+          <tr>
+            <td><b>即時性需量反應</b></td>
+            <td>全年申報</td>
+            <td>2h / 4h / 6h</td>
+            <td class="green">2.47 / 1.84 / 1.69 NT$/kWh</td>
+            <td>20 kW</td>
+          </tr>
+          <tr>
+            <td><b>即時備轉容量服務</b></td>
+            <td>全年 (平日 13~22時)</td>
+            <td>2h / 3h / 4h 事件<br>提前 30分 / 1h / 2h 通知</td>
+            <td class="orange">93 NT$/kWh（30分通知）<br>96 NT$/kWh（1h，含輔助12）<br>78 NT$/kWh（2h）</td>
+            <td>max(1,000kW, 契約×15%)</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <p class="hint" style="margin-top:10px">※ 以上費率為電費優惠/補貼，以台電實際公告為準。各方案不得重複申報同一時段同一容量。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PDF REPORT ══ -->
+<div class="panel" id="panel-report">
+  <div class="ph">
+    <div class="ph-left"><h2>PDF 報告預覽</h2><p>完整投資分析報告，可匯出 PDF 提供業主參考</p></div>
+    <div class="ph-badge">
+      <button onclick="exportPDF()" style="padding:8px 18px;background:var(--red);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px">⬇ 匯出 PDF</button>
+    </div>
+  </div>
+  <div id="pdfPreview"></div>
+</div>
+
+</main>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════
+// TARIFF DATA
+// ═══════════════════════════════════════════════
+// ── 台電詳細電價表（2025年版）高壓/特高壓 流動電費 NT$/kWh ──
+// 夏月定義：5/16~10/15；非夏月：10/16~翌年5/15
+// hv3 夏月:    peak=超尖峰(16-22h)9.39, semi=半尖峰(09-16/22-24h)5.85, off=離峰2.53
+// hv3 非夏月:  peak=半尖峰(06-11/14-24h)5.47, off=離峰(00-06/11-14h)2.32（無超尖峰，最高為半尖峰）
+// hv2 夏月:    peak=尖峰(09-24h)6.75, semi=週六半尖峰2.77, off=離峰2.71
+// hv2 非夏月:  peak=尖峰(06-11/14-24h)6.37, semi=週六半2.54, off=離峰(00-06/11-14h)2.46
+// ehv3 夏月:   peak=超尖峰8.69, semi=尖峰5.38, off=離峰2.40
+const T = {
+  hv3:  { summer:{peak:9.39, semi:5.85, off:2.53}, nonsummer:{peak:5.47, semi:5.47, off:2.32} },
+  hv2:  { summer:{peak:6.75, semi:2.77, off:2.71}, nonsummer:{peak:6.37, semi:2.54, off:2.46} },
+  ehv3: { summer:{peak:8.69, semi:5.38, off:2.40}, nonsummer:{peak:5.03, semi:4.86, off:2.18} },
+  ehv2: { summer:{peak:6.17, semi:2.73, off:2.55}, nonsummer:{peak:5.79, semi:2.48, off:2.28} }
+};
+
+// 0=off, 1=semi, 2=peak  ─ 尖離峰時段排程（依台電2025年電價表）
+// hv3 夏月:    0-8h離峰 | 9-15h半尖峰(semi) | 16-21h超尖峰(peak) | 22-23h半尖峰(semi)
+// hv3 非夏月:  0-5h離峰(off) | 6-10h半尖峰(peak=5.47) | 11-13h離峰(off) | 14-23h半尖峰(peak=5.47)
+//              ★ 非夏月無超尖峰，最高為半尖峰5.47；11-14h 為離峰，兩充兩放適用
+// hv2 夏月:    0-8h離峰 | 9-23h尖峰
+// hv2 非夏月:  0-5h離峰 | 6-10h尖峰 | 11-13h離峰 | 14-23h尖峰
+const SCHED = {
+  hv3_summer_weekday:       [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,2,2,2,1,1],
+  hv3_nonsummer_weekday:    [0,0,0,0,0,0,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2],
+  hv3_summer_saturday:      [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  hv3_nonsummer_saturday:   [0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1],
+  hv2_summer_weekday:       [0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  hv2_nonsummer_weekday:    [0,0,0,0,0,0,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2],
+  hv2_summer_saturday:      [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  hv2_nonsummer_saturday:   [0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1],
+  sunday:                   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+};
+const PL = ['離峰','半尖峰','尖峰'];
+const PC = ['#58a6ff','#ffa657','#f78166'];
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+// 夏月 5~10月（高壓5/16起，簡化為整月計算）
+const IS_SUMMER = [false,false,false,false,true,true,true,true,true,true,false,false];
+
+let charts = {};
+
+// ── Chart.js inline plugin: time-period background bands ──────────────
+// Draws green/orange/red bands behind chart area for off/semi/peak hours
+const bgBandPlugin = {
+  id: 'bgBands',
+  beforeDraw(chart) {
+    const bands = chart.config?.options?.plugins?.bgBands?.bands;
+    if (!bands || !chart.chartArea) return;
+    const { ctx, chartArea: { top, bottom, left, right } } = chart;
+    const scale = chart.scales?.x;
+    if (!scale) return;
+    ctx.save();
+    // width of each hour column (scale may have offset for bar datasets)
+    const n = bands.length; // should be 24
+    const colW = (right - left) / n;
+    bands.forEach((band, i) => {
+      ctx.fillStyle = band.color;
+      ctx.fillRect(left + i * colW, top, colW, bottom - top);
+    });
+    ctx.restore();
+  }
+};
+
+// Build 24-element bands array from schedule
+function makeBands(sched) {
+  // 主題固定：離峰時段 / 半尖峰時段 / 尖峰時段
+  const clr = {0:'rgba(22,163,74,.07)', 1:'rgba(217,119,6,.08)', 2:'rgba(220,38,38,.07)'};
+  return sched.map(p => ({ color: clr[p] || 'transparent' }));
+}
+
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+const v  = id => { const el = document.getElementById(id); return el ? (parseFloat(el.value) || 0) : 0; };
+const vi = id => { const el = document.getElementById(id); return el ? (parseInt(el.value)   || 0) : 0; };
+const vs = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+const f = (n,d=1) => n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
+const f0 = n => f(n,0);
+const fw = (n,d=1) => f(n,d)+'萬';
+const pct = (a,b) => b>0 ? f(a/b*100,1)+'%' : '—';
+
+function dc(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+// ═══════════════════════════════════════════════
+// ANNUAL REVENUE GRID
+// ═══════════════════════════════════════════════
+function calcDRExecRate(rows) {
+  const drRows = rows.filter(r => r.drExpected > 0);
+  if (!drRows.length) return 100;
+  const expected = drRows.reduce((s, r) => s + r.drExpected, 0);
+  const actual   = drRows.reduce((s, r) => s + r.power,     0);
+  return expected > 0 ? (actual / expected) * 100 : 0;
+}
+
+function renderAnnualGrid(){
+  const el = document.getElementById('annualGrid');
+  if(!el) return;
+
+  const year = 2026;
+  const doubleNS   = vs('cycles') === '2c2d_ns';
+  const drEnabled  = document.getElementById('drEnabled')?.checked;
+  const drCapKwVal = drEnabled ? (v('drCap') || 0) : null;
+  const drHrsS     = drEnabled ? getDRDischargeHours('summer',    'weekday') : null;
+  const drHrsNS    = drEnabled ? getDRDischargeHours('nonsummer', 'weekday') : null;
+
+  const rowsS  = calcDispatchProfile('summer',    false,     'weekday', drHrsS,  drCapKwVal);
+  const rowsNS = calcDispatchProfile('nonsummer', doubleNS, 'weekday', drHrsNS, drCapKwVal);
+  const dailyS  = calcDailyArb(rowsS);
+  const dailyNS = calcDailyArb(rowsNS);
+
+  // DR 當日執行率（代表日，做為無實際資料時的後備）
+  const drExecS  = calcDRExecRate(rowsS);
+  const drExecNS = calcDRExecRate(rowsNS);
+
+  // 逐日 DR 執行率（依實際負載剖面快速估算：每 DR 時段實際可放電 = min(drCap, load)）
+  const perDayDRExec = {};
+  if (drEnabled && drCapKwVal > 0 && window.LOAD_DATA) {
+    const profiles = window.LOAD_DATA.dailyProfiles;
+    for (const [dateStr, profile] of Object.entries(profiles)) {
+      const d2 = new Date(dateStr);
+      const dow2 = d2.getDay();
+      if (dow2 === 0 || dow2 === 6) { perDayDRExec[dateStr] = 100; continue; }
+      const mo2 = d2.getMonth() + 1, dy2 = d2.getDate();
+      const isSummerDay = (mo2 > 5 || (mo2 === 5 && dy2 >= 16)) && (mo2 < 10 || (mo2 === 10 && dy2 <= 15));
+      const season2 = isSummerDay ? 'summer' : 'nonsummer';
+      const drHrs2  = isSummerDay ? drHrsS : drHrsNS;
+      if (!drHrs2) { perDayDRExec[dateStr] = 100; continue; }
+      const totalExpected = drCapKwVal * drHrs2.length;
+      const totalActual   = drHrs2.reduce((s, h) => s + Math.min(drCapKwVal, Math.max(0, profile[h] ?? 0)), 0);
+      perDayDRExec[dateStr] = totalExpected > 0 ? (totalActual / totalExpected) * 100 : 100;
+    }
+  }
+
+  // ── Per-day energy volumes ──
+  const chgKwhS  = rowsS .filter(r=>r.action.startsWith('充電')).reduce((s,r)=>s+Math.abs(r.power),0);
+  const disKwhS  = rowsS .filter(r=>r.action.startsWith('放電')).reduce((s,r)=>s+r.power,0);
+  const chgKwhNS = rowsNS.filter(r=>r.action.startsWith('充電')).reduce((s,r)=>s+Math.abs(r.power),0);
+  const disKwhNS = rowsNS.filter(r=>r.action.startsWith('放電')).reduce((s,r)=>s+r.power,0);
+
+  // ── Ancillary / DR daily averages (NT$) ──
+  const yld1     = calcYield(1);
+  const spinDayNT = yld1.spin * 10000 / 365;
+  const suppDayNT = yld1.supp * 10000 / 365;
+  const drDayNT   = yld1.dr   * 10000 / 365;
+  const opexDayNT = v('opex') * 10000 / 365;
+  const vppRate   = v('vppPct') / 100;
+
+  // colour helpers
+  const dotBase =
+    `width:18px;height:18px;border-radius:50%;` +
+    `line-height:18px;text-align:center;font-size:9px;font-weight:700;color:#fff;`;
+
+  let html = `<div style="font-size:11px;min-width:680px">`;
+  html += `<div style="display:flex;align-items:center;margin-bottom:4px">`;
+  html += `<div style="width:44px;font-size:10px;color:var(--text2);font-weight:600;flex-shrink:0">月份/<br>日期</div>`;
+  for(let d=1;d<=31;d++)
+    html += `<div style="width:22px;text-align:center;font-size:10px;color:var(--text2);flex-shrink:0">${d}</div>`;
+  html += `</div>`;
+
+  for(let m=0;m<12;m++){
+    const daysInMonth = new Date(year, m+1, 0).getDate();
+    html += `<div style="display:flex;align-items:center;margin-bottom:3px">`;
+    html += `<div style="width:44px;font-size:11px;font-weight:600;color:var(--text);flex-shrink:0">${m+1}月</div>`;
+
+    for(let d=1;d<=31;d++){
+      if(d > daysInMonth){ html += `<div style="width:22px;flex-shrink:0"></div>`; continue; }
+
+      const dow      = new Date(year, m, d).getDay();
+      const isWeekend= dow===0 || dow===6;
+      const isSummer = IS_SUMMER[m];
+
+      const touDay   = isWeekend ? 0 : (isSummer ? dailyS : dailyNS);
+      const chgDay   = isWeekend ? 0 : (isSummer ? chgKwhS  : chgKwhNS);
+      const disDay   = isWeekend ? 0 : (isSummer ? disKwhS  : disKwhNS);
+      const sDay     = isWeekend ? 0 : spinDayNT;
+      const suDay    = isWeekend ? 0 : suppDayNT;
+      const drDay    = isWeekend ? 0 : drDayNT;
+      const grossDay = touDay + sDay + suDay + drDay;
+      const netDay   = grossDay * (1 - vppRate) - opexDayNT;
+
+      // DR執行率：優先使用逐日實際估算，無資料時退回代表日
+      const dateKey = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dayDRExec = isWeekend ? 100
+        : (perDayDRExec[dateKey] !== undefined ? perDayDRExec[dateKey]
+           : (isSummer ? drExecS : drExecNS));
+      const drShortfall = drEnabled && !isWeekend && dayDRExec < 100;
+      const drSevere    = drEnabled && !isWeekend && dayDRExec < 60;
+      const drPartial   = drEnabled && !isWeekend && dayDRExec >= 60 && dayDRExec < 80;
+
+      let bg, txt='', bdr='';
+      if(isWeekend){
+        bg='#d1fae5'; bdr='#a7f3d0';
+      } else if(drSevere){
+        bg='#f472b6'; txt='✗';   // 粉紅：DR嚴重未達標（<60%，無收益）
+      } else if(drPartial){
+        bg='#fb923c'; txt='!';   // 橘色：DR部分達標（60-80%，打8折）
+      } else if(netDay > 0){
+        bg = isSummer ? '#16a34a' : '#4ade80';
+      } else {
+        bg='#fca5a5'; txt='×';
+      }
+
+      // pack data into pipe-separated string → onclick
+      const info = [
+        `${m+1}/${d}`,
+        isWeekend ? 'weekend' : (isSummer ? 'summer' : 'nonsummer'),
+        Math.round(touDay),
+        +(chgDay.toFixed(1)),
+        +(disDay.toFixed(1)),
+        Math.round(sDay),
+        Math.round(suDay),
+        Math.round(drDay)
+      ].join('|');
+
+      const dotStyle = `${dotBase}background:${bg};${bdr?'border:1px solid '+bdr+';':''}`;
+      html += `<div style="width:22px;flex-shrink:0;text-align:center">` +
+              `<span class="grid-dot" style="${dotStyle}" onclick="showDayTooltip(event,'${info}')">${txt}</span></div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function stat(label, value, sub='', cls='', delta=''){
+  return `<div class="stat"><div class="sl">${label}</div><div class="sv ${cls}">${value}</div>${sub?`<div class="ss">${sub}</div>`:''}${delta?`<div class="delta ${cls}">${delta}</div>`:''}</div>`;
+}
+
+function getSched(){
+  const t = vs('tariffType');
+  // ehv3 有自己的排程（非夏月 11-13h 為半尖峰，非離峰）；ehv2 同 hv2
+  const k = t === 'ehv3' ? 'ehv3' : t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  // 調度圖以非夏月平日為代表性顯示（年度收益已分夏/非夏分開計算）
+  return SCHED[`${k}_nonsummer_weekday`] || SCHED['hv3_nonsummer_weekday'];
+}
+function getRates(){ return T[vs('tariffType')]['nonsummer']; }
+function getHourlyPrices(){
+  const sched = getSched(); const r = getRates();
+  const map = [r.off, r.semi, r.peak];
+  return sched.map(p => map[p]);
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function nav(el){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  const id = 'panel-'+el.dataset.panel;
+  document.getElementById(id).classList.add('active');
+  const renderers = {
+    loadimport: renderLoadImport,
+    dispatch: renderDispatch, revenue: renderRevenue, cashflow: renderCashflow,
+    heatmap: renderHeatmap,
+    tariff: renderTariff, report: renderReport
+  };
+  if(renderers[el.dataset.panel]) renderers[el.dataset.panel]();
+}
+
+function showTab(el, id){
+  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.closest('.panel').querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// CONTRACT CAPACITY ANALYSIS
+// ═══════════════════════════════════════════════
+function calcContractOverload(){
+  const pcsPow      = v('pcskW');
+  const contractOff = v('contractOff');
+  const noExpand    = document.getElementById('noContractExpand')?.checked;
+  const loadOff     = (window.LOAD_DATA && window.LOAD_DATA.offPeakAvg) ? window.LOAD_DATA.offPeakAvg : v('avgLoadKw');
+  const projectedOffpeak = loadOff + pcsPow;
+  if(noExpand){
+    // 不申請增容：充電功率已受 chargePower() 限制於 contractOff 內，無增容成本
+    return { projectedOffpeak, overload: 0, addNeeded: 0, contractCostPerYear: 0, noExpand: true };
+  }
+  const overload = Math.max(0, projectedOffpeak - contractOff);
+  const addNeeded = Math.ceil(overload/50)*50;
+  const contractCostPerYear = addNeeded * v('demandRate') * 12 / 10000;
+  return { projectedOffpeak, overload, addNeeded, contractCostPerYear, noExpand: false };
+}
+
+// 偵測目前費率方案是否支援真正的兩充兩放（午間 11-13h 需為離峰 code=0）
+// hv3/ehv3=true（非夏月 11-14h 離峰），hv2/ehv2=true（非夏月 11-14h 離峰）
+function tariffSupports2C2D(){
+  const t = vs('tariffType');
+  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  const sched = SCHED[`${k}_nonsummer_weekday`] || SCHED['hv3_nonsummer_weekday'];
+  return sched.slice(11,14).some(p => p === 0);
+}
+
+function onParamChange(){
+  updateRateDisplay();
+  updateContractCalc();
+  suggestDRCap();
+  // 費率切換時同步更新兩充兩放相容性提示
+  if(vs('cycles') === '2c2d_ns') onCyclesChange();
+}
+
+function updateRateDisplay(){
+  const t  = vs('tariffType');
+  const rs = T[t]['summer'];
+  const rn = T[t]['nonsummer'];
+
+  function rateRow(label, r, labelClr){
+    const spread  = r.peak - r.off;
+    const hasSemi = r.semi !== r.peak && r.semi !== r.off;
+    const spreadClr = spread > 5 ? 'var(--green)' : spread > 3 ? '#4ade80' : 'var(--accent)';
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:${labelClr};min-width:54px">${label}</span>
+      <span class="badge badge-blue">離峰 NT$${r.off}</span>
+      ${hasSemi ? `<span class="badge badge-orange">半尖峰 NT$${r.semi}</span>` : ''}
+      <span style="padding:3px 10px;border-radius:20px;background:rgba(247,129,102,.12);color:var(--red);font-size:11px;font-weight:600">尖峰 NT$${r.peak}</span>
+      <span style="padding:3px 10px;border-radius:20px;background:rgba(63,185,80,.12);color:${spreadClr};font-size:11px;font-weight:700">套利空間 NT$${f(spread,2)}/kWh ▲</span>
+    </div>`;
+  }
+
+  document.getElementById('rateDisplay').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${rateRow('🌞 夏月',  rs, '#f97316')}
+      ${rateRow('❄ 非夏月', rn, '#60a5fa')}
+    </div>`;
+}
+
+function updateContractCalc(){
+  const cc = calcContractOverload();
+  const el = document.getElementById('contractCalc');
+  if(cc.noExpand){
+    // 不申請增容：說明充電功率已受限，不顯示增容建議
+    const raw = (window.LOAD_DATA?.offPeakAvg || v('avgLoadKw')) + v('pcskW');
+    const over = Math.max(0, raw - v('contractOff'));
+    el.innerHTML = over > 0
+      ? `<div class="alert alert-info" style="border-color:rgba(88,166,255,.4);background:rgba(88,166,255,.08)">
+           ℹ️ 不申請增容模式：全速充電需量 ${f0(raw)} kW 超出離峰契約 <b>${f0(over)} kW</b>，
+           系統將自動將充電功率限縮至契約容量內。年度收益已排除增容費用。
+         </div>`
+      : `<div class="alert alert-ok">✅ 充電功率在現有離峰契約容量（${f0(v('contractOff'))} kW）範圍內，無需增購。</div>`;
+    document.getElementById('contractAlert').innerHTML = '';
+  } else if(cc.overload > 0){
+    el.innerHTML = `<div class="alert alert-warn">⚠ 充電時離峰需量將達 ${f0(cc.projectedOffpeak)} kW，
+      超出現有離峰契約 ${f0(cc.overload)} kW。建議增購 <b>${f0(cc.addNeeded)} kW</b> 離峰契約容量，
+      年度額外基本電費成本約 <b>NT$ ${fw(cc.contractCostPerYear,1)}</b>。</div>`;
+    document.getElementById('contractAlert').innerHTML =
+      `<div class="alert alert-warn" style="margin-bottom:16px">⚠ 超約警示：充電將超出離峰契約 ${f0(cc.overload)} kW，年增加成本 ${fw(cc.contractCostPerYear,1)}</div>`;
+  } else {
+    el.innerHTML = `<div class="alert alert-ok">✅ 充電功率在現有離峰契約容量（${f0(v('contractOff'))} kW）範圍內，無需增購。</div>`;
+    document.getElementById('contractAlert').innerHTML = '';
+  }
+}
+
+function onHwChange(){ renderDegTable(); }
+
+// ═══════════════════════════════════════════════
+// CORE CALCULATION ENGINE
+// ═══════════════════════════════════════════════
+
+// Build schedule for a given season (reads tariffType / dayType from UI)
+// dayType: 'weekday' | 'saturday' | 'sunday'
+function getSchedFor(season, dayType = 'weekday') {
+  if (dayType === 'sunday') return SCHED.sunday;
+  const t = vs('tariffType');
+  // 特高壓與高壓尖離峰時段相同，僅電價不同；ehv3→hv3, ehv2→hv2
+  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  const suffix = dayType === 'saturday' ? 'saturday' : 'weekday';
+  return SCHED[`${k}_${season}_${suffix}`] || SCHED['hv3_nonsummer_weekday'];
+}
+
+// Detect day type from a date string 'YYYY-MM-DD'
+function getDayType(dateStr) {
+  const dow = new Date(dateStr).getDay(); // 0=Sun, 6=Sat
+  if (dow === 0) return 'sunday';
+  if (dow === 6) return 'saturday';
+  return 'weekday';
+}
+
+// Daily arbitrage revenue from a dispatch rows array
+// action 可能是 '充電'/'放電'（單循環）或 '充電①②'/'放電①②'（兩充兩放）
+function calcDailyArb(rows){
+  return rows.reduce((s,r)=>{
+    if(r.action.startsWith('放電')) return s + r.power * r.price;
+    if(r.action.startsWith('充電')) return s - Math.abs(r.power) * r.price;
+    return s;
+  }, 0);
+}
+
+/**
+ * calcDispatchProfile(overrideSeason, doubleMode, dayType, drDisHrs, drCapKw)
+ *  overrideSeason : 'summer' | 'nonsummer' | null
+ *  doubleMode     : false = 一充一放; true = 兩充兩放（非夏月平日專用）
+ *  dayType        : 'weekday' | 'saturday' | 'sunday'
+ *  drDisHrs       : number[] | null — DR申報放電小時清單; null = 依 TOU 尖峰全放
+ *  drCapKw        : number | null — DR申報容量(kW); null = 平滑消峰模式
+ */
+function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType = 'weekday', drDisHrs = null, drCapKw = null){
+  const season      = overrideSeason || 'nonsummer';
+  const sched       = getSchedFor(season, dayType);
+  const r           = T[vs('tariffType')][season];
+  const priceMap    = [r.off, r.semi, r.peak];
+  const prices      = sched.map(p => priceMap[p]);
+
+  const battKwh     = v('battKwh');
+  const pcsPow      = v('pcskW');
+  const rte         = v('rte')/100;
+  const dod         = v('dod')/100;
+  const socMin      = (100 - v('dod')) / 100;   // 預留電量 = 100% - DoD（e.g. DoD=90% → socMin=10%）
+  const socMax      = 0.95;                      // 充電上限固定 95%
+  // 若無匯入資料且 loadPeak/Semi/Off 欄位不存在，則以 avgLoadKw 作為全時段平坦基準負載
+  const _avgFlat    = v('avgLoadKw');
+  const _hasImport  = !!window.LOAD_DATA;
+  const loadPeak    = v('loadPeak')  || (!_hasImport && _avgFlat > 0 ? _avgFlat : 0);
+  const loadSemi    = v('loadSemi')  || (!_hasImport && _avgFlat > 0 ? _avgFlat : 0);
+  const loadOff     = v('loadOff')   || (!_hasImport && _avgFlat > 0 ? _avgFlat : 0);
+  const contractOff = v('contractOff');
+  const contractPeak= v('contractPeak');
+  const usable      = battKwh * dod;
+  const maxPow      = pcsPow;
+
+  let soc, rows = [];
+
+  // ── 共用充電 helper（契約感知最大功率）────────────────────────────
+  // 返回本小時實際充電功率（正值 kW），0 表示不充
+  function chargePower(soc, targetSOC, baseLoad, cOff){
+    if(soc >= targetSOC - 0.001) return 0;
+    const avail    = (targetSOC - soc) * battKwh;
+    const headroom = Math.max(0, cOff - baseLoad);
+    return Math.min(maxPow, headroom, avail);
+  }
+
+  // ── 是否有有效負載資料（任一時段 > 0）──────────────────────────
+  const hasLoad = loadPeak > 0 || loadSemi > 0 || loadOff > 0;
+
+  // ── 平滑消峰：計算放電目標水位 Ptarget ─────────────────────────
+  // 有負載資料時：二分搜尋讓電池恰好放完，曲線平頂
+  // 無負載資料時：直接返回 0（後續以 PCS 上限全力放電）
+  function calcPtarget(disHours, loadByHour, energyKwh){
+    if(disHours.length === 0 || energyKwh <= 0.001) return Infinity;
+    if(!hasLoad) return 0;   // 無負載資料 → Ptarget=0，由 applyDischarge 全力放
+    const maxLoad = Math.max(...disHours.map(h => loadByHour[h] || 0));
+    const totalIfFloor0 = disHours.reduce((s,h) => s + Math.min(maxPow, Math.max(0, (loadByHour[h]||0))), 0);
+    if(energyKwh >= totalIfFloor0) return 0;
+    let lo = 0, hi = maxLoad;
+    for(let i = 0; i < 60; i++){
+      const mid = (lo + hi) / 2;
+      const tot = disHours.reduce((s,h) => s + Math.min(maxPow, Math.max(0, (loadByHour[h]||0) - mid)), 0);
+      if(tot > energyKwh) lo = mid; else hi = mid;
+    }
+    return Math.max(0, (lo + hi) / 2);
+  }
+
+  // ── 放電執行 helper ─────────────────────────────────────────────
+  // 有負載：平滑消峰，放到 baseLoad - Ptarget，且不讓電網為負
+  // 無負載：以 PCS 全力放電（純 TOU 套利模式）
+  function applyDischarge(curSoc, baseLoad, Ptarget){
+    if(curSoc <= socMin + 0.001) return 0;
+    const avail = (curSoc - socMin) * battKwh;
+    if(!hasLoad){
+      // 純 TOU 套利：不受客戶負載限制，全力放到 PCS 上限
+      return Math.min(maxPow, avail);
+    }
+    const want = Math.min(maxPow, Math.max(0, baseLoad - Ptarget));
+    return Math.min(want, avail, baseLoad);
+  }
+
+  // drDisHrs 覆蓋放電時段：若指定則只在這些小時放電（DR申報模式）
+  // 否則依 sched code=2 的尖峰時段全部放電（TOU純套利）
+  const disHrSet = drDisHrs ? new Set(drDisHrs) : null;
+  const isDischargeHour = (h) => disHrSet ? disHrSet.has(h) : sched[h] === 2;
+
+  if(!doubleMode){
+    // ── 一充一放 (single cycle) ──────────────────────────────────────
+    // Step 1：模擬充電，取放電前 SOC
+    let tempSoc = socMin;
+    const disHrs = [], loadMapD = {};
+    for(let h = 0; h < 24; h++){
+      const p = sched[h];
+      const bl = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
+      if(p === 0){
+        const cp = chargePower(tempSoc, socMax, bl, contractOff);
+        tempSoc = Math.min(socMax, tempSoc + cp / battKwh);
+      } else if(isDischargeHour(h)){
+        disHrs.push(h);
+        loadMapD[h] = bl;
+      }
+    }
+    // Step 2：計算放電目標功率
+    //   DR模式：固定 drCapKw（申報容量），不做平滑計算
+    //   TOU模式：二分搜尋平滑目標水位 Ptarget
+    const availE  = (tempSoc - socMin) * battKwh;
+    const isDRMode = drDisHrs !== null && drCapKw > 0;
+    const Ptarget = isDRMode ? null : calcPtarget(disHrs, loadMapD, availE);
+
+    // Step 3：正式逐時建立 rows
+    soc = socMin;
+    for(let h = 0; h < 24; h++){
+      const p = sched[h];
+      const baseLoad = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
+      let action = '待機', power = 0;
+      if(p === 0){
+        const cp = chargePower(soc, socMax, baseLoad, contractOff);
+        if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電'; }
+      } else if(isDischargeHour(h)){
+        let dp = 0;
+        if(isDRMode){
+          // DR定功率放電：以申報容量為目標，受 PCS、電量、建物負載限制（不逆送電）
+          const avail = (soc - socMin) * battKwh;
+          dp = Math.min(drCapKw, maxPow, avail, Math.max(0, baseLoad));
+        } else {
+          dp = applyDischarge(soc, baseLoad, Ptarget);
+        }
+        if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電'; }
+      }
+      const gridLoad = baseLoad - power;
+      const contractRef = p===0 ? contractOff : contractPeak;
+      // drExpected: DR申報時段的目標功率（0 = 非DR時段）
+      const drExpected = (isDRMode && isDischargeHour(h)) ? drCapKw : 0;
+      rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100, drExpected});
+    }
+
+  } else {
+    // ── 兩充兩放 (double cycle) 或智慧退化 ─────────────────────────
+    //
+    // 關鍵：先動態偵測 11-13h 是否為「真正的離峰」(code=0)
+    //   ehv3 非夏月 11-13h → code 1（半尖峰 4.86）→ 充電成本/RTE>放電收入，虧錢 → 自動退化
+    const CHB_HRS_raw = sched.map((p,h)=>(p===0 && h>=11 && h<=13)?h:-1).filter(h=>h>=0);
+    if(CHB_HRS_raw.length === 0){
+      return calcDispatchProfile(overrideSeason, false);
+    }
+
+    // 時段劃分
+    const CHA_HRS  = sched.map((p,h)=>(p===0 && h<11)?h:-1).filter(h=>h>=0);
+    const DISA_HRS = sched.map((p,h)=>(p===2 && h>=6  && h<11)?h:-1).filter(h=>h>=0);
+    const CHB_HRS  = CHB_HRS_raw;
+    const DISB_HRS = sched.map((p,h)=>(p===2 && h>=14)?h:-1).filter(h=>h>=0);
+
+    // ── 預計算 Ptarget_A（上午放電①） ──
+    let tempSocA = socMin;
+    const loadMapA = {};
+    for(let h = 0; h < 24; h++){
+      const p = sched[h];
+      const bl = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
+      if(CHA_HRS.includes(h)){
+        const cp = chargePower(tempSocA, socMax, bl, contractOff);
+        tempSocA = Math.min(socMax, tempSocA + cp/battKwh);
+      } else if(DISA_HRS.includes(h)){
+        loadMapA[h] = bl;
+      }
+    }
+    const availA   = (tempSocA - socMin) * battKwh;
+    const PtargetA = calcPtarget(DISA_HRS, loadMapA, availA);
+
+    // 模擬放電①，取 CHB 前 SOC
+    let socAfterA = tempSocA;
+    for(const h of DISA_HRS){
+      const dp = applyDischarge(socAfterA, loadMapA[h]||0, PtargetA);
+      socAfterA = Math.max(socMin, socAfterA - dp/battKwh);
+    }
+
+    // ── 預計算 Ptarget_B（下午放電②） ──
+    let tempSocB = socAfterA;
+    const loadMapB = {};
+    for(let h = 0; h < 24; h++){
+      const p = sched[h];
+      const bl = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
+      if(CHB_HRS.includes(h)){
+        const cp = chargePower(tempSocB, socMax, bl, contractOff);
+        tempSocB = Math.min(socMax, tempSocB + cp/battKwh);
+      } else if(DISB_HRS.includes(h)){
+        loadMapB[h] = bl;
+      }
+    }
+    const availB   = (tempSocB - socMin) * battKwh;
+    const PtargetB = calcPtarget(DISB_HRS, loadMapB, availB);
+
+    // ── 正式逐時建立 rows ──
+    soc = socMin;
+    for(let h = 0; h < 24; h++){
+      const p = sched[h];
+      const baseLoad = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
+      let action = '待機', power = 0;
+      if(CHA_HRS.includes(h)){
+        const cp = chargePower(soc, socMax, baseLoad, contractOff);
+        if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電①'; }
+      } else if(DISA_HRS.includes(h)){
+        const dp = applyDischarge(soc, baseLoad, PtargetA);
+        if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電①'; }
+      } else if(CHB_HRS.includes(h)){
+        const cp = chargePower(soc, socMax, baseLoad, contractOff);
+        if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電②'; }
+      } else if(DISB_HRS.includes(h)){
+        const dp = applyDischarge(soc, baseLoad, PtargetB);
+        if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
+      }
+      const gridLoad = baseLoad - power;
+      const contractRef = p===0 ? contractOff : contractPeak;
+      rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100});
+    }
+  }
+  return rows;
+}
+
+function calcYield(yearNum = 1){
+  const deg = Math.pow(1 - v('degradation')/100, yearNum - 1);
+
+  // ── TOU 套利：夏季 / 非夏季分開計算 ──
+  const doubleNS = vs('cycles') === '2c2d_ns';
+  const rowsSummer    = calcDispatchProfile('summer',    false);
+  const rowsNonSummer = calcDispatchProfile('nonsummer', doubleNS);
+  const dailyArbSummer    = calcDailyArb(rowsSummer);
+  const dailyArbNonSummer = calcDailyArb(rowsNonSummer);
+  const annualTOU = (dailyArbSummer * v('touDaysSummer') + dailyArbNonSummer * v('touDaysNonSummer')) * deg;
+
+  // ── 即時備轉 (RT Reserve) ──
+  // 容量費 = 參與容量(MW) × (得標費率 + 應答加成) × 年可售時數
+  // 電能費 = 參與容量(kW) × 調度率 × 年可售時數 × 10 NT$/kWh（驗証費）
+  const spinCap = v('spinRatio') * deg;                            // kW（直接輸入）
+  const spinSpeedMap = {1:100, 3:60, 5:40};
+  const spinAddon = spinSpeedMap[vi('spinResponseTime')] || 60;    // NT$/MW/h
+  const spinCapRate = v('spinCeilingPrice') + spinAddon;           // NT$/MW/h (合計)
+  const spinAnnualHours = v('spinDays') * v('spinDailyHours');     // h/年
+  const spinCapRev  = (spinCap/1000) * spinCapRate * spinAnnualHours;  // NT$
+  const spinEnergyRev = spinCap * v('spinDispatch') * (v('spinDispatchPrice') || 10); // NT$（kW × 年度調度h × 單價）
+  const annualSpin = (spinCapRev + spinEnergyRev) / 10000;         // 萬元
+
+  // ── 補充備轉 (Supplemental Reserve) ──
+  // 上限費率 350 NT$/MW·h；無電能驗証費
+  const suppEl = document.getElementById('suppEnabled');
+  const suppEnabled = suppEl ? suppEl.checked : false;
+  const suppCap = suppEnabled ? v('pcskW') * v('suppRatio')/100 * deg : 0; // kW
+  const suppAnnualHours = v('suppDays') * v('suppDailyHours');
+  const annualSupp = (suppCap/1000) * v('suppCeilingPrice') * suppAnnualHours / 10000;
+
+  // ── 需量反應 (Demand Response) ──
+  // 計算邏輯：以「天數×每天必申報」取代調度次數
+  //   簡易型：夏月平日每天必參與 → days = touDaysSummer
+  //   即時性 / 備轉容量服務：全年平日 → days = touDaysSummer + touDaysNonSummer
+  let annualDR = 0;
+  const drEnabled = document.getElementById('drEnabled')?.checked !== false;
+  const drType    = vs('drScheme');
+  if(drEnabled && drType !== 'none'){
+    const drCap     = v('drCap');
+    const sumDays   = v('touDaysSummer');
+    const nsDays    = v('touDaysNonSummer');
+    const execRate  = v('drExecRate') ?? 90;
+    const deduct    = getDRDeductionRatio(execRate);
+    let baseDR = 0;
+    if(drType === 'simple'){
+      const slotH = vi('drSlot') || 2;
+      const rateMap = {2:2.47, 4:1.84, 6:1.69};
+      const rate = rateMap[slotH] || 2.47;
+      baseDR = drCap * rate * slotH * sumDays / 10000;
+    } else if(drType === 'immediate'){
+      const slotH = vi('drSlot') || 2;
+      const rateMap = {2:2.47, 4:1.84, 6:1.69};
+      const rate = rateMap[slotH] || 2.47;
+      baseDR = drCap * rate * slotH * (sumDays + nsDays) / 10000;
+    } else if(drType === 'capacityService'){
+      const notifMap = {'0.5':93, '1':96, '2':78};
+      const rate = notifMap[vs('drNotifTime') || '1'] || 96;
+      const dur  = vi('drEventDuration') || 2;
+      baseDR = drCap * rate * dur * (sumDays + nsDays) / 10000;
+    }
+    annualDR = baseDR * deduct * deg;
+  }
+
+  // ── 聚合商抽成（僅抽即時備轉 + 補充備轉）──
+  const grossRev = annualTOU/10000 + annualSpin + annualSupp + annualDR;
+  const annualVppFee = (annualSpin + annualSupp) * v('vppPct') / 100;
+
+  // ── 契約增購成本（扣除）──
+  const cc = calcContractOverload();
+  const contractCostPerYear = cc.contractCostPerYear;
+
+  const total = grossRev - annualVppFee - contractCostPerYear;
+
+  return {
+    tou:          annualTOU / 10000,
+    touSummer:    dailyArbSummer    * v('touDaysSummer')    * deg / 10000,
+    touNonSummer: dailyArbNonSummer * v('touDaysNonSummer') * deg / 10000,
+    spin:         annualSpin,
+    supp:         annualSupp,
+    dr:           annualDR,
+    vppFee:       annualVppFee,
+    ancillary:    0,          // kept for backward compat
+    contractCost: contractCostPerYear,
+    total,
+    effectiveCap: v('battKwh') * deg,
+    degFactor: deg
+  };
+}
+
+function calcCashflows(){
+  const years = vi('analysisYears');
+  const capex = v('capex');
+  const baseOpex = v('opex');
+  const dr = v('discRate')/100;
+  let cumCF = -capex, npv = -capex, payback = null;
+  const rows = [];
+
+  for(let y=1;y<=years;y++){
+    const yld = calcYield(y);
+    const opex = baseOpex * Math.pow(1.02, y-1);
+    const net = yld.total - opex;
+    const prevCum = cumCF;
+    cumCF += net;
+    const pv = net / Math.pow(1+dr, y);
+    npv += pv;
+    if(!payback && cumCF >= 0) payback = y - 1 + (-prevCum)/net;
+    rows.push({ y, cap: yld.effectiveCap, deg: yld.degFactor, rev: yld.total, opex, net, cum: cumCF, pv });
+  }
+
+  const cashflows = rows.map(r => r.net);
+  const irr = calcIRR(-capex, cashflows);
+
+  return { rows, payback, npv, irr, capex };
+}
+
+function calcIRR(init, cfs){
+  let lo = -0.99, hi = 10, m = 0.1;
+  for(let i=0;i<200;i++){
+    let n = init;
+    cfs.forEach((c,y) => n += c/Math.pow(1+m,y+1));
+    if(Math.abs(n) < 0.001) return m;
+    n > 0 ? lo = m : hi = m;
+    m = (lo+hi)/2;
+  }
+  return m;
+}
+
+// 計算 DR 申報放電小時清單（用於調度曲線）
+// 回傳 number[] 或 null（null = 依 TOU 尖峰全放，不限制）
+function getDRDischargeHours(season, dayType) {
+  const drEnabled = document.getElementById('drEnabled')?.checked;
+  if (!drEnabled) return null;
+  if (dayType !== 'weekday') return null;          // 週末不執行 DR
+
+  const scheme = vs('drScheme');
+  if (scheme === 'simple' && season !== 'summer') return null;  // 簡易型僅夏月
+  if (scheme === 'none') return null;
+
+  if (scheme === 'capacityService') {
+    // 即時備轉：固定 13:00~22:00 窗口，取 drEventDuration 小時
+    const dur = parseInt(document.getElementById('drEventDuration')?.value || '2');
+    return Array.from({length: dur}, (_, i) => 13 + i);
+  }
+
+  // 簡易型 / 即時性：從 TOU 尖峰時段取前 slotH 小時
+  const slotH = parseInt(document.getElementById('drSlot')?.value || '2');
+  const sched = getSchedFor(season, dayType);
+  const peakHrs = sched.reduce((a, p, h) => { if (p === 2) a.push(h); return a; }, []);
+  if (peakHrs.length === 0) return null;
+  return peakHrs.slice(0, slotH);
+}
+
+// ═══════════════════════════════════════════════
+// DISPATCH RENDER
+// ═══════════════════════════════════════════════
+function renderDispatch(){
+  // 調度圖季節由 dispatchSeason 選擇器決定
+  // 夏月：永遠一充一放（doubleMode=false）
+  // 非夏月：依「兩充兩放」設定決定 doubleMode
+
+  // 指定單日模式：自動依選取日期判斷夏月／非夏月、平日／週六／週日
+  let dispDayType = 'weekday';
+  if (vs('dispatchMode') === 'singleDay') {
+    const dp = document.getElementById('dayPicker');
+    if (dp && dp.value) {
+      const d = new Date(dp.value);
+      const mo = d.getMonth() + 1, dy = d.getDate();
+      const isSummerDate = (mo > 5 || (mo === 5 && dy >= 16)) && (mo < 10 || (mo === 10 && dy <= 15));
+      const seasonEl = document.getElementById('dispatchSeason');
+      if (seasonEl) seasonEl.value = isSummerDate ? 'summer' : 'nonsummer';
+      dispDayType = getDayType(dp.value);
+    }
+  }
+
+  const dispSeason  = (document.getElementById('dispatchSeason') || {}).value || 'nonsummer';
+  const isSummer    = dispSeason === 'summer';
+  const dispDouble  = !isSummer && dispDayType === 'weekday' && vs('cycles') === '2c2d_ns';
+  const drDisHrs    = getDRDischargeHours(dispSeason, dispDayType);
+  const drCapKw     = drDisHrs ? (v('drCap') || 0) : null;
+  const rows = calcDispatchProfile(dispSeason, dispDouble, dispDayType, drDisHrs, drCapKw);
+  const sched = getSchedFor(dispSeason, dispDayType);
+  const bands = makeBands(sched);   // background color bands per hour
+  const cc = calcContractOverload();
+  const chargingOverload = rows.filter(r=>r.action.startsWith('充電')&&r.surplus<0).length > 0;
+
+  const dailyArb = calcDailyArb(rows);
+  const maxGridLoad = Math.max(...rows.map(r=>r.gridLoad));
+  const maxBaseLoad = Math.max(...rows.map(r=>r.baseLoad));
+  const peakShave = maxBaseLoad - maxGridLoad;
+  const dischargeKwh = rows.filter(r=>r.action.startsWith('放電')).reduce((s,r)=>s+r.power,0);
+  const chargeKwh    = rows.filter(r=>r.action.startsWith('充電')).reduce((s,r)=>s+Math.abs(r.power),0);
+
+  // -- Badge: show data source --
+  const mode = (document.getElementById('dispatchMode') || {}).value || 'manual';
+  const modeLabels = { manual:'平均用電容量', avgAll:'全期平均', avgSeason:'季節平均', singleDay:'單日實測' };
+  const selDay = mode === 'singleDay' ? (document.getElementById('dayPicker') || {}).value || '' : '';
+  if (selDay) updateDayStats(selDay);
+  document.getElementById('dispatchDataBadge').innerHTML =
+    `<span class="load-src-badge ${mode==='manual'?'lsb-manual':'lsb-real'}">${modeLabels[mode]||mode}${selDay?' '+selDay:''}</span>
+     <span style="font-size:11px;color:var(--text2);margin-left:6px">🟢離峰 🟠半尖峰 🔴尖峰</span>`;
+
+  document.getElementById('dispatchStats').innerHTML =
+    stat('日套利收益','NT$'+f0(dailyArb),'元 / 日','green','≈ 年NT$'+f0(dailyArb*(v('touDaysSummer')+v('touDaysNonSummer'))/10000)+'萬') +
+    stat('尖峰削峰量',f0(peakShave)+' kW','最大削減需量','blue') +
+    stat('日放電量',f(dischargeKwh,1)+' kWh','DoD '+v('dod')+'%','orange') +
+    stat('日充電量',f(chargeKwh,1)+' kWh','η='+v('rte')+'%','') +
+    stat('充電超約',cc.overload>0 ? f0(cc.overload)+' kW' : '無超約',cc.overload>0?'建議增購':'契約足夠',cc.overload>0?'red':'green');
+
+  document.getElementById('contractWarning').innerHTML = chargingOverload
+    ? `<div class="alert alert-warn" style="margin-bottom:16px">⚠ 部分充電時段電網需量超出離峰契約，請確認是否已增購離峰契約容量或調低 PCS 功率。</div>` : '';
+
+  const labels = rows.map(r => `${String(r.h).padStart(2,'0')}:00`);
+
+  // 白綠主題固定 chart scale options
+  const tickClr = '#5a7a6a';
+  const gridClr = 'rgba(180,210,195,.5)';
+  const baseScaleOpts = {
+    x: { ticks:{color:tickClr,font:{size:10}}, grid:{color:gridClr} },
+    y: { ticks:{color:tickClr}, grid:{color:gridClr} }
+  };
+
+  dc('dispatch');
+  charts['dispatch'] = new Chart(document.getElementById('chartDispatch').getContext('2d'), {
+    type: 'line',
+    plugins: [bgBandPlugin],
+    data: {
+      labels,
+      datasets: [
+        { label:'建物基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#8b949e', borderDash:[5,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
+        { label:'電網端需量(kW)',   data:rows.map(r=>r.gridLoad), borderColor:PC[2], fill:true, backgroundColor:'rgba(247,129,102,.07)', tension:.3, pointRadius:0, borderWidth:2 },
+        { label:'儲能功率(kW)',     data:rows.map(r=>r.power),    borderColor:PC[0], fill:true, backgroundColor:'rgba(88,166,255,.18)', tension:.3, pointRadius:0, borderWidth:2, type:'bar' },
+        { label:`尖峰契約容量 ${f0(v('contractPeak'))}kW`,
+          data: Array(24).fill(v('contractPeak')),
+          borderColor:'rgba(239,68,68,.75)', borderDash:[8,5], fill:false,
+          pointRadius:0, borderWidth:1.5, tension:0, type:'line',
+          order:0 },
+        { label:`離峰契約容量 ${f0(v('contractOff'))}kW`,
+          data: Array(24).fill(v('contractOff')),
+          borderColor:'rgba(88,166,255,.6)', borderDash:[5,5], fill:false,
+          pointRadius:0, borderWidth:1.5, tension:0, type:'line',
+          order:0 }
+      ]
+    },
+    options:{
+      responsive:true, interaction:{mode:'index'},
+      plugins:{
+        legend:{labels:{color:tickClr,boxWidth:10,font:{size:11}}},
+        bgBands:{ bands }
+      },
+      scales: baseScaleOpts
+    }
+  });
+
+  dc('soc');
+  charts['soc'] = new Chart(document.getElementById('chartSOC').getContext('2d'), {
+    type: 'line',
+    plugins: [bgBandPlugin],
+    data: { labels, datasets:[{
+      label:'SOC (%)', data:rows.map(r=>r.soc),
+      borderColor:'#0b7a4f', fill:true, backgroundColor:'rgba(11,122,79,.07)', tension:.4, pointRadius:0, borderWidth:2
+    }]},
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{labels:{color:tickClr,font:{size:11}}},
+        bgBands:{ bands }
+      },
+      scales:{ ...baseScaleOpts, y:{...baseScaleOpts.y, min:0, max:100} }
+    }
+  });
+
+  // ── DR執行率計算（只在 DR 模式下）──────────────────────────
+  const drRows = rows.filter(r => r.drExpected > 0);
+  let drExecBanner = '';
+  if (drRows.length > 0) {
+    const expectedTotal = drRows.reduce((s, r) => s + r.drExpected, 0);
+    const actualTotal   = drRows.reduce((s, r) => s + r.power,     0);
+    const actualRate    = expectedTotal > 0 ? (actualTotal / expectedTotal) * 100 : 0;
+    const deduct        = getDRDeductionRatio(actualRate);
+    const deductPct     = (deduct * 100).toFixed(0);
+    const rateClr       = actualRate < 60 ? '#f78166' : actualRate < 80 ? '#ffa657' : '#3fb950';
+    const revBase       = v('drCap') * ({2:2.47,4:1.84,6:1.69}[vi('drSlot')||2]||2.47) * (vi('drSlot')||2);
+    const revNet        = revBase * deduct;
+    drExecBanner = `<div style="margin:8px 0;padding:8px 12px;border-radius:6px;font-size:12px;
+      background:${actualRate<60?'rgba(247,129,102,.1)':actualRate<80?'rgba(255,166,87,.1)':'rgba(63,185,80,.08)'};
+      border:1px solid ${actualRate<60?'rgba(247,129,102,.4)':actualRate<80?'rgba(255,166,87,.4)':'rgba(63,185,80,.25)'}">
+      ⚡ DR 當日執行率：申報 <b>${f0(expectedTotal/drRows.length)} kW × ${drRows.length}h</b>，
+      實際放電 <b>${f(actualTotal,1)} kWh</b>（申報 ${f(expectedTotal,1)} kWh）→
+      執行率 <b style="color:${rateClr}">${actualRate.toFixed(0)}%</b>
+      → 收益係數 <b style="color:${rateClr}">${deductPct}%</b>
+      → 當日 DR 收益 <b style="color:${rateClr}">NT$ ${f0(revNet)}</b>
+      ${actualRate < 60 ? '<span style="color:#f78166;font-weight:700">（未達60%，本日無DR收益）</span>' :
+        actualRate < 80 ? '<span style="color:#ffa657">（未達80%，收益打8折）</span>' : ''}
+    </div>`;
+  }
+  const drBannerEl = document.getElementById('drExecBanner');
+  if (drBannerEl) drBannerEl.innerHTML = drExecBanner;
+
+  // ── Table with row background colour by period ──
+  const rowBg = { 0:'rgba(63,185,80,.06)', 1:'rgba(255,166,87,.07)', 2:'rgba(247,129,102,.07)' };
+  document.querySelector('#tblDispatch tbody').innerHTML = rows.map(r => {
+    // DR時段未達標著色
+    const isDRHour = r.drExpected > 0;
+    const drRate   = isDRHour ? (r.power / r.drExpected) : 1;
+    const drShortfall = isDRHour && drRate < 0.999;
+    const drSevere    = isDRHour && drRate < 0.6;
+
+    const actionClr = r.action.startsWith('放電')
+      ? (drSevere ? '#f78166' : drShortfall ? '#ffa657' : '#3fb950')
+      : r.action.startsWith('充電') ? '#ffa657' : '#8b949e';
+
+    const powerClr = r.power > 0
+      ? (drSevere ? '#f78166' : drShortfall ? '#ffa657' : '#3fb950')
+      : r.power < 0 ? '#ffa657' : '#8b949e';
+
+    const actionLabel = r.action + (drSevere ? ' ✗' : drShortfall ? ' ⚠' : '');
+    const bg = drSevere    ? 'rgba(247,129,102,.10)' :
+               drShortfall ? 'rgba(255,166,87,.10)'  : rowBg[r.p];
+
+    return `<tr style="background:${bg}">
+      <td><b>${String(r.h).padStart(2,'0')}:00–${String((r.h+1)%24).padStart(2,'0')}:00</b></td>
+      <td><span class="tag ${r.p===2?'tp':r.p===1?'ts':'to'}">${PL[r.p]}</span></td>
+      <td>${r.price.toFixed(2)}</td>
+      <td>${f0(r.baseLoad)}</td>
+      <td style="color:${actionClr};font-weight:${drShortfall?'700':'400'}">${actionLabel}${isDRHour&&drShortfall?`<br><span style="font-size:10px;color:${drSevere?'#f78166':'#ffa657'}">申報${f0(r.drExpected)}kW／實${f0(r.power)}kW</span>`:''}</td>
+      <td style="color:${powerClr};font-weight:600">${r.power!==0?(r.power>0?'+':'')+f(r.power,1):'—'}</td>
+      <td>${f0(r.gridLoad)}</td>
+      <td style="color:${r.surplus<0?'#f78166':r.surplus<50?'#ffa657':'#3fb950'}">${f0(r.surplus)}</td>
+      <td>${f(r.soc,1)}%</td>
+    </tr>`;
+  }).join('');
+
+  // 年度收益分布網格
+  renderAnnualGrid();
+}
+
+// ═══════════════════════════════════════════════
+// REVENUE RENDER
+// ═══════════════════════════════════════════════
+function renderRevenue(){
+  const yld = calcYield(1);
+  const gross = yld.tou + yld.spin + yld.supp + yld.dr;  // 總收益（扣除前）
+
+  document.getElementById('revenueStats').innerHTML =
+    stat('年度總淨收益', fw(yld.total,1), '扣除聚合商與契約成本', 'green') +
+    stat('TOU 套利',  fw(yld.tou,1),  pct(yld.tou,gross),  'blue') +
+    stat('即時備轉',  fw(yld.spin,1), pct(yld.spin,gross), 'orange') +
+    (yld.supp > 0 ? stat('補充備轉', fw(yld.supp,1), pct(yld.supp,gross), 'purple') : '') +
+    stat('需量反應',  fw(yld.dr,1),   pct(yld.dr,gross),   'green') +
+    (yld.vppFee > 0 ? stat('聚合商抽成（扣）', fw(-yld.vppFee,1), v('vppPct')+'% 費用', 'red') : '') +
+    stat('契約增購（扣）', fw(-yld.contractCost,1), '年度額外基本電費', 'red');
+
+  // Pie chart labels / data (exclude zero entries)
+  const pieEntries = [
+    {label:'TOU套利',  val:yld.tou,  color:'#58a6ff'},
+    {label:'即時備轉', val:yld.spin, color:'#ffa657'},
+    {label:'補充備轉', val:yld.supp, color:'#bc8cff'},
+    {label:'需量反應', val:yld.dr,   color:'#3fb950'},
+  ].filter(e => e.val > 0);
+
+  dc('revPie');
+  charts['revPie'] = new Chart(document.getElementById('chartRevPie').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: pieEntries.map(e=>e.label),
+      datasets:[{data: pieEntries.map(e=>e.val), backgroundColor: pieEntries.map(e=>e.color), borderWidth:0, hoverOffset:6}]
+    },
+    options:{responsive:true,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#8b949e',padding:14,font:{size:11}}}}}
+  });
+
+  // Monthly distribution — 即時備轉 & 補充備轉 are year-round uniform
+  // 需量反應：簡易型 5~10月；其他全年
+  const drType = vs('drScheme');
+  const monthlyData = MONTHS.map((_,i)=>{
+    const isSummer = IS_SUMMER[i];
+    const tou  = yld.tou/12 * (isSummer?1.35:0.75);
+    const spin = yld.spin/12;
+    const supp = yld.supp/12;
+    let   dr   = 0;
+    if(drType === 'simple')           dr = (i>=4&&i<=9) ? yld.dr/6  : 0;
+    else if(drType !== 'none')        dr = yld.dr/12;
+    return { tou, spin, supp, dr };
+  });
+
+  dc('revMonthly');
+  charts['revMonthly'] = new Chart(document.getElementById('chartRevMonthly').getContext('2d'), {
+    type: 'bar',
+    data: { labels: MONTHS, datasets:[
+      {label:'TOU套利',  data:monthlyData.map(m=>m.tou),  backgroundColor:'rgba(88,166,255,.7)', stack:'s',borderRadius:2},
+      {label:'即時備轉', data:monthlyData.map(m=>m.spin), backgroundColor:'rgba(255,166,87,.7)',  stack:'s',borderRadius:2},
+      {label:'補充備轉', data:monthlyData.map(m=>m.supp), backgroundColor:'rgba(188,140,255,.7)', stack:'s',borderRadius:2},
+      {label:'需量反應', data:monthlyData.map(m=>m.dr),   backgroundColor:'rgba(63,185,80,.7)',   stack:'s',borderRadius:2},
+    ]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:10}}}},scales:{x:{stacked:true,ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}},y:{stacked:true,ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}}}}
+  });
+
+  // Build revenue table
+  const spinAddon = ({1:100,3:60,5:40})[vi('spinResponseTime')] || 60;
+  const spinCapRate = v('spinCeilingPrice') + spinAddon;
+  const spinAnnualHours = v('spinDays') * v('spinDailyHours');
+  const suppAnnualHours = v('suppDays') * v('suppDailyHours');
+
+  const drDescMap = {
+    none:          '—',
+    simple:        `${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${v('touDaysSummer')}天（夏月平日每天）`,
+    immediate:     `${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${v('touDaysSummer')+v('touDaysNonSummer')}天（全年平日每天）`,
+    capacityService:`${v('drCap')}kW × ${({'0.5':93,'1':96,'2':78})[vs('drNotifTime')]||96}NT$/kWh × ${vi('drEventDuration')||2}h × ${v('touDaysSummer')+v('touDaysNonSummer')}天（全年平日每天）`,
+  };
+  const cc = calcContractOverload();
+  const tariff = vs('tariffType');
+  const rS  = T[tariff]['summer'];
+  const rNS = T[tariff]['nonsummer'];
+  const spreadS  = rS.peak  - rS.off;
+  const spreadNS = rNS.peak - rNS.off;
+  const doubleNS = vs('cycles') === '2c2d_ns';
+  const items = [
+    {n:'TOU 套利 — 🌞 夏季',
+     b:`尖峰 ${rS.peak} − 離峰 ${rS.off} = ${f(spreadS,2)} NT$/kWh × PCS ${f0(v('pcskW'))}kW × ${v('touDaysSummer')}天（一充一放）`,
+     m: yld.touSummer / 12, a: yld.touSummer},
+    {n:`TOU 套利 — ❄ 非夏季`,
+     b:`尖峰 ${rNS.peak} − 離峰 ${rNS.off} = ${f(spreadNS,2)} NT$/kWh × PCS ${f0(v('pcskW'))}kW × ${v('touDaysNonSummer')}天（${doubleNS?'兩充兩放':'一充一放'}）`,
+     m: yld.touNonSummer / 12, a: yld.touNonSummer},
+    {n:'即時備轉 — 容量費', b:`${f0(v('spinRatio'))}kW × ${spinCapRate}NT$/MW·h × ${spinAnnualHours}h`, m:yld.spin/12, a:yld.spin},
+    {n:'補充備轉 — 容量費', b:`${f0(v('pcskW')*(document.getElementById('suppEnabled')?.checked?v('suppRatio'):0)/100)}kW × ${v('suppCeilingPrice')}NT$/MW·h × ${suppAnnualHours}h`, m:yld.supp/12, a:yld.supp},
+    {n:'需量反應',          b:drDescMap[drType] || '—', m:yld.dr/12, a:yld.dr},
+    {n:`聚合商抽成 ${v('vppPct')}%（扣）`, b:`（即時備轉 + 補充備轉）× ${v('vppPct')}%`, m:-yld.vppFee/12, a:-yld.vppFee},
+    {n:'離峰契約增購（扣）',b:`${f0(cc.addNeeded)}kW × NT$${v('demandRate')}/月 × 12月`, m:-yld.contractCost/12, a:-yld.contractCost},
+  ].filter(it => it.a !== 0 || it.n.includes('TOU'));
+
+  document.querySelector('#tblRevenue tbody').innerHTML = items.map(it => `
+    <tr>
+      <td>${it.n}</td>
+      <td style="color:var(--text2);font-size:11px">${it.b}</td>
+      <td style="color:${it.a>=0?'var(--green)':'var(--red)'}">${f(it.m,2)}</td>
+      <td style="color:${it.a>=0?'var(--green)':'var(--red)'};font-weight:700">${f(it.a,1)}</td>
+      <td>${it.a>=0 ? pct(it.a,gross) : '扣除'}</td>
+      <td><div class="pbar"><div class="pfill" style="width:${Math.min(Math.abs(it.a/gross*100),100)}%;background:${it.a>=0?'var(--green)':'var(--red)'}"></div></div></td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CASHFLOW RENDER
+// ═══════════════════════════════════════════════
+function renderCashflow(){
+  const { rows, payback, npv, irr, capex } = calcCashflows();
+  const lastRow = rows[rows.length-1];
+  const roi = (lastRow.cum + capex) / capex * 100;
+
+  document.getElementById('cashflowStats').innerHTML =
+    stat('回本年限', payback ? f(payback,1)+' 年' : '>'+v('analysisYears')+'年', 'Payback Period', payback && payback <= vi('analysisYears') ? 'green' : 'red') +
+    stat('NPV 淨現值', fw(npv,0), '折現率 '+v('discRate')+'%', npv>=0?'green':'red') +
+    stat('IRR 內報率', f(irr*100,1)+'%', 'Internal Rate of Return', irr>=v('discRate')/100?'green':'orange') +
+    stat('ROI 投報率', f(roi,0)+'%', vi('analysisYears')+'年總 ROI', roi>=100?'green':'orange') +
+    stat('CAPEX', fw(capex,0), '總建置成本', '');
+
+  const yearLabels = ['Y0', ...rows.map(r=>'Y'+r.y)];
+  const cumData = [-capex, ...rows.map(r=>r.cum)];
+
+  dc('cashflow');
+  charts['cashflow'] = new Chart(document.getElementById('chartCashflow').getContext('2d'), {
+    type: 'line',
+    data: { labels: yearLabels, datasets: [
+      { label:'累計現金流(萬元)', data: cumData, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.06)', tension:.4, pointRadius:5, pointBackgroundColor: cumData.map(v=>v>=0?'#3fb950':'#f78166'), borderWidth:2 },
+      { label:'損益平衡線', data: Array(yearLabels.length).fill(0), borderColor:'rgba(255,166,87,.5)', borderDash:[6,4], fill:false, pointRadius:0, borderWidth:1 }
+    ]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},scales:{x:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}}}}
+  });
+
+  document.querySelector('#tblCashflow tbody').innerHTML = rows.map((r,i) => {
+    const isPayback = payback && Math.abs(payback - r.y) < 1 && r.cum >= 0 && (i===0||rows[i-1].cum<0);
+    return `<tr style="${isPayback?'background:rgba(255,166,87,.06)':''}">
+      <td style="${isPayback?'color:var(--orange);font-weight:700':''}">第 ${r.y} 年${isPayback?' ⭐':''}</td>
+      <td>${f0(r.cap)} kWh</td>
+      <td style="color:${r.deg>=0.9?'var(--green)':r.deg>=0.8?'var(--orange)':'var(--red)'}">${f(r.deg*100,1)}%</td>
+      <td class="green">${f(r.rev,1)}</td>
+      <td class="red">-${f(r.opex,1)}</td>
+      <td style="color:${r.net>=0?'var(--green)':'var(--red)'}">${f(r.net,1)}</td>
+      <td style="color:${r.cum>=0?'var(--green)':'var(--red)'};font-weight:700">${f(r.cum,1)}</td>
+      <td>${f(r.pv,1)}</td>
+      <td style="font-size:11px;color:var(--orange)">${isPayback?'回收年度':''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// HEATMAP RENDER
+// ═══════════════════════════════════════════════
+function renderHeatmap(){
+  const yld = calcYield(1);
+  const weeks = ['W1','W2','W3','W4'];
+  const drTypeHm = vs('drScheme');
+  const monthlyBase = MONTHS.map((_,i) => {
+    const isSummer = IS_SUMMER[i];
+    const tou  = yld.tou/12  * (isSummer ? 1.35 : 0.75);
+    const spin = yld.spin/12;
+    const supp = yld.supp/12;
+    let   dr   = 0;
+    if(drTypeHm === 'simple')      dr = (i>=4&&i<=9) ? yld.dr/6 : 0;
+    else if(drTypeHm !== 'none')   dr = yld.dr/12;
+    return tou + spin + supp + dr;
+  });
+
+  const allCells = monthlyBase.flatMap((mv,mi)=> weeks.map((_,wi)=> mv/4*(0.82+wi*0.06+IS_SUMMER[mi]*0.08)));
+  const minV = Math.min(...allCells), maxV = Math.max(...allCells);
+
+  function heatColor(val){
+    const t = (val-minV)/(maxV-minV||1);
+    // blue → green → yellow → red
+    if(t<0.33){ const s=t/0.33; return `rgb(${Math.round(88+s*25)},${Math.round(166+s*19)},${Math.round(255-s*175)})` }
+    if(t<0.66){ const s=(t-0.33)/0.33; return `rgb(${Math.round(113+s*142)},${Math.round(185-s*56)},${Math.round(80+s*22)})` }
+    const s=(t-0.66)/0.34; return `rgb(${Math.round(255)},${Math.round(129-s*60)},${Math.round(102-s*60)})`;
+  }
+
+  let html = '<div class="hm-grid" style="min-width:700px">';
+  html += '<div class="hm-cell hm-lbl"></div>';
+  MONTHS.forEach(m => html += `<div class="hm-cell hm-mo">${m}</div>`);
+  weeks.forEach((w,wi) => {
+    html += `<div class="hm-cell hm-lbl">${w}</div>`;
+    MONTHS.forEach((_,mi) => {
+      const val = monthlyBase[mi]/4*(0.82+wi*0.06+IS_SUMMER[mi]*0.08);
+      const bg = heatColor(val);
+      html += `<div class="hm-cell" style="background:${bg};color:#000" title="${MONTHS[mi]} ${w}: ${f(val,2)}萬元">${f(val,1)}</div>`;
+    });
+  });
+  html += '</div>';
+  document.getElementById('heatmapContainer').innerHTML = html;
+
+  dc('monthBar');
+  charts['monthBar'] = new Chart(document.getElementById('chartMonthBar').getContext('2d'), {
+    type:'bar',
+    data:{ labels:MONTHS, datasets:[{ label:'月收益(萬元)', data:monthlyBase,
+      backgroundColor: MONTHS.map((_,i)=>IS_SUMMER[i]?'rgba(247,129,102,.7)':'rgba(88,166,255,.7)'), borderRadius:4 }]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}}}}
+  });
+
+  const sumT=MONTHS.reduce((s,_,i)=>s+(IS_SUMMER[i]?yld.tou/12*1.35:0),0);
+  const nsT=MONTHS.reduce((s,_,i)=>s+(!IS_SUMMER[i]?yld.tou/12*0.75:0),0);
+  const sumS=MONTHS.reduce((s,_,i)=>s+(IS_SUMMER[i]?yld.spin/12:0),0);
+  const nsS=MONTHS.reduce((s,_,i)=>s+(!IS_SUMMER[i]?yld.spin/12:0),0);
+  const sumSP=MONTHS.reduce((s,_,i)=>s+(IS_SUMMER[i]?yld.supp/12:0),0);
+  const nsSP=MONTHS.reduce((s,_,i)=>s+(!IS_SUMMER[i]?yld.supp/12:0),0);
+  const drHmType = vs('drScheme');
+  const sumD=MONTHS.reduce((s,_,i)=>s+(IS_SUMMER[i]&&(drHmType==='simple'?(i>=4&&i<=9):drHmType!=='none')?yld.dr/(drHmType==='simple'?6:12):0),0);
+  const nsD=MONTHS.reduce((s,_,i)=>s+(!IS_SUMMER[i]&&drHmType!=='none'&&drHmType!=='simple'?yld.dr/12:0),0);
+
+  dc('season');
+  charts['season'] = new Chart(document.getElementById('chartSeason').getContext('2d'), {
+    type:'bar',
+    data:{ labels:['夏月（5~10月）','非夏月（其他）'], datasets:[
+      {label:'TOU套利',  data:[sumT,nsT],   backgroundColor:'rgba(88,166,255,.7)',  stack:'s',borderRadius:2},
+      {label:'即時備轉', data:[sumS,nsS],   backgroundColor:'rgba(255,166,87,.7)',  stack:'s',borderRadius:2},
+      {label:'補充備轉', data:[sumSP,nsSP], backgroundColor:'rgba(188,140,255,.7)', stack:'s',borderRadius:2},
+      {label:'需量反應', data:[sumD,nsD],   backgroundColor:'rgba(63,185,80,.7)',   stack:'s',borderRadius:2},
+    ]},
+    options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:10}}}},scales:{x:{stacked:true,ticks:{color:'#8b949e'},grid:{display:false}},y:{stacked:true,ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}}}}
+  });
+}
+
+
+// ═══════════════════════════════════════════════
+// TARIFF TABLE RENDER
+// ═══════════════════════════════════════════════
+function renderTariff(){
+  const t = vs('tariffType');
+  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  const rows = [
+    { label:'夏月 平日',      sched:SCHED[`${k}_summer_weekday`]    || SCHED.hv3_summer_weekday },
+    { label:'非夏月 平日',    sched:SCHED[`${k}_nonsummer_weekday`] || SCHED.hv3_nonsummer_weekday },
+    { label:'夏月 週六',      sched:SCHED[`${k}_summer_saturday`]   || SCHED.hv3_summer_saturday },
+    { label:'非夏月 週六',    sched:SCHED[`${k}_nonsummer_saturday`]|| SCHED.hv3_nonsummer_saturday },
+    { label:'週日 / 假日',    sched:SCHED.sunday }
+  ];
+  let html = '<div class="tl" style="min-width:700px">';
+  html += '<div class="tl-lbl"></div>';
+  for(let h=0;h<24;h++) html += `<div class="tl-h">${h}</div>`;
+  rows.forEach(row => {
+    html += `<div class="tl-lbl">${row.label}</div>`;
+    row.sched.forEach(p => {
+      html += `<div class="tl-cell" style="background:${PC[p]}22;border:1px solid ${PC[p]}55;color:${PC[p]}" title="${PL[p]}">${PL[p][0]}</div>`;
+    });
+  });
+  html += '</div>';
+  document.getElementById('peakScheduleChart').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// DEGRADATION TABLE
+// ═══════════════════════════════════════════════
+function renderDegTable(){
+  const cap = v('battKwh'); const deg = v('degradation')/100; const years = vi('analysisYears');
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  for(let y=1;y<=years;y++){
+    const eff = cap * Math.pow(1-deg, y-1);
+    const pct = eff/cap*100;
+    const color = pct>90?'var(--green)':pct>75?'var(--orange)':'var(--red)';
+    html += `<div style="text-align:center;min-width:56px;padding:6px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text2)">Y${y}</div>
+      <div style="font-size:12px;font-weight:700;color:${color}">${f(eff,0)}</div>
+      <div style="font-size:9px;color:${color}">${f(pct,1)}%</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('degTable').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// PDF REPORT RENDER (PREVIEW)
+// ═══════════════════════════════════════════════
+function renderReport(){
+  const yld = calcYield(1);
+  const { rows, payback, npv, irr, capex } = calcCashflows();
+  const r = getRates();
+  const spread = r.peak - r.off;
+  const cc = calcContractOverload();
+
+  const previewHTML = `
+    <div class="pdf-preview" id="pdfContent">
+      <!-- Cover -->
+      <div class="pdf-cover">
+        <h1>儲能系統投資財務分析報告</h1>
+        <p class="sub">Battery Energy Storage System — Yield & ROI Analysis Report</p>
+        <div class="meta">
+          <div class="meta-item"><div class="k">電價類別</div><div class="val">${document.getElementById('tariffType').options[document.getElementById('tariffType').selectedIndex].text.split('—')[0]}</div></div>
+          <div class="meta-item"><div class="k">儲能規模</div><div class="val">${f0(v('battKwh'))} kWh / ${f0(v('pcskW'))} kW</div></div>
+          <div class="meta-item"><div class="k">系統 CAPEX</div><div class="val">NT$ ${fw(capex,0)}</div></div>
+          <div class="meta-item"><div class="k">分析日期</div><div class="val">${new Date().toLocaleDateString('zh-TW')}</div></div>
+        </div>
+      </div>
+
+      <!-- KPI Summary -->
+      <div class="pdf-section">
+        <h2>01 核心財務指標摘要</h2>
+        <div class="pdf-kpi">
+          <div class="pdf-kpi-item"><div class="k">回本年限</div><div class="v" style="color:#16a34a">${payback ? f(payback,1) : '>'+vi('analysisYears')}</div><div class="u">年 Payback Period</div></div>
+          <div class="pdf-kpi-item"><div class="k">NPV 淨現值</div><div class="v" style="color:${npv>=0?'#16a34a':'#dc2626'}">${fw(npv,0)}</div><div class="u">折現率 ${v('discRate')}%</div></div>
+          <div class="pdf-kpi-item"><div class="k">IRR 內報率</div><div class="v" style="color:${irr*100>=v('discRate')?'#16a34a':'#ea580c'}">${f(irr*100,1)}%</div><div class="u">Internal Rate of Return</div></div>
+          <div class="pdf-kpi-item"><div class="k">年度淨收益</div><div class="v" style="color:#1d4ed8">${fw(yld.total,1)}</div><div class="u">第1年（未衰退）</div></div>
+        </div>
+      </div>
+
+      <!-- Revenue breakdown -->
+      <div class="pdf-section">
+        <h2>02 年度收益組成分析</h2>
+        <table class="pdf-table">
+          <thead><tr><th>收益來源</th><th>年度收益（萬元）</th><th>佔比</th><th>計算說明</th></tr></thead>
+          <tbody>
+            ${(()=>{
+              const spinAddonR = ({1:100,3:60,5:40})[vi('spinResponseTime')]||60;
+              const spinTotalRate = v('spinCeilingPrice')+spinAddonR;
+              const spinHrsR = v('spinDays')*v('spinDailyHours');
+              const gross2 = yld.tou+yld.spin+yld.supp+yld.dr;
+              const suppEl2 = document.getElementById('suppEnabled');
+              const suppCap2 = suppEl2?.checked ? v('pcskW')*v('suppRatio')/100 : 0;
+              const drTypeR = vs('drScheme');
+              const _dSumD = v('touDaysSummer'), _dAllD = _dSumD + v('touDaysNonSummer');
+              const drDescR = drTypeR==='simple'
+                ?`${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${_dSumD}天（夏月平日每天）`
+                :drTypeR==='immediate'
+                ?`${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${_dAllD}天（全年平日每天）`
+                :drTypeR==='capacityService'
+                ?`${v('drCap')}kW × ${({'0.5':93,'1':96,'2':78})[vs('drNotifTime')]||96}NT$/kWh × ${vi('drEventDuration')||2}h × ${_dAllD}天（全年平日每天）`
+                :'不參與';
+              const rS2  = T[vs('tariffType')]['summer'];
+              const rNS2 = T[vs('tariffType')]['nonsummer'];
+              const spS2  = rS2.peak  - rS2.off;
+              const spNS2 = rNS2.peak - rNS2.off;
+              const dblNS2 = vs('cycles') === '2c2d_ns';
+              return `
+            <tr><td>TOU 套利 — 🌞 夏季</td><td style="color:#16a34a;font-weight:700">${f(yld.touSummer,1)}</td><td>${pct(yld.touSummer,gross2)}</td><td>尖峰 ${rS2.peak} − 離峰 ${rS2.off} = ${f(spS2,2)} NT$/kWh × ${v('touDaysSummer')}天（一充一放）</td></tr>
+            <tr><td>TOU 套利 — ❄ 非夏季</td><td style="color:#16a34a;font-weight:700">${f(yld.touNonSummer,1)}</td><td>${pct(yld.touNonSummer,gross2)}</td><td>尖峰 ${rNS2.peak} − 離峰 ${rNS2.off} = ${f(spNS2,2)} NT$/kWh × ${v('touDaysNonSummer')}天（${dblNS2?'兩充兩放':'一充一放'}）</td></tr>
+            <tr><td>即時備轉（含應答加成）</td><td style="color:#ea580c;font-weight:700">${f(yld.spin,1)}</td><td>${pct(yld.spin,gross2)}</td><td>${f0(v('spinRatio'))}kW × NT$${spinTotalRate}/MW·h × ${spinHrsR}h；驗証費10NT$/kWh</td></tr>
+            <tr><td>補充備轉</td><td style="color:#7c3aed;font-weight:700">${f(yld.supp,1)}</td><td>${pct(yld.supp,gross2)}</td><td>${f0(suppCap2)}kW × NT$${v('suppCeilingPrice')}/MW·h × ${v('suppDays')*v('suppDailyHours')}h</td></tr>
+            <tr><td>需量反應</td><td style="color:#166534;font-weight:700">${f(yld.dr,1)}</td><td>${pct(yld.dr,gross2)}</td><td>${drDescR}</td></tr>
+            ${yld.vppFee>0?`<tr style="background:#fef2f2"><td>聚合商抽成 ${v('vppPct')}%（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.vppFee,1)}</td><td>費用</td><td>所有收益合計 × ${v('vppPct')}%</td></tr>`:''}
+            <tr style="background:#fef2f2"><td>離峰契約增購（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.contractCost,1)}</td><td>成本</td><td>${cc.addNeeded>0?`增購 ${f0(cc.addNeeded)} kW × NT$${v('demandRate')}/月 × 12月`:'無需增購'}</td></tr>
+            <tr style="background:#f0fdf4;font-weight:700"><td>年度淨收益合計</td><td style="color:#16a34a">${f(yld.total,1)}</td><td>100%</td><td>扣除聚合商費用與契約成本後</td></tr>`;
+            })()}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Contract & overload -->
+      <div class="pdf-section">
+        <h2>03 契約容量超約分析</h2>
+        <table class="pdf-table">
+          <thead><tr><th>項目</th><th>數值</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>現有尖峰契約容量</td><td>${f0(v('contractPeak'))} kW</td><td></td></tr>
+            <tr><td>現有離峰契約容量</td><td>${f0(v('contractOff'))} kW</td><td></td></tr>
+            <tr><td>充電時預計電網需量</td><td>${f0(cc.projectedOffpeak)} kW</td><td>建物離峰負載 + PCS 功率</td></tr>
+            <tr><td>超約量</td><td style="color:${cc.overload>0?'#dc2626':'#16a34a'}">${cc.overload>0?'+'+f0(cc.overload)+' kW（需增購）':'無超約'}</td><td>${cc.overload>0?'建議增購 '+f0(cc.addNeeded)+' kW 離峰契約':''}</td></tr>
+            <tr><td>年增購成本</td><td style="color:${cc.overload>0?'#dc2626':'#16a34a'}">${cc.overload>0?'NT$ '+fw(cc.contractCostPerYear,1):'NT$ 0'}</td><td>已納入年度成本計算</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cashflow table -->
+      <div class="pdf-section">
+        <h2>04 逐年現金流 & 衰退影響</h2>
+        <table class="pdf-table">
+          <thead><tr><th>年度</th><th>容量留存(%)</th><th>有效容量(kWh)</th><th>年收益(萬元)</th><th>OPEX(萬元)</th><th>淨CF(萬元)</th><th>累計CF(萬元)</th></tr></thead>
+          <tbody>
+            ${rows.map(r=>`<tr ${r.cum>=0&&(r.y===1||rows[r.y-2].cum<0)?'style="background:#f0fdf4;font-weight:700"':''}>
+              <td>第 ${r.y} 年</td>
+              <td style="color:${r.deg>=0.9?'#16a34a':r.deg>=0.8?'#ea580c':'#dc2626'}">${f(r.deg*100,1)}%</td>
+              <td>${f0(r.cap)}</td>
+              <td style="color:#16a34a">${f(r.rev,1)}</td>
+              <td style="color:#dc2626">-${f(r.opex,1)}</td>
+              <td style="color:${r.net>=0?'#16a34a':'#dc2626'}">${f(r.net,1)}</td>
+              <td style="color:${r.cum>=0?'#16a34a':'#dc2626'}">${f(r.cum,1)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Hardware -->
+      <div class="pdf-section">
+        <h2>05 系統規格總覽</h2>
+        <table class="pdf-table">
+          <thead><tr><th>規格項目</th><th>設定值</th><th>規格項目</th><th>設定值</th></tr></thead>
+          <tbody>
+            <tr><td>電池容量</td><td>${f0(v('battKwh'))} kWh</td><td>PCS 功率</td><td>${f0(v('pcskW'))} kW</td></tr>
+            <tr><td>來回效率 η</td><td>${v('rte')}%</td><td>放電深度 DoD</td><td>${v('dod')}%</td></tr>
+            <tr><td>年度衰退率</td><td>${v('degradation')}%/年</td><td>分析年限</td><td>${vi('analysisYears')} 年</td></tr>
+            <tr><td>系統 CAPEX</td><td>NT$ ${fw(capex,0)}</td><td>年度 OPEX</td><td>NT$ ${fw(v('opex'),0)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pdf-footer">
+        <span>綠源科技ESS 收益評估.0 — 本報告為模擬估算，實際收益依市場條件而異</span>
+        <span>生成時間：${new Date().toLocaleString('zh-TW')}</span>
+      </div>
+    </div>`;
+
+  document.getElementById('pdfPreview').innerHTML = previewHTML;
+}
+
+// ═══════════════════════════════════════════════
+// PDF EXPORT
+// ═══════════════════════════════════════════════
+async function exportPDF(){
+  // Ensure report is rendered
+  renderReport();
+  await new Promise(r=>setTimeout(r,200));
+
+  const el = document.getElementById('pdfContent');
+  if(!el){ alert('請先切換至「PDF 報告預覽」頁面'); return; }
+
+  const btn = document.querySelector('.btn-pdf');
+  btn.textContent = '⏳ 產生中...';
+  btn.disabled = true;
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+    const pageW = 210, pageH = 297, margin = 14;
+
+    const canvas = await html2canvas(el, {
+      scale: 1.8,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    });
+
+    const imgW = pageW - margin*2;
+    const imgH = canvas.height * imgW / canvas.width;
+    const pages = Math.ceil(imgH / (pageH - margin*2));
+
+    for(let p=0;p<pages;p++){
+      if(p>0) pdf.addPage();
+      const srcY = p * (canvas.height / pages);
+      const srcH = canvas.height / pages;
+
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = srcH;
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, -srcY);
+
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+      const printH = (srcH / canvas.height) * imgH;
+      pdf.addImage(imgData,'JPEG',margin, margin, imgW, printH);
+    }
+
+    const fname = `BESS-Report-${new Date().toISOString().slice(0,10)}.pdf`;
+    pdf.save(fname);
+  } catch(e){
+    console.error(e);
+    alert('PDF 匯出失敗，請確認瀏覽器允許下載。\n'+e.message);
+  }
+
+  btn.textContent = '⬇ 匯出 PDF 報告';
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════
+// RUN ALL
+// ═══════════════════════════════════════════════
+function runAll(){
+  onParamChange();
+  renderDegTable();
+  const activePanel = document.querySelector('.panel.active')?.id?.replace('panel-','');
+  const map = { dispatch:renderDispatch, revenue:renderRevenue, cashflow:renderCashflow, heatmap:renderHeatmap, tariff:renderTariff, report:renderReport };
+  if(map[activePanel]) map[activePanel]();
+  else { renderDispatch(); document.querySelector('[data-panel=dispatch]').click(); }
+}
+
+// ═══════════════════════════════════════════════
+// LOAD DATA — GLOBAL STORE
+// ═══════════════════════════════════════════════
+window.LOAD_DATA = null;
+
+// ═══════════════════════════════════════════════
+// REAL HOURLY LOAD RESOLVER
+// ═══════════════════════════════════════════════
+function getRealHourlyLoad(h, periodType, season, fallbackPeak, fallbackSemi, fallbackOff) {
+  const mode = (typeof document !== 'undefined' && document.getElementById('dispatchMode'))
+    ? vs('dispatchMode') : 'manual';
+
+  if (!window.LOAD_DATA || mode === 'manual') {
+    return periodType === 2 ? fallbackPeak : periodType === 1 ? fallbackSemi : fallbackOff;
+  }
+  const d = window.LOAD_DATA;
+
+  if (mode === 'singleDay') {
+    const sel = document.getElementById('dayPicker');
+    const key = sel ? sel.value : d.sortedDays[0];
+    const profile = d.dailyProfiles[key];
+    if (profile && profile[h] !== null) return profile[h];
+    // fallback to average if hour missing
+  }
+  if (mode === 'avgSeason') {
+    const profile = season === 'summer' ? d.summerHourlyAvg : d.nonSummerHourlyAvg;
+    return profile[h] || 0;
+  }
+  // avgAll (default)
+  return d.hourlyAvg[h] || 0;
+}
+
+// ── Dispatch mode UI helpers ──────────────────
+function onDispatchModeChange() {
+  const mode = vs('dispatchMode');
+  const wrap = document.getElementById('dayPickerWrap');
+  if (!wrap) return;
+  wrap.style.display = (mode === 'singleDay') ? 'flex' : 'none';
+  if (mode === 'singleDay') populateDayPicker();
+  renderDispatch();
+}
+
+function populateDayPicker() {
+  const sel = document.getElementById('dayPicker');
+  const modeEl = document.getElementById('dispatchMode');
+  // Disable/enable data-requiring options based on LOAD_DATA availability
+  if (modeEl) {
+    [...modeEl.options].forEach(o => {
+      if (o.value !== 'manual') o.disabled = !window.LOAD_DATA;
+    });
+  }
+  if (!sel || !window.LOAD_DATA) return;
+  const days = window.LOAD_DATA.sortedDays;
+  const DOW = ['日','一','二','三','四','五','六'];
+  sel.innerHTML = days.map(d => {
+    const dow = DOW[new Date(d).getDay()];
+    return `<option value="${d}">${d}（週${dow}）</option>`;
+  }).join('');
+  updateDayIndex(0, days.length);
+}
+
+function stepDay(delta) {
+  const sel = document.getElementById('dayPicker');
+  if (!sel || !window.LOAD_DATA) return;
+  const days = window.LOAD_DATA.sortedDays;
+  const idx  = days.indexOf(sel.value);
+  const next = Math.max(0, Math.min(days.length - 1, idx + delta));
+  sel.value  = days[next];
+  updateDayIndex(next, days.length);
+  renderDispatch();
+}
+
+function updateDayIndex(idx, total) {
+  const el = document.getElementById('dayIndex');
+  if (el) el.textContent = `第 ${idx + 1} / ${total} 天`;
+}
+
+function updateDayStats(key) {
+  const el = document.getElementById('dayStats');
+  if (!el || !window.LOAD_DATA) return;
+  const profile = window.LOAD_DATA.dailyProfiles[key];
+  if (!profile) return;
+  const valid  = profile.filter(x => x !== null);
+  if (!valid.length) return;
+  const maxKw  = Math.max(...valid).toFixed(0);
+  const avgKw  = (valid.reduce((s,x)=>s+x,0)/valid.length).toFixed(0);
+  const kwh    = valid.reduce((s,x)=>s+x,0).toFixed(0);
+  el.textContent = `峰值 ${maxKw} kW｜均值 ${avgKw} kW｜日用電 ≈${kwh} kWh`;
+  // Also update day index
+  const days = window.LOAD_DATA.sortedDays;
+  updateDayIndex(days.indexOf(key), days.length);
+}
+
+// ═══════════════════════════════════════════════
+// CSV PARSER
+// ═══════════════════════════════════════════════
+function parseLoadCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const records = [];
+  for (let i = 1; i < lines.length; i++) {        // skip header
+    const line = lines[i].trim();
+    if (!line) continue;
+    const comma = line.lastIndexOf(',');
+    if (comma < 0) continue;
+    const timeStr = line.slice(0, comma).trim();
+    const power   = parseFloat(line.slice(comma + 1).trim());
+    if (isNaN(power)) continue;
+
+    // Parse: "2025-1-1 00:15:00"  or  "2025-01-01 00:15:00"
+    const m = timeStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) continue;
+    const [, year, month, day, hStr, minStr] = m;
+    let hour = parseInt(hStr);
+    const min  = parseInt(minStr);
+
+    // Timestamps are END-of-interval: 01:00 = last 15min of hour 0
+    if (min === 0) { hour = (hour === 0) ? 23 : hour - 1; }
+
+    records.push({
+      year:  parseInt(year),
+      month: parseInt(month),
+      day:   parseInt(day),
+      hour,
+      power
+    });
+  }
+  return records;
+}
+
+// ═══════════════════════════════════════════════
+// DATA PROCESSOR
+// ═══════════════════════════════════════════════
+function processLoadData(records) {
+  if (!records.length) return null;
+
+  // -- Hourly aggregation (overall) --
+  const hourBuckets = Array.from({length:24}, () => []);
+  records.forEach(r => hourBuckets[r.hour].push(r.power));
+  const hourlyAvg = hourBuckets.map(b => b.length ? b.reduce((s,v)=>s+v,0)/b.length : 0);
+
+  // -- Summer / non-summer split --
+  const SUMMER_MONTHS = new Set([6,7,8,9]);
+  const sumBuckets  = Array.from({length:24}, () => []);
+  const nsBuckets   = Array.from({length:24}, () => []);
+  records.forEach(r => {
+    (SUMMER_MONTHS.has(r.month) ? sumBuckets : nsBuckets)[r.hour].push(r.power);
+  });
+  const summerHourlyAvg    = sumBuckets.map(b => b.length ? b.reduce((s,v)=>s+v,0)/b.length : 0);
+  const nonSummerHourlyAvg = nsBuckets.map(b => b.length ? b.reduce((s,v)=>s+v,0)/b.length : 0);
+
+  // -- Monthly stats --
+  const monthStats = {};
+  for (let mo = 1; mo <= 12; mo++) {
+    const recs = records.filter(r => r.month === mo);
+    if (!recs.length) continue;
+    const powers = recs.map(r => r.power);
+    const avg    = powers.reduce((s,v)=>s+v,0) / powers.length;
+    const peak   = Math.max(...powers);
+    // Off-peak hours for this month (use hv3 schedule)
+    const sched  = SUMMER_MONTHS.has(mo) ? SCHED.hv3_summer_weekday : SCHED.hv3_nonsummer_weekday;
+    const offRecs = recs.filter(r => sched[r.hour] === 0);
+    const offAvg  = offRecs.length ? offRecs.reduce((s,r)=>s+r.power,0)/offRecs.length : avg;
+    const kwh     = powers.reduce((s,v)=>s+v,0) * 0.25; // 15-min intervals → *0.25h
+    monthStats[mo] = { count:recs.length, avg:+avg.toFixed(1), peak:+peak.toFixed(1), offAvg:+offAvg.toFixed(1), kwh:+kwh.toFixed(0) };
+  }
+
+  // -- Global off-peak average (for contract calc) --
+  const currentSched = SCHED.hv3_nonsummer_weekday;
+  const offPeakRecs  = records.filter(r => currentSched[r.hour] === 0);
+  const offPeakAvg   = offPeakRecs.length ? offPeakRecs.reduce((s,r)=>s+r.power,0)/offPeakRecs.length : hourlyAvg.reduce((s,v)=>s+v,0)/24;
+
+  // -- Summer peak-hour average (DR capacity reference: hv3 summer peak h16-21) --
+  const SUMMER_PEAK_SET = new Set([16,17,18,19,20,21]);
+  const summerPeakRecs = records.filter(r => SUMMER_MONTHS.has(r.month) && SUMMER_PEAK_SET.has(r.hour));
+  const summerPeakAvg  = summerPeakRecs.length ? summerPeakRecs.reduce((s,r)=>s+r.power,0)/summerPeakRecs.length : 0;
+
+  // -- Overall stats --
+  const allPowers  = records.map(r => r.power);
+  const maxDemand  = Math.max(...allPowers);
+  const avgDemand  = allPowers.reduce((s,v)=>s+v,0) / allPowers.length;
+  const totalKwh   = allPowers.reduce((s,v)=>s+v,0) * 0.25;
+  const months     = [...new Set(records.map(r=>r.month))].sort((a,b)=>a-b);
+  const dateFirst  = records[0];
+  const dateLast   = records[records.length-1];
+
+  // -- Per-day profiles --
+  const dayMap = {};
+  records.forEach(r => {
+    const key = `${r.year}-${String(r.month).padStart(2,'0')}-${String(r.day).padStart(2,'0')}`;
+    if (!dayMap[key]) dayMap[key] = Array.from({length:24}, () => []);
+    dayMap[key][r.hour].push(r.power);
+  });
+  const dailyProfiles = {};
+  Object.keys(dayMap).sort().forEach(d => {
+    dailyProfiles[d] = dayMap[d].map(b => b.length ? b.reduce((s,v)=>s+v,0)/b.length : null);
+  });
+  const sortedDays = Object.keys(dailyProfiles);
+
+  return {
+    records, hourlyAvg, summerHourlyAvg, nonSummerHourlyAvg,
+    monthStats, offPeakAvg, summerPeakAvg: +summerPeakAvg.toFixed(1), dailyProfiles, sortedDays,
+    stats: { count:records.length, maxDemand:+maxDemand.toFixed(1), avgDemand:+avgDemand.toFixed(1), totalKwh:+totalKwh.toFixed(0), months },
+    dateRange: `${dateFirst.year}-${String(dateFirst.month).padStart(2,'0')}-${String(dateFirst.day).padStart(2,'0')} ～ ${dateLast.year}-${String(dateLast.month).padStart(2,'0')}-${String(dateLast.day).padStart(2,'0')}`
+  };
+}
+
+// ═══════════════════════════════════════════════
+// AUTO-FILL LOAD INPUTS FROM REAL DATA
+// ═══════════════════════════════════════════════
+function autoFillLoadInputs() {
+  if (!window.LOAD_DATA) return;
+  const d   = window.LOAD_DATA;
+  // 自動填入使用全年平均用電剖面（以非夏月時段定義分峰/半/離峰）
+  const sch = SCHED.hv3_nonsummer_weekday;
+  const profile = d.hourlyAvg;
+
+  const peakLoads = sch.map((p,h) => p===2 ? profile[h] : null).filter(v=>v!==null);
+  const semiLoads = sch.map((p,h) => p===1 ? profile[h] : null).filter(v=>v!==null);
+  const offLoads  = sch.map((p,h) => p===0 ? profile[h] : null).filter(v=>v!==null);
+
+  const avg = arr => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
+
+  // 用電基線輸入欄已移除；用電資料直接透過 LOAD_DATA 供調度模擬使用
+  const elPeak = document.getElementById('loadPeak');
+  const elSemi = document.getElementById('loadSemi');
+  const elOff  = document.getElementById('loadOff');
+  if(elPeak) elPeak.value = avg(peakLoads);
+  if(elSemi) elSemi.value = avg(semiLoads);
+  if(elOff)  elOff.value  = avg(offLoads);
+
+  // 自動填入平均月用電量
+  const months = d.stats.months || [];
+  const monthCount = months.length || 1;
+  const monthlyKwh = Math.round(d.stats.totalKwh / monthCount);
+  const elMonthly = document.getElementById('avgMonthlyKwh');
+  const hintEl    = document.getElementById('avgMonthlyKwhHint');
+  if(elMonthly) elMonthly.value = monthlyKwh;
+  if(hintEl) hintEl.textContent =
+    `依匯入資料計算：${monthCount} 個月總用電 ${Math.round(d.stats.totalKwh).toLocaleString()} kWh ÷ ${monthCount} 月`;
+
+  // 自動填入平均用電容量（全時段平均）
+  const allHourlyAvg = d.hourlyAvg || [];
+  const validVals = allHourlyAvg.filter(x => x > 0);
+  const avgKw = validVals.length ? Math.round(validVals.reduce((s,v)=>s+v,0)/validVals.length) : 0;
+  const elAvgLoad = document.getElementById('avgLoadKw');
+  const hintAvgLoad = document.getElementById('avgLoadKwHint');
+  if(elAvgLoad && avgKw > 0) elAvgLoad.value = avgKw;
+  if(hintAvgLoad && avgKw > 0) hintAvgLoad.textContent =
+    `依匯入資料計算：全時段平均 ${avgKw} kW（調度模式選「匯入資料」時，以實際剖面優先）`;
+
+  onParamChange();
+}
+
+// ── 依硬體規格計算 DR 申報容量建議值 ─────────────────────────
+// 公式：min(PCS, 電池容量 × DoD × RTE ÷ 時槽小時數)，取整至 50kW
+function calcDRCapSuggestion() {
+  const slotH  = parseInt(document.getElementById('drSlot')?.value || '2');
+  const pcs    = v('pcskW')   || 0;
+  const batt   = v('battKwh') || 0;
+  const dod    = (v('dod')    || 90) / 100;
+  const rte    = (v('rte')    || 90) / 100;
+  if (pcs <= 0 || batt <= 0) return null;
+  const byEnergy  = (batt * dod * rte) / slotH;
+  const raw       = Math.min(pcs, byEnergy);
+  const suggested = Math.max(50, Math.round(raw / 50) * 50);
+  return { suggested, pcs, batt, dod, rte, slotH, byEnergy: +byEnergy.toFixed(0) };
+}
+
+// 只更新 hint，不覆蓋輸入框（使用者可自由調整數字）
+function suggestDRCap() {
+  const res    = calcDRCapSuggestion();
+  const hintEl = document.getElementById('drCapHint');
+  if (!res || !hintEl) return;
+  hintEl.innerHTML =
+    `${res.batt} kWh × DoD ${(res.dod*100).toFixed(0)}% × RTE ${(res.rte*100).toFixed(0)}% ÷ ${res.slotH}h = ${res.byEnergy} kW` +
+    `（PCS上限 ${res.pcs} kW）→ 建議 <b style="color:var(--accent)">${res.suggested} kW</b>` +
+    ` <a href="#" onclick="applyDRCapSuggestion(${res.suggested});return false"` +
+    ` style="margin-left:6px;color:var(--accent);font-size:11px;text-decoration:underline">套用</a>`;
+}
+
+function applyDRCapSuggestion(val) {
+  const el = document.getElementById('drCap');
+  if (el) { el.value = val; onDRSchemeChange(); }
+}
+
+// 供 CSV 匯入後呼叫：第一次匯入自動套用建議值
+function suggestDRCapOnImport() {
+  const res = calcDRCapSuggestion();
+  if (res) applyDRCapSuggestion(res.suggested);
+  suggestDRCap();
+  onDRSchemeChange();
+}
+
+// ═══════════════════════════════════════════════
+// UPDATE IMPORT STATUS BADGE (PARAMS PANEL)
+// ═══════════════════════════════════════════════
+function updateImportStatusBadge() {
+  const el  = document.getElementById('paramsImportStatus');
+  const nav = document.getElementById('navImportBadge');
+  if (!window.LOAD_DATA) {
+    el.innerHTML = '';
+    nav.style.display = 'none';
+    return;
+  }
+  const d = window.LOAD_DATA;
+  nav.style.display = 'inline-block';
+  const fnames = d._filenames || [];
+  const fileTag = fnames.length > 1
+    ? `<span class="load-src-badge lsb-real">${fnames.length} 個檔案</span>`
+    : `<span class="load-src-badge lsb-real">REAL DATA</span>`;
+  const fileList = fnames.length > 1
+    ? `<div style="font-size:10px;color:var(--text2);margin-top:3px">${fnames.join('　')}</div>`
+    : '';
+  el.innerHTML = `
+    <div class="load-status">
+      <span class="ls-icon">✅</span>
+      <div class="ls-info">
+        <div class="ls-title">已載入實際用電資料 — 共 ${d.sortedDays.length} 天 ${fileTag}</div>
+        <div class="ls-meta">${d.dateRange}　${d.stats.count.toLocaleString()} 筆　峰值 ${d.stats.maxDemand} kW　年用電 ${(d.stats.totalKwh/10000).toFixed(1)} 萬kWh</div>
+        ${fileList}
+      </div>
+      <button class="ls-clear" onclick="clearLoadData()" title="清除匯入資料">✕</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// FILE INPUT HANDLERS  (支援多檔案 / 多資料夾)
+// ═══════════════════════════════════════════════
+
+function setUzTitle(msg) {
+  const el = document.getElementById('uzTitle');
+  if (el) el.textContent = msg;
+}
+
+function clearLoadData() {
+  window._accumRecords = [];
+  window.LOAD_DATA = null;
+  setUzTitle('拖曳 CSV 檔案或資料夾至此，或使用下方按鈕選取');
+  const accum = document.getElementById('uzAccum');
+  if (accum) accum.textContent = '';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('importStatusBadge').innerHTML = '';
+}
+
+// Recursively collect all CSV File objects from a FileSystemEntry
+function collectFromEntry(entry) {
+  return new Promise(resolve => {
+    if (entry.isFile) {
+      if (entry.name.toLowerCase().endsWith('.csv')) {
+        entry.file(f => resolve([f]), () => resolve([]));
+      } else {
+        resolve([]);
+      }
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const allFiles = [];
+      function readBatch() {
+        reader.readEntries(async entries => {
+          if (!entries.length) { resolve(allFiles); return; }
+          for (const child of entries) {
+            const sub = await collectFromEntry(child);
+            allFiles.push(...sub);
+          }
+          readBatch();
+        }, () => resolve(allFiles));
+      }
+      readBatch();
+    } else {
+      resolve([]);
+    }
+  });
+}
+
+async function onFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const items = e.dataTransfer.items;
+  let files = [];
+  if (items && items.length) {
+    const promises = [];
+    for (const item of items) {
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry) {
+        promises.push(collectFromEntry(entry));
+      } else if (item.kind === 'file') {
+        const f = item.getAsFile();
+        if (f && f.name.toLowerCase().endsWith('.csv')) files.push(f);
+      }
+    }
+    const arrays = await Promise.all(promises);
+    arrays.forEach(a => files.push(...a));
+  } else {
+    files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  }
+  if (files.length) handleFiles(files);
+}
+
+function onFileSelect(e) {
+  const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  e.target.value = '';
+  if (files.length) handleFiles(files);
+}
+
+async function onFolderSelect(e) {
+  const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  e.target.value = '';
+  if (files.length) handleFiles(files);
+}
+
+// Read a single File as text (Promise)
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = e => resolve(e.target.result);
+    r.onerror = () => reject(new Error('讀取失敗：' + file.name));
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+async function handleFiles(files) {
+  if (!window._accumRecords) window._accumRecords = [];
+
+  setUzTitle(files.length > 1 ? `⏳ 解析 ${files.length} 個檔案中…` : '⏳ 解析中…');
+
+  const goodNames = [];
+  const failNames = [];
+  let newRecs = [];
+
+  for (const file of files) {
+    try {
+      const text = await readFileText(file);
+      const recs = parseLoadCSV(text);
+      if (recs.length >= 10) {
+        newRecs = newRecs.concat(recs);
+        goodNames.push(file.name);
+      } else {
+        failNames.push(file.name);
+      }
+    } catch(err) {
+      failNames.push(file.name + '（' + err.message + '）');
+    }
+  }
+
+  if (newRecs.length < 10 && goodNames.length === 0) {
+    alert('所有 CSV 解析失敗或資料不足，請確認格式。\n' + failNames.join('\n'));
+    if (!window._accumRecords.length)
+      setUzTitle('拖曳 CSV 檔案或資料夾至此，或使用下方按鈕選取');
+    return;
+  }
+
+  // Accumulate
+  window._accumRecords = window._accumRecords.concat(newRecs);
+  const allRecords = window._accumRecords;
+
+  window.LOAD_DATA = processLoadData(allRecords);
+  window.LOAD_DATA._filenames = goodNames;
+
+  const totalDays = window.LOAD_DATA.sortedDays.length;
+  setUzTitle(`✅ 已載入 ${goodNames.length} 個檔案｜${newRecs.length.toLocaleString()} 筆新增資料`
+    + (failNames.length ? `　⚠ ${failNames.length} 個跳過` : ''));
+
+  // Show cumulative totals in accum bar
+  const accumEl = document.getElementById('uzAccum');
+  if (accumEl)
+    accumEl.textContent = `📊 累計：${allRecords.length.toLocaleString()} 筆資料｜共 ${totalDays} 天（可繼續疊加匯入）`;
+
+  autoFillLoadInputs();
+  suggestDRCapOnImport();
+  updateImportStatusBadge();
+  populateDayPicker();
+  const modeEl = document.getElementById('dispatchMode');
+  if (modeEl && (modeEl.value === 'manual' || !modeEl.value)) modeEl.value = 'avgAll';
+  renderLoadImport();
+}
+
+// ═══════════════════════════════════════════════
+// RENDER LOAD IMPORT PANEL
+// ═══════════════════════════════════════════════
+function renderLoadImport() {
+  const d = window.LOAD_DATA;
+  if (!d) return;
+
+  // Status badge
+  const fnames = d._filenames || [];
+  document.getElementById('importStatusBadge').innerHTML =
+    `<span class="badge badge-green">✅ ${d.stats.count.toLocaleString()} 筆資料</span>
+     <span class="badge badge-blue">${d.sortedDays.length} 天</span>
+     <span class="badge badge-orange">${fnames.length} 個檔案</span>
+     <span class="badge" style="background:rgba(48,54,61,.4);color:var(--text2)">${d.dateRange}</span>`;
+
+  // Summary stats
+  document.getElementById('importSummaryStats').innerHTML =
+    stat('匯入天數', d.sortedDays.length + ' 天', fnames.length + ' 個 CSV 檔案', 'blue') +
+    stat('資料筆數', d.stats.count.toLocaleString(), '15分鐘間距', '') +
+    stat('峰值需量', d.stats.maxDemand + ' kW', '最高單點記錄', 'red') +
+    stat('平均需量', d.stats.avgDemand.toFixed(1) + ' kW', '全資料集平均', 'orange') +
+    stat('離峰均值', d.offPeakAvg.toFixed(1) + ' kW', '充電參考基線', 'green') +
+    stat('年用電量', (d.stats.totalKwh/10000).toFixed(1) + ' 萬 kWh', '估算值', '');
+
+  document.getElementById('importResult').style.display = 'block';
+
+  const labels24 = Array.from({length:24}, (_,h) => `${String(h).padStart(2,'0')}:00`);
+
+  // Background bands for import charts (use non-summer schedule as reference)
+  const importBandsSummer  = makeBands(SCHED.hv3_summer_weekday);
+  const importBandsNonSum  = makeBands(SCHED.hv3_nonsummer_weekday);
+  // Use a mixed average: roughly half summer half non-summer
+  // For the "all-year" chart use non-summer as dominant pattern
+  const importBandsAll     = makeBands(SCHED.hv3_nonsummer_weekday);
+
+  // 24H load profile chart
+  dc('loadProfile');
+  charts['loadProfile'] = new Chart(document.getElementById('chartLoadProfile').getContext('2d'), {
+    type: 'line',
+    plugins: [bgBandPlugin],
+    data: { labels: labels24, datasets: [
+      { label:'全年平均',   data: d.hourlyAvg,          borderColor:'#8b949e', borderDash:[4,3], fill:false, tension:.4, pointRadius:2, borderWidth:1.5 },
+      { label:'夏月平均',   data: d.summerHourlyAvg,    borderColor:'#f78166', fill:false, tension:.4, pointRadius:2, borderWidth:2 },
+      { label:'非夏月平均', data: d.nonSummerHourlyAvg, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.06)', tension:.4, pointRadius:2, borderWidth:2 },
+    ]},
+    options: { responsive:true, interaction:{mode:'index'},
+      plugins:{ legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:11}}}, bgBands:{bands: importBandsAll} },
+      scales:{ x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(48,54,61,.4)'}}, y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}} } }
+  });
+
+  // Monthly peak chart
+  const presentMonths = Object.keys(d.monthStats).map(Number).sort((a,b)=>a-b);
+  dc('monthPeak');
+  charts['monthPeak'] = new Chart(document.getElementById('chartMonthPeak').getContext('2d'), {
+    type: 'bar',
+    data: { labels: presentMonths.map(m => MONTHS[m-1]),
+      datasets: [
+        { label:'月峰值需量(kW)', data: presentMonths.map(m=>d.monthStats[m].peak),    backgroundColor: presentMonths.map(m=>IS_SUMMER[m-1]?'rgba(247,129,102,.7)':'rgba(88,166,255,.7)'), borderRadius:3 },
+        { label:'月平均需量(kW)', data: presentMonths.map(m=>d.monthStats[m].avg),     backgroundColor:'rgba(63,185,80,.5)', borderRadius:3 },
+      ]},
+    options:{ responsive:true, plugins:{legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:10}}}}, scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}}} }
+  });
+
+  // Season load comparison
+  dc('seasonLoad');
+  charts['seasonLoad'] = new Chart(document.getElementById('chartSeasonLoad').getContext('2d'), {
+    type: 'line',
+    plugins: [bgBandPlugin],
+    data: { labels: labels24, datasets: [
+      { label:'夏月(6~9月)', data: d.summerHourlyAvg,    borderColor:'#f78166', fill:true, backgroundColor:'rgba(247,129,102,.08)', tension:.4, pointRadius:0 },
+      { label:'非夏月',      data: d.nonSummerHourlyAvg, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.08)',  tension:.4, pointRadius:0 },
+    ]},
+    options:{ responsive:true,
+      plugins:{ legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:10}}}, bgBands:{bands: importBandsSummer} },
+      scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(48,54,61,.3)'}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}}} }
+  });
+
+  // Monthly stats table
+  document.querySelector('#tblImportStats tbody').innerHTML = presentMonths.map(m => {
+    const ms = d.monthStats[m];
+    return `<tr>
+      <td>${MONTHS[m-1]}</td>
+      <td>${ms.count.toLocaleString()}</td>
+      <td>${ms.avg}</td>
+      <td style="color:var(--red);font-weight:600">${ms.peak}</td>
+      <td>${ms.offAvg}</td>
+      <td>${(ms.kwh/10000).toFixed(2)} 萬</td>
+      <td><span class="badge ${IS_SUMMER[m-1]?'badge-orange':'badge-blue'}">${IS_SUMMER[m-1]?'夏月':'非夏月'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// STRATEGY PANEL HELPERS
+// ═══════════════════════════════════════════════
+
+function updateSpinPreview(){
+  const el = document.getElementById('spinCalcPreview');
+  if(!el) return;
+  const cap    = v('spinRatio') || 0;        // kW（直接輸入）
+  const addonMap = {1:100, 3:60, 5:40};
+  const addon  = addonMap[vi('spinResponseTime')] || 60;
+  const rate   = v('spinCeilingPrice') + addon;  // NT$/MW/h
+  const hrs    = v('spinDays') * v('spinDailyHours');
+  const capRev    = (cap/1000) * rate * hrs;
+  const energyRev = cap * v('spinDispatch') * (v('spinDispatchPrice') || 10);
+  const total  = (capRev + energyRev) / 10000;
+  const dailyHrs  = v('spinDailyHours');
+  const dailyRev  = (cap/1000) * rate * dailyHrs;  // NT$/天
+  el.innerHTML = `
+    <b style="color:var(--orange)">⚡ 即時備轉年收益試算（第1年）</b><br>
+    公式：<b>${f(cap,0)}kW</b> ÷ 1000 × <b>（得標${v('spinCeilingPrice')} ＋ 加成${addon}）= ${rate} NT$/MW·h</b> × <b>${dailyHrs}h</b>
+    ＝ 一天待命 <b style="color:var(--orange)">NT$ ${f0(dailyRev)}</b>　×　<b>${v('spinDays')}天</b><br>
+    容量待命費：<b>${fw(capRev/10000,1)}</b>　＋　電能調度費（${f(cap,0)}kW × ${v('spinDispatch')}h × ${v('spinDispatchPrice')||10}元）：<b>${fw(energyRev/10000,1)}</b>　＝
+    <span style="color:var(--orange);font-size:14px;font-weight:800">年收益 ${fw(total,1)}</span>
+    <span style="color:var(--text2)">（≈ ${cap>0?f(total/cap*1000,1):'—'} 萬/MW）</span>`;
+}
+
+function updateSuppPreview(){
+  const el = document.getElementById('suppCalcPreview');
+  if(!el) return;
+  const enabled = document.getElementById('suppEnabled')?.checked;
+  if(!enabled){ el.innerHTML = `<span style="color:var(--text2)">補充備轉未啟用，如需加入此收益來源請勾選上方選項</span>`; return; }
+  const pcskW = v('pcskW') || 500;
+  const cap   = pcskW * v('suppRatio')/100;
+  const hrs   = v('suppDays') * v('suppDailyHours');
+  const total = (cap/1000) * v('suppCeilingPrice') * hrs / 10000;
+  el.innerHTML = `
+    <b style="color:var(--purple)">⚡ 補充備轉年收益試算（第1年）</b><br>
+    參與容量 <b>${f(cap,0)} kW</b>｜
+    費率 <b>${v('suppCeilingPrice')} NT$/MW·h</b>｜
+    年可售時數 <b>${f0(hrs)} h</b>（${v('suppDays')}天 × ${v('suppDailyHours')}h）<br>
+    <span style="color:var(--purple);font-size:14px;font-weight:800">年收益 ${fw(total,1)}</span>
+    <span style="color:var(--text2)">（≈ ${f(total/cap*1000,1)} 萬/MW）</span>`;
+}
+
+// ═══════════════════════════════════════════════
+// ANNUAL GRID DAY TOOLTIP
+// ═══════════════════════════════════════════════
+function closeGridTooltip(){
+  const t = document.getElementById('gridTooltip');
+  if(t) t.style.display = 'none';
+}
+
+function showDayTooltip(e, info){
+  e.stopPropagation();
+  const [date, type, touStr, chgStr, disStr, spinStr, suppStr, drStr] = info.split('|');
+  const touNT  = parseInt(touStr);
+  const chgKwh = parseFloat(chgStr);
+  const disKwh = parseFloat(disStr);
+  const spinNT = parseInt(spinStr);
+  const suppNT = parseInt(suppStr);
+  const drNT   = parseInt(drStr);
+  const isWknd = type === 'weekend';
+  const isSumm = type === 'summer';
+
+  const vppRate   = v('vppPct') / 100;
+  const opexDayNT = Math.round(v('opex') * 10000 / 365);
+  const grossNT   = touNT + spinNT + suppNT + drNT;
+  const vppFeeNT  = Math.round(grossNT * vppRate);
+  const netNT     = grossNT - vppFeeNT - opexDayNT;
+  const efficiency= chgKwh > 0 ? Math.round(disKwh / chgKwh * 100) : 0;
+  const weekdays  = ['日','一','二','三','四','五','六'];
+  const yr = 2026;
+  const [mm, dd] = date.split('/').map(Number);
+  const dow = new Date(yr, mm-1, dd).getDay();
+  const typeLabel = isWknd ? `週${weekdays[dow]}（週末/假日）` : (isSumm ? `週${weekdays[dow]}・🌞 夏月平日` : `週${weekdays[dow]}・❄ 非夏月平日`);
+
+  const fmt  = n => Math.abs(n) >= 10000
+    ? (n/10000).toFixed(1) + '萬'
+    : n.toLocaleString();
+  const fmtRaw = n => n.toLocaleString();
+  const row = (icon, label, val, color='var(--text)', bg='rgba(11,122,79,.06)') =>
+    `<div class="tt-row" style="background:${bg}">
+       <span style="color:var(--text2)">${icon} ${label}</span>
+       <span style="font-weight:700;color:${color}">NT$${fmtRaw(val)}</span>
+     </div>`;
+
+  let body = `
+    <div style="font-weight:700;font-size:13px;margin-bottom:2px">📅 ${yr}年 ${date}</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">${typeLabel}</div>`;
+
+  if(isWknd){
+    body += `<div style="color:var(--text2);padding:8px 0;font-size:12px">週末 / 假日不執行 TOU 充放電</div>`;
+  } else {
+    body += row('⚡','TOU 電價套利', touNT, 'var(--accent)', 'rgba(11,122,79,.07)');
+    body += `<div style="display:flex;gap:10px;font-size:11px;color:var(--text2);padding:2px 6px 6px">
+      <span>🔋 充電 <b>${chgKwh}</b> kWh</span>
+      <span>⚡ 放電 <b>${disKwh}</b> kWh</span>
+      <span style="color:${efficiency>=70?'var(--green)':'var(--orange)'}">RTE ${efficiency}%</span>
+    </div>`;
+  }
+
+  if(spinNT > 0)  body += row('📡','即時備轉（日均）', spinNT, 'var(--purple)', 'rgba(109,59,191,.07)');
+  if(suppNT > 0)  body += row('📡','補充備轉（日均）', suppNT, 'var(--purple)', 'rgba(109,59,191,.07)');
+  if(drNT   > 0)  body += row('📊','需量反應（日均）', drNT,   'var(--orange)', 'rgba(194,114,10,.07)');
+
+  body += `<div style="border-top:1px solid var(--border);margin:8px 0 6px"></div>`;
+  if(vppRate > 0)
+    body += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
+      <span>VPP 抽成 (${v('vppPct')}%)</span><span>−NT$${fmtRaw(vppFeeNT)}</span></div>`;
+  body += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px">
+    <span>OPEX 日均攤</span><span>−NT$${fmtRaw(opexDayNT)}</span></div>`;
+  body += `<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;
+    color:${netNT>=0?'var(--green)':'var(--red)'}">
+    <span>💰 單日淨收益</span>
+    <span>${netNT>=0?'+':''}NT$${fmtRaw(netNT)}</span>
+  </div>`;
+
+  document.getElementById('gridTooltipBody').innerHTML = body;
+  const tt = document.getElementById('gridTooltip');
+  tt.style.display = 'block';
+
+  // Smart positioning — keep within viewport
+  const TW = 296, TH = tt.offsetHeight || 260;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if(x + TW > vw - 8)  x = e.clientX - TW - 14;
+  if(y + TH > vh - 8)  y = e.clientY - TH - 14;
+  tt.style.left = Math.max(8, x) + 'px';
+  tt.style.top  = Math.max(8, y) + 'px';
+}
+
+// Close tooltip on outside click
+document.addEventListener('click', function(e){
+  if(!e.target.classList.contains('grid-dot')){
+    closeGridTooltip();
+  }
+});
+
+// 兩充兩放 checkbox change handler
+function onNsDoubleChange(){
+  const cb = document.getElementById('nsDoubleCheckbox');
+  const hidden = document.getElementById('cycles');
+  if(hidden) hidden.value = cb && cb.checked ? '2c2d_ns' : '1c1d';
+  onCyclesChange();
+  onParamChange();
+}
+
+function onCyclesChange(){
+  const val = vs('cycles');
+  const hintEl    = document.getElementById('cyclesHint');
+  const previewEl = document.getElementById('touStrategyPreview');
+  const cb        = document.getElementById('nsDoubleCheckbox');
+  const cbWrap    = document.getElementById('nsDoubleLabelWrap');
+
+  // Sync checkbox to reflect current cycles value (e.g. when loading from save)
+  if(cb) cb.checked = (val === '2c2d_ns');
+
+  if(val === '2c2d_ns'){
+    const supports = tariffSupports2C2D();
+    const tariffName = ({hv3:'高壓三段式(HV3)', hv2:'高壓二段式(HV2)', ehv3:'特高壓三段式(EHV3)', ehv2:'特高壓二段式(EHV2)'})[vs('tariffType')] || vs('tariffType');
+
+    if(hintEl) hintEl.textContent = supports
+      ? '❄ 非夏月已啟用兩充兩放：00-06充① → 06-11放① → 11-14充② → 14-24放②'
+      : `❄ ${tariffName} 非夏月午間為半尖峰，系統已自動切換為「智慧型單充跨峰放電」策略`;
+    if(cbWrap){ cbWrap.style.borderColor='var(--purple)'; cbWrap.style.background='rgba(109,59,191,.12)'; }
+    if(previewEl){
+      previewEl.style.display = 'block';
+
+      if(supports){
+        // hv3/hv2/ehv2 — 真正的兩充兩放（非夏月 11-14h 為離峰）
+        const r = T[vs('tariffType')]['nonsummer'];
+        previewEl.innerHTML = `
+          <div style="font-weight:700;margin-bottom:8px;color:var(--purple)">⚡ 兩充兩放策略（${tariffName}，非夏月午間為離峰）</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:12px">
+            <div style="background:rgba(88,166,255,.14);border:1px solid rgba(88,166,255,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--accent)">充電 ①</div>
+              <div style="font-size:13px;margin:4px 0">00:00–06:00</div>
+              <div style="color:var(--text2);font-size:11px">離峰 NT$${r.off}/kWh</div>
+            </div>
+            <div style="background:rgba(247,129,102,.14);border:1px solid rgba(247,129,102,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--orange)">放電 ①</div>
+              <div style="font-size:13px;margin:4px 0">06:00–11:00</div>
+              <div style="color:var(--text2);font-size:11px">尖峰 NT$${r.peak}/kWh</div>
+            </div>
+            <div style="background:rgba(88,166,255,.14);border:1px solid rgba(88,166,255,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--accent)">充電 ②</div>
+              <div style="font-size:13px;margin:4px 0">11:00–14:00</div>
+              <div style="color:var(--text2);font-size:11px">離峰 NT$${r.off}/kWh ✓</div>
+            </div>
+            <div style="background:rgba(247,129,102,.14);border:1px solid rgba(247,129,102,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--orange)">放電 ②</div>
+              <div style="font-size:13px;margin:4px 0">14:00–24:00</div>
+              <div style="color:var(--text2);font-size:11px">尖峰 NT$${r.peak}/kWh</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:6px 12px;background:rgba(11,122,79,.06);border-radius:6px;color:var(--text2);font-size:11px">
+            套利差價：充電 NT$${r.off} → 放電 NT$${r.peak}，展差 NT$${(r.peak-r.off).toFixed(2)}/kWh × 2 循環
+          </div>`;
+      } else {
+        // ehv3 — 非夏月 11-14h 為半尖峰(4.86)，自動退化為智慧型單充跨峰放電
+        const r = T[vs('tariffType')]['nonsummer'];
+        const spread = r.peak - r.off;
+        previewEl.innerHTML = `
+          <div style="font-weight:700;margin-bottom:6px;color:var(--orange)">⚠ 智慧退化：${tariffName} 非夏月午間為半尖峰，兩充兩放不划算</div>
+          <div style="padding:8px 12px;background:rgba(194,114,10,.06);border:1px solid rgba(194,114,10,.25);border-radius:8px;font-size:12px;margin-bottom:8px">
+            <b>原因：</b>${tariffName} 非夏月 11-14時 = 半尖峰 NT$${r.semi}/kWh（非離峰）<br>
+            午間充電成本 NT$${r.semi}/kWh，充進去再放電只賺 NT$${(r.peak-r.semi).toFixed(2)}/kWh，扣除 RTE 損耗後虧錢<br>
+            <b>已自動切換為「單充跨峰放電」策略，效益更高</b>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px">
+            <div style="background:rgba(88,166,255,.14);border:1px solid rgba(88,166,255,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--accent)">充電</div>
+              <div style="font-size:12px;margin:4px 0">00:00–06:00</div>
+              <div style="color:var(--text2);font-size:11px">離峰 NT$${r.off}/kWh<br>全容量充滿</div>
+            </div>
+            <div style="background:rgba(247,129,102,.14);border:1px solid rgba(247,129,102,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--orange)">放電 ①</div>
+              <div style="font-size:12px;margin:4px 0">06:00–11:00</div>
+              <div style="color:var(--text2);font-size:11px">尖峰 NT$${r.peak}/kWh</div>
+            </div>
+            <div style="background:rgba(247,129,102,.14);border:1px solid rgba(247,129,102,.3);border-radius:7px;padding:8px 10px;text-align:center">
+              <div style="font-weight:700;color:var(--orange)">放電 ②</div>
+              <div style="font-size:12px;margin:4px 0">14:00–24:00</div>
+              <div style="color:var(--text2);font-size:11px">尖峰 NT$${r.peak}/kWh</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:6px 12px;background:rgba(11,122,79,.06);border-radius:6px;color:var(--text2);font-size:11px">
+            套利差價：NT$${r.off} → NT$${r.peak}，展差 NT$${spread.toFixed(2)}/kWh × 全容量單循環
+          </div>`;
+      }
+    }
+  } else {
+    if(hintEl)  hintEl.textContent = '非夏月採單循環：離峰充電、尖峰放電';
+    if(cbWrap){ cbWrap.style.borderColor=''; cbWrap.style.background=''; }
+    if(previewEl) previewEl.style.display = 'none';
+  }
+}
+
+function getDRDeductionRatio(execRate){
+  if(execRate <  60) return 0;
+  if(execRate <  80) return 0.80;
+  if(execRate <  95) return 1.00;
+  return 1.20;
+}
+
+function onDRSchemeChange(){
+  // 勾選開關：未勾則隱藏主體 & 不計算
+  const enabled = document.getElementById('drEnabled')?.checked !== false;
+  const bodyEl  = document.getElementById('drBody');
+  const prevEl  = document.getElementById('drCalcPreview');
+  if(bodyEl) bodyEl.style.display = enabled ? '' : 'none';
+  if(!enabled){ if(prevEl) prevEl.style.display = 'none'; onParamChange(); return; }
+
+  const scheme = vs('drScheme');
+  const descEl  = document.getElementById('drSchemeDesc');
+  const dynEl   = document.getElementById('drDynamicFields');
+  const capHint = document.getElementById('drCapHint');
+
+  const descMap = {
+    none:          '',
+    simple:        `<div class="alert alert-info" style="margin-bottom:0">📋 <b>簡易型需量反應</b>｜適用期間：<b>5/1~10/31</b>（夏月平日）｜夏月每天尖峰時段必須申報抑低容量｜申報最低量：契約容量25%或50kW（取大值）</div>`,
+    immediate:     `<div class="alert alert-info" style="margin-bottom:0">📋 <b>即時性需量反應</b>｜全年平日每天申報｜時槽 2/4/6h｜費率 2.47/1.84/1.69 NT$/kWh｜最低申報量 20kW</div>`,
+    capacityService:`<div class="alert alert-info" style="margin-bottom:0">📋 <b>即時備轉容量服務</b>｜全年平日 13:00~22:00 每天申報｜提前通知 30分→93、1h→96、2h→78 NT$/kWh｜最低申報量 1,000kW 或契約容量15%</div>`,
+  };
+
+  const dynMap = {
+    none: '',
+    simple: `
+      <div class="fi">
+        <label>時槽長度（每次申報）</label>
+        <select id="drSlot" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
+          <option value="2" selected>2 小時（費率 2.47 NT$/kWh）</option>
+          <option value="4">4 小時（費率 1.84 NT$/kWh）</option>
+          <option value="6">6 小時（費率 1.69 NT$/kWh）</option>
+        </select>
+        <span class="hint">時槽越短費率越高，6h 時段涵蓋完整尖峰</span>
+      </div>`,
+    immediate: `
+      <div class="fi">
+        <label>時槽長度（每次申報）</label>
+        <select id="drSlot" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
+          <option value="2" selected>2 小時（NT$2.47/kWh）</option>
+          <option value="4">4 小時（NT$1.84/kWh）</option>
+          <option value="6">6 小時（NT$1.69/kWh）</option>
+        </select>
+        <span class="hint">時槽越短，費率越高</span>
+      </div>`,
+    capacityService: `
+      <div class="fi">
+        <label>提前通知時距</label>
+        <select id="drNotifTime" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
+          <option value="0.5">30 分鐘（NT$93/kWh）</option>
+          <option value="1" selected>1 小時（NT$96/kWh，含輔助12）</option>
+          <option value="2">2 小時（NT$78/kWh）</option>
+        </select>
+        <span class="hint">提前越短費率越高，但電網較少使用此檔</span>
+      </div>
+      <div class="fi">
+        <label>每次事件時長（小時）</label>
+        <select id="drEventDuration" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
+          <option value="2" selected>2 小時</option>
+          <option value="3">3 小時</option>
+          <option value="4">4 小時</option>
+        </select>
+      </div>`,
+  };
+
+  const hintMap = {
+    none: '需量反應申報容量',
+    simple: '最低：max(契約容量×25%, 50kW)',
+    immediate: '最低申報量：20kW',
+    capacityService: '最低：max(1,000kW, 契約容量×15%)',
+  };
+
+  if(descEl)  descEl.innerHTML  = descMap[scheme] || '';
+  // 保留現有時槽選擇，避免 innerHTML 重建時重置
+  const prevSlot     = document.getElementById('drSlot')?.value;
+  const prevNotif    = document.getElementById('drNotifTime')?.value;
+  const prevDuration = document.getElementById('drEventDuration')?.value;
+  if(dynEl)   dynEl.innerHTML   = dynMap[scheme]  || '';
+  if(prevSlot     && document.getElementById('drSlot'))          document.getElementById('drSlot').value          = prevSlot;
+  if(prevNotif    && document.getElementById('drNotifTime'))      document.getElementById('drNotifTime').value      = prevNotif;
+  if(prevDuration && document.getElementById('drEventDuration')) document.getElementById('drEventDuration').value  = prevDuration;
+  if(capHint) capHint.textContent = hintMap[scheme] || '';
+
+  // 重新計算建議申報容量（時槽或方案改變時同步更新）
+  suggestDRCap();
+
+  // Calc preview — 以「每天必申報」為基準，不使用次數
+  if(!prevEl) return;
+  if(scheme === 'none'){ prevEl.style.display='none'; return; }
+  prevEl.style.display='block';
+  const cap      = v('drCap');
+  const sumDays  = v('touDaysSummer')    || 105;
+  const nsDays   = v('touDaysNonSummer') || 140;
+  let rev = 0, dailyRev = 0, days = 0, descTxt = '';
+
+  if(scheme === 'simple'){
+    const slotH = vi('drSlot') || 2;
+    const rateMap = {2:2.47, 4:1.84, 6:1.69};
+    const rate = rateMap[slotH] || 2.47;
+    days = sumDays;
+    dailyRev = cap * rate * slotH;
+    rev = dailyRev * days / 10000;
+    descTxt = `${cap}kW × ${rate}NT$/kWh × ${slotH}h × ${days}天（夏月平日每天）`;
+  } else if(scheme === 'immediate'){
+    const slotH = vi('drSlot') || 2;
+    const rateMap = {2:2.47, 4:1.84, 6:1.69};
+    const rate = rateMap[slotH] || 2.47;
+    days = sumDays + nsDays;
+    dailyRev = cap * rate * slotH;
+    rev = dailyRev * days / 10000;
+    descTxt = `${cap}kW × ${rate}NT$/kWh × ${slotH}h × ${days}天（全年平日每天）`;
+  } else if(scheme === 'capacityService'){
+    const notifMap = {'0.5':93,'1':96,'2':78};
+    const rate = notifMap[vs('drNotifTime')||'1'] || 96;
+    const dur  = vi('drEventDuration') || 2;
+    days = sumDays + nsDays;
+    dailyRev = cap * rate * dur;
+    rev = dailyRev * days / 10000;
+    descTxt = `${cap}kW × ${rate}NT$/kWh × ${dur}h × ${days}天（全年平日每天）`;
+  }
+  // 執行率扣減
+  const execRate = v('drExecRate') ?? 90;
+  const deduct   = getDRDeductionRatio(execRate);
+  const revNet   = rev * deduct;
+  const deductLabelMap = {0:'0%（未達標，無收益）', 0.8:'80%', 1:'100%（全額）', 1.2:'120%（超額獎勵）'};
+  const deductLabel = deductLabelMap[deduct] ?? (deduct*100).toFixed(0)+'%';
+  const hintClr = deduct === 0 ? '#c0392b' : deduct === 1.2 ? '#16a34a' : 'var(--text)';
+
+  // 更新執行率說明
+  const hintEl = document.getElementById('drExecRateHint');
+  if(hintEl) hintEl.innerHTML = `▶ 執行率 <b>${execRate}%</b> → 扣減比率 <b style="color:${hintClr}">${deductLabel}</b>`;
+
+  prevEl.innerHTML = `<b style="color:var(--green)">📉 需量反應年收益試算（第1年）</b>
+    <span style="font-size:11px;color:var(--text2);margin-left:6px">▶ 參與方案，每個申報日必報</span><br>
+    <b>${descTxt}</b><br>
+    一天省下：<b style="color:var(--green);font-size:14px">NT$ ${f0(dailyRev)}</b>　×　${days} 天　＝　基礎年收益 ${fw(rev,1)}<br>
+    執行率 <b>${execRate}%</b> × 扣減比率 <b style="color:${hintClr}">${deductLabel}</b>　＝
+    <span style="color:var(--green);font-size:14px;font-weight:800">實際年收益 ${fw(revNet,1)}</span>`;
+
+  onParamChange();
+}
+
+// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 專案儲存 / 載入
+// ══════════════════════════════════════════════════════════════
+const PARAM_IDS = [
+  'tariffType','contractPeak','contractOff','demandRate','overloadPenalty',
+  'battKwh','pcskW','capex','opex','crate','analysisYears',
+  'rte','dod','socMin','socMax','degradation','discRate',
+  'cycles','touDaysSummer','touDaysNonSummer',
+  'spinRatio','spinResponseTime','spinCeilingPrice','spinDays','spinDailyHours','spinDispatch','spinDispatchPrice',
+  'suppEnabled','suppRatio','suppCeilingPrice','suppDays','suppDailyHours',
+  'drScheme','drCap','drExecRate','vppPct',
+  'noContractExpand','avgLoadKw','avgMonthlyKwh',
+  'customerName','projectName','projectNote'
+];
+
+function collectParams(){
+  const data={version:'3.0',savedAt:new Date().toISOString(),params:{}};
+  PARAM_IDS.forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    data.params[id]=el.type==='checkbox'?el.checked:el.value;
+  });
+  return data;
+}
+
+function applyParams(data){
+  const p=data.params||data;
+  PARAM_IDS.forEach(id=>{
+    const el=document.getElementById(id); if(!el||p[id]===undefined) return;
+    if(el.type==='checkbox') el.checked=p[id]; else el.value=p[id];
+  });
+  onParamChange(); onDRSchemeChange(); updateSpinPreview(); updateSuppPreview(); onCyclesChange();
+}
+
+function showSaveStatus(msg,ok=true){
+  const el=document.getElementById('saveStatus'); if(!el) return;
+  el.textContent=msg; el.style.color=ok?'var(--accent)':'var(--red)';
+  setTimeout(()=>{el.textContent='';},3500);
+}
+
+function quickSave(){
+  try{
+    localStorage.setItem('bess_project',JSON.stringify(collectParams()));
+    showSaveStatus('✅ 已快速儲存（'+new Date().toLocaleTimeString('zh-TW')+'）');
+  }catch(e){showSaveStatus('❌ 儲存失敗：'+e.message,false);}
+}
+
+function quickLoad(){
+  try{
+    const raw=localStorage.getItem('bess_project');
+    if(!raw){showSaveStatus('⚠️ 尚無快速儲存資料',false);return;}
+    const data=JSON.parse(raw); applyParams(data);
+    const t=data.savedAt?new Date(data.savedAt).toLocaleString('zh-TW'):'';
+    showSaveStatus('✅ 已載入（儲存於 '+t+'）');
+  }catch(e){showSaveStatus('❌ 載入失敗：'+e.message,false);}
+}
+
+function exportProject(){
+  try{
+    const data=collectParams();
+    const fn='綠源ESS_'+new Date().toISOString().slice(0,10)+'.json';
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fn;a.click();
+    URL.revokeObjectURL(a.href);
+    showSaveStatus('✅ 已匯出：'+fn);
+  }catch(e){showSaveStatus('❌ 匯出失敗：'+e.message,false);}
+}
+
+function importProject(event){
+  const file=event.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      applyParams(JSON.parse(ev.target.result));
+      showSaveStatus('✅ 已匯入：'+file.name);
+    }catch(e){showSaveStatus('❌ 匯入失敗：格式錯誤',false);}
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+(function(){
+  const raw=localStorage.getItem('bess_project'); if(!raw) return;
+  try{
+    const data=JSON.parse(raw);
+    const t=data.savedAt?new Date(data.savedAt).toLocaleString('zh-TW'):'';
+    setTimeout(()=>showSaveStatus('💡 有上次儲存（'+t+'），可點「快速載入」還原',true),800);
+  }catch(e){}
+})();
+
+// INIT
+// ═══════════════════════════════════════════════
+onParamChange();
+renderDegTable();
+renderTariff();
+updateSpinPreview();
+updateSuppPreview();
+onDRSchemeChange();
+populateDayPicker(); // init: disable data-requiring dispatch modes when no LOAD_DATA
+</script>
+
+<!-- Annual grid day tooltip (fixed overlay) -->
+<div id="gridTooltip">
+  <span class="tt-close" onclick="closeGridTooltip()">✕</span>
+  <div id="gridTooltipBody"></div>
+</div>
+</body>
+</html>
