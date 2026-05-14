@@ -1114,8 +1114,9 @@ function renderAnnualGrid(){
       const season2 = isSummerDay ? 'summer' : 'nonsummer';
       const drHrs2  = isSummerDay ? drHrsS : drHrsNS;
       if (!drHrs2) { perDayDRExec[dateStr] = 100; continue; }
-      const totalExpected = drCapKwVal * drHrs2.length;
-      const totalActual   = drHrs2.reduce((s, h) => s + Math.min(drCapKwVal, Math.max(0, profile[h] ?? 0)), 0);
+      // 新邏輯：需放電量 = max(0, 負載 - 申報目標值)，讓電網降到 drCapKw
+      const totalExpected = drHrs2.reduce((s, h) => s + Math.max(0, (profile[h] ?? 0) - drCapKwVal), 0);
+      const totalActual   = drHrs2.reduce((s, h) => s + Math.min(Math.max(0, (profile[h] ?? 0) - drCapKwVal), drCapKwVal), 0);
       perDayDRExec[dateStr] = totalExpected > 0 ? (totalActual / totalExpected) * 100 : 100;
     }
   }
@@ -1497,9 +1498,11 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       } else if(isDischargeHour(h)){
         let dp = 0;
         if(isDRMode){
-          // DR定功率放電：以申報容量為目標，受 PCS、電量、建物負載限制（不逆送電）
+          // DR抑低模式：放電讓電網需量降到申報容量(drCapKw)
+          // 需放電量 = max(0, 建物負載 - 申報抑低目標值)
           const avail = (soc - socMin) * battKwh;
-          dp = Math.min(drCapKw, maxPow, avail, Math.max(0, baseLoad));
+          const disNeeded = Math.max(0, baseLoad - drCapKw);
+          dp = Math.min(disNeeded, maxPow, avail);
         } else {
           dp = applyDischarge(soc, baseLoad, Ptarget);
         }
@@ -1507,8 +1510,8 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
-      // drExpected: DR申報時段的目標功率（0 = 非DR時段）
-      const drExpected = (isDRMode && isDischargeHour(h)) ? drCapKw : 0;
+      // drExpected: DR時段的目標放電量（讓電網降到drCapKw所需的功率）
+      const drExpected = (isDRMode && isDischargeHour(h)) ? Math.max(0, baseLoad - drCapKw) : 0;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100, drExpected});
     }
 
@@ -1739,12 +1742,15 @@ function getDRDischargeHours(season, dayType) {
     return Array.from({length: dur}, (_, i) => 13 + i);
   }
 
-  // 簡易型 / 即時性：從 TOU 尖峰時段取前 slotH 小時
+  // 簡易型 / 即時性：固定時間窗口（台電規則）
+  // 2h：18:00~20:00；4h：16:00~20:00；6h：16:00~22:00
   const slotH = parseInt(document.getElementById('drSlot')?.value || '2');
-  const sched = getSchedFor(season, dayType);
-  const peakHrs = sched.reduce((a, p, h) => { if (p === 2) a.push(h); return a; }, []);
-  if (peakHrs.length === 0) return null;
-  return peakHrs.slice(0, slotH);
+  const DR_WINDOWS = {
+    2: [18, 19],
+    4: [16, 17, 18, 19],
+    6: [16, 17, 18, 19, 20, 21]
+  };
+  return DR_WINDOWS[slotH] || DR_WINDOWS[2];
 }
 
 // ═══════════════════════════════════════════════
