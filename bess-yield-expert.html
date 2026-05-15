@@ -500,14 +500,9 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <span class="hint">市場上限 400；保守估算可設 150~200</span>
       </div>
       <div class="fi">
-        <label>年可用天數</label>
-        <input type="number" id="spinDays" value="280" min="0" max="365" oninput="updateSpinPreview()">
-        <span class="hint">Enel X 估算約 280 天/年</span>
-      </div>
-      <div class="fi">
-        <label>每日待命時數 (h/日)</label>
-        <input type="number" id="spinDailyHours" value="15" min="0" max="24" oninput="updateSpinPreview()">
-        <span class="hint">即時備轉每日申報待命時段，台電一般約 15h</span>
+        <label>整年參與時數 (h/年)</label>
+        <input type="number" id="spinAnnualHrs" value="4200" min="0" max="8760" step="100" oninput="updateSpinPreview()">
+        <span class="hint">Enel X 估算約 280天 × 15h = 4,200 h/年；台電上限 8,760h</span>
       </div>
       <!-- 電能調度費（條件性收益，有被調度才有） -->
       <div style="display:contents" title="條件性收益">
@@ -1614,7 +1609,7 @@ function calcYield(yearNum = 1){
   const spinSpeedMap = {1:100, 3:60, 5:40};
   const spinAddon = spinSpeedMap[vi('spinResponseTime')] || 60;    // NT$/MW/h
   const spinCapRate = v('spinCeilingPrice') + spinAddon;           // NT$/MW/h (合計)
-  const spinAnnualHours = v('spinDays') * v('spinDailyHours');     // h/年
+  const spinAnnualHours = v('spinAnnualHrs');     // h/年
   const spinCapRev  = (spinCap/1000) * spinCapRate * spinAnnualHours;  // NT$
   const spinEnergyRev = spinCap * v('spinDispatch') * (v('spinDispatchPrice') || 10); // NT$（kW × 年度調度h × 單價）
   const annualSpin = (spinCapRev + spinEnergyRev) / 10000;         // 萬元
@@ -1998,7 +1993,7 @@ function renderRevenue(){
   // Build revenue table
   const spinAddon = ({1:100,3:60,5:40})[vi('spinResponseTime')] || 60;
   const spinCapRate = v('spinCeilingPrice') + spinAddon;
-  const spinAnnualHours = v('spinDays') * v('spinDailyHours');
+  const spinAnnualHours = v('spinAnnualHrs');
   const suppAnnualHours = v('suppDays') * v('suppDailyHours');
 
   const drDescMap = {
@@ -2248,7 +2243,7 @@ function renderReport(){
             ${(()=>{
               const spinAddonR = ({1:100,3:60,5:40})[vi('spinResponseTime')]||60;
               const spinTotalRate = v('spinCeilingPrice')+spinAddonR;
-              const spinHrsR = v('spinDays')*v('spinDailyHours');
+              const spinHrsR = v('spinAnnualHrs');
               const gross2 = yld.tou+yld.spin+yld.supp+yld.dr;
               const suppEl2 = document.getElementById('suppEnabled');
               const suppCap2 = suppEl2?.checked ? v('pcskW')*v('suppRatio')/100 : 0;
@@ -2985,16 +2980,13 @@ function updateSpinPreview(){
   const addonMap = {1:100, 3:60, 5:40};
   const addon  = addonMap[vi('spinResponseTime')] || 60;
   const rate   = v('spinCeilingPrice') + addon;  // NT$/MW/h
-  const hrs    = v('spinDays') * v('spinDailyHours');
+  const hrs    = v('spinAnnualHrs');
   const capRev    = (cap/1000) * rate * hrs;
   const energyRev = cap * v('spinDispatch') * (v('spinDispatchPrice') || 10);
   const total  = (capRev + energyRev) / 10000;
-  const dailyHrs  = v('spinDailyHours');
-  const dailyRev  = (cap/1000) * rate * dailyHrs;  // NT$/天
   el.innerHTML = `
     <b style="color:var(--orange)">⚡ 即時備轉年收益試算（第1年）</b><br>
-    公式：<b>${f(cap,0)}kW</b> ÷ 1000 × <b>（得標${v('spinCeilingPrice')} ＋ 加成${addon}）= ${rate} NT$/MW·h</b> × <b>${dailyHrs}h</b>
-    ＝ 一天待命 <b style="color:var(--orange)">NT$ ${f0(dailyRev)}</b>　×　<b>${v('spinDays')}天</b><br>
+    公式：<b>${f(cap,0)}kW</b> ÷ 1000 × <b>（得標${v('spinCeilingPrice')} ＋ 加成${addon}）= ${rate} NT$/MW·h</b> × <b>${v('spinAnnualHrs')}h/年</b><br>
     容量待命費：<b>${fw(capRev/10000,1)}</b>　＋　電能調度費（${f(cap,0)}kW × ${v('spinDispatch')}h × ${v('spinDispatchPrice')||10}元）：<b>${fw(energyRev/10000,1)}</b>　＝
     <span style="color:var(--orange);font-size:14px;font-weight:800">年收益 ${fw(total,1)}</span>
     <span style="color:var(--text2)">（≈ ${cap>0?f(total/cap*1000,1):'—'} 萬/MW）</span>`;
@@ -3367,7 +3359,7 @@ const PARAM_IDS = [
   'battKwh','pcskW','capex','opex','crate','analysisYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
-  'spinRatio','spinResponseTime','spinCeilingPrice','spinDays','spinDailyHours','spinDispatch','spinDispatchPrice',
+  'spinRatio','spinResponseTime','spinCeilingPrice','spinAnnualHrs','spinDispatch','spinDispatchPrice',
   'suppEnabled','suppRatio','suppCeilingPrice','suppDays','suppDailyHours',
   'drScheme','drCap','drExecRate','vppPct',
   'noContractExpand','avgLoadKw','avgMonthlyKwh',
