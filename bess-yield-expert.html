@@ -2277,7 +2277,7 @@ function renderReport(){
 
       <!-- Contract & overload -->
       <div class="pdf-section">
-        <h2>03 契約容量超約分析</h2>
+        <h2>04 契約容量超約分析</h2>
         <table class="pdf-table">
           <thead><tr><th>項目</th><th>數值</th><th>說明</th></tr></thead>
           <tbody>
@@ -2292,7 +2292,7 @@ function renderReport(){
 
       <!-- Cashflow table -->
       <div class="pdf-section">
-        <h2>04 逐年現金流 & 衰退影響</h2>
+        <h2>05 逐年現金流 & 衰退影響</h2>
         <table class="pdf-table">
           <thead><tr><th>年度</th><th>容量留存(%)</th><th>有效容量(kWh)</th><th>年收益(萬元)</th><th>OPEX(萬元)</th><th>淨CF(萬元)</th><th>累計CF(萬元)</th></tr></thead>
           <tbody>
@@ -2309,9 +2309,22 @@ function renderReport(){
         </table>
       </div>
 
+      <!-- 24H Dispatch Charts -->
+      <div class="pdf-section">
+        <h2>03 24H 負載 &amp; 儲能調度曲線</h2>
+        <div style="margin-bottom:20px">
+          <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">🌞 夏月典型日（平日）</div>
+          <canvas id="pdfChartSummer" height="90"></canvas>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">❄ 非夏月典型日（平日）</div>
+          <canvas id="pdfChartNonSummer" height="90"></canvas>
+        </div>
+      </div>
+
       <!-- Hardware -->
       <div class="pdf-section">
-        <h2>05 系統規格總覽</h2>
+        <h2>06 系統規格總覽</h2>
         <table class="pdf-table">
           <thead><tr><th>規格項目</th><th>設定值</th><th>規格項目</th><th>設定值</th></tr></thead>
           <tbody>
@@ -2330,6 +2343,74 @@ function renderReport(){
     </div>`;
 
   document.getElementById('pdfPreview').innerHTML = previewHTML;
+  renderReportDispatchCharts();
+}
+
+function renderReportDispatchCharts(){
+  const tickClr = '#374151';
+  const gridClr = 'rgba(0,0,0,.08)';
+  const baseScale = {
+    x: { ticks:{color:tickClr,font:{size:9}}, grid:{color:gridClr} },
+    y: { ticks:{color:tickClr,font:{size:9}}, grid:{color:gridClr} }
+  };
+  const labels = Array.from({length:24},(_,h)=>`${String(h).padStart(2,'0')}:00`);
+
+  const seasons = [
+    { id:'pdfChartSummer',    season:'summer',    double:false,  label:'🌞 夏月' },
+    { id:'pdfChartNonSummer', season:'nonsummer', double: vs('cycles')==='2c2d_ns', label:'❄ 非夏月' }
+  ];
+
+  seasons.forEach(({id, season, double}) => {
+    const canvas = document.getElementById(id);
+    if(!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if(existing) existing.destroy();
+    const drDisHrs = getDRDischargeHours(season, 'weekday');
+    const drCapKw  = drDisHrs ? (v('drCap')||0) : null;
+    const rows = calcDispatchProfile(season, double, 'weekday', drDisHrs, drCapKw);
+    const sched = getSchedFor(season, 'weekday');
+    const bands = makeBands(sched);
+
+    // Background band plugin for PDF chart
+    const bgPlugin = {
+      id:'bgBandsPdf_'+id,
+      beforeDraw(chart){
+        const {ctx,chartArea:{left,right,top,bottom},scales:{x}} = chart;
+        if(!x) return;
+        const w = (right-left)/24;
+        bands.forEach(b=>{
+          const colors = {'off':'rgba(34,197,94,.08)','semi':'rgba(251,146,60,.12)','peak':'rgba(239,68,68,.12)'};
+          ctx.fillStyle = colors[b.type]||'transparent';
+          const x0 = left + b.from*w, x1 = left + (b.to+1)*w;
+          ctx.fillRect(x0, top, x1-x0, bottom-top);
+        });
+      }
+    };
+
+    new Chart(canvas.getContext('2d'), {
+      type:'line',
+      plugins:[bgPlugin],
+      data:{
+        labels,
+        datasets:[
+          { label:'基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#9ca3af', borderDash:[4,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
+          { label:'電網需量(kW)', data:rows.map(r=>r.gridLoad), borderColor:'#ef4444', fill:true, backgroundColor:'rgba(239,68,68,.07)', tension:.3, pointRadius:0, borderWidth:2 },
+          { label:'儲能功率(kW)', data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:true, backgroundColor:'rgba(59,130,246,.15)', tension:.3, pointRadius:0, borderWidth:1.5, type:'bar' },
+          { label:`尖峰契約 ${f0(v('contractPeak'))}kW`, data:Array(24).fill(v('contractPeak')), borderColor:'rgba(239,68,68,.7)', borderDash:[6,4], fill:false, pointRadius:0, borderWidth:1, tension:0 },
+          { label:`離峰契約 ${f0(v('contractOff'))}kW`,  data:Array(24).fill(v('contractOff')),  borderColor:'rgba(59,130,246,.6)', borderDash:[4,4], fill:false, pointRadius:0, borderWidth:1, tension:0 }
+        ]
+      },
+      options:{
+        responsive:true, interaction:{mode:'index'},
+        animation:false,
+        plugins:{
+          legend:{ labels:{color:tickClr,boxWidth:8,font:{size:10}} },
+          bgBandsPdf_summer:{ bands }, bgBandsPdf_nonsummer:{ bands }
+        },
+        scales: baseScale
+      }
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════
