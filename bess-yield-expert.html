@@ -1540,9 +1540,14 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     const CHB_HRS  = CHB_HRS_raw;
     const DISB_HRS = sched.map((p,h)=>(p===2 && h>=14)?h:-1).filter(h=>h>=0);
 
-    // ── 預計算 Ptarget_A（上午放電①） ──
+    // ── 兩充兩放：兩段放電都強制放光（Ptarget=0）──
+    // 策略：夜間充滿→上午尖峰全力放光→午間盡量回充→下午尖峰再全力放光
+    const PtargetA = 0;   // 上午放電①：全力放到 socMin
+    const PtargetB = 0;   // 下午放電②：全力放到 socMin
+
+    // 模擬上午充電，取午間充電前 SOC（確定 tempSocB 起點）
     let tempSocA = socMin;
-    const loadMapA = {};
+    const loadMapA = {}, loadMapB = {};
     for(let h = 0; h < 24; h++){
       const p = sched[h];
       const bl = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
@@ -1551,33 +1556,18 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         tempSocA = Math.min(socMax, tempSocA + cp/battKwh);
       } else if(DISA_HRS.includes(h)){
         loadMapA[h] = bl;
-      }
-    }
-    const availA   = (tempSocA - socMin) * battKwh;
-    const PtargetA = calcPtarget(DISA_HRS, loadMapA, availA);
-
-    // 模擬放電①，取 CHB 前 SOC
-    let socAfterA = tempSocA;
-    for(const h of DISA_HRS){
-      const dp = applyDischarge(socAfterA, loadMapA[h]||0, PtargetA);
-      socAfterA = Math.max(socMin, socAfterA - dp/battKwh);
-    }
-
-    // ── 預計算 Ptarget_B（下午放電②） ──
-    let tempSocB = socAfterA;
-    const loadMapB = {};
-    for(let h = 0; h < 24; h++){
-      const p = sched[h];
-      const bl = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
-      if(CHB_HRS.includes(h)){
-        const cp = chargePower(tempSocB, socMax, bl, contractOff);
-        tempSocB = Math.min(socMax, tempSocB + cp/battKwh);
       } else if(DISB_HRS.includes(h)){
         loadMapB[h] = bl;
       }
     }
-    const availB   = (tempSocB - socMin) * battKwh;
-    const PtargetB = calcPtarget(DISB_HRS, loadMapB, availB);
+    // 上午放電結束後 SOC = socMin（強制放光）
+    // 午間充電從 socMin 開始
+    let tempSocB = socMin;
+    for(const h of CHB_HRS){
+      const bl = getRealHourlyLoad(h, sched[h], season, loadPeak, loadSemi, loadOff);
+      const cp = chargePower(tempSocB, socMax, bl, contractOff);
+      tempSocB = Math.min(socMax, tempSocB + cp/battKwh);
+    }
 
     // ── 正式逐時建立 rows ──
     soc = socMin;
