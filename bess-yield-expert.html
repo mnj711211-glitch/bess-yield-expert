@@ -577,60 +577,70 @@ tr:hover td{background:rgba(28,35,51,.5)}
       <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.6">電業法第66條義務儲能<br>不得同時申報輔助服務市場</div>
     </div>
     <div class="card-h">⚡ 即時備轉 (RT Reserve) <span class="cb">輔助服務市場 AFC</span></div>
-    <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
-      📌 <b>義電 Enel X Taiwan 代理投標</b>｜容量費市場上限 <b>400 NT$/MW·h</b>，<b style="color:var(--orange)">保守估算 150~200 NT$/MW·h</b>｜驗証調度費 <b>10 NT$/kWh</b><br>
-      應答加成：5分鐘 <b>+40</b>、3分鐘 <b>+60</b>、1分鐘 <b>+100</b> (NT$/MW·h)｜
-      估算基準：1MW × 得標160＋加成100＝260 NT$/MW·h × 15h × 280天 ≈ <b>109萬元/年</b>
+    <!-- 開關 -->
+    <div style="margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="spinEnabled" onchange="onSpinEnabledChange()" style="width:17px;height:17px;accent-color:var(--accent)" checked>
+        <span style="font-size:13px;font-weight:600">參與即時備轉</span>
+      </label>
     </div>
-    <div class="fg">
-      <div class="fi">
-        <label>參與 PCS 容量 (kW)</label>
-        <input type="number" id="spinRatio" value="300" min="0" step="50" oninput="updateSpinPreview()">
-        <span class="hint">直接輸入申報容量，建議不超過 PCS 一半以保留 TOU 充放空間</span>
+    <!-- 主要欄位（勾選後顯示） -->
+    <div id="spinBody">
+      <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
+        📌 <b>義電 Enel X Taiwan 代理投標</b>｜容量費市場上限 <b>400 NT$/MW·h</b>，<b style="color:var(--orange)">保守估算 150~200 NT$/MW·h</b>｜驗証調度費 <b>10 NT$/kWh</b><br>
+        應答加成：5分鐘 <b>+40</b>、3分鐘 <b>+60</b>、1分鐘 <b>+100</b> (NT$/MW·h)｜
+        估算基準：1MW × 得標160＋加成100＝260 NT$/MW·h × 15h × 280天 ≈ <b>109萬元/年</b>
       </div>
-      <div class="fi">
-        <label>應答時間 (Response Speed)</label>
-        <select id="spinResponseTime" onchange="updateSpinPreview()">
-          <option value="5">5 分鐘（+40 NT$/MW·h）</option>
-          <option value="3" selected>3 分鐘（+60 NT$/MW·h）</option>
-          <option value="1">1 分鐘（+100 NT$/MW·h）</option>
-        </select>
-        <span class="hint">越快響應加成費率越高，需確認硬體能力</span>
-      </div>
-      <div class="fi">
-        <label>得標費率 (NT$/MW·h)</label>
-        <input type="number" id="spinCeilingPrice" value="200" min="0" step="50" oninput="updateSpinPreview()">
-        <span class="hint">市場上限 400；保守估算可設 150~200</span>
-      </div>
-      <div class="fi">
-        <label>整年參與時數 (h/年)</label>
-        <input type="number" id="spinAnnualHrs" value="4200" min="0" max="8760" step="100" oninput="updateSpinPreview()">
-        <span class="hint">Enel X 估算約 280天 × 15h = 4,200 h/年；台電上限 8,760h</span>
-      </div>
-      <!-- 電能調度費（條件性收益，有被調度才有） -->
-      <div style="display:contents" title="條件性收益">
-        <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
-          <label style="color:#38bdf8;font-weight:700">⚡ 年度調度時數 (h/年)
-            <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
-          </label>
-          <input type="number" id="spinDispatch" value="30" min="0" step="10" oninput="updateSpinPreview()">
-          <span class="hint">全年實際被電網調用總時數，歷史約 20~100h；不確定可設 0</span>
+      <div class="fg">
+        <div class="fi">
+          <label>參與 PCS 容量 (kW)</label>
+          <input type="number" id="spinRatio" value="300" min="0" step="50" oninput="updateSpinPreview()">
+          <span class="hint">直接輸入申報容量，建議不超過 PCS 一半以保留 TOU 充放空間</span>
         </div>
-        <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
-          <label style="color:#38bdf8;font-weight:700">⚡ 調度單價 (NT$/kWh)
-            <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
-          </label>
-          <input type="number" id="spinDispatchPrice" value="10" min="0" step="1" oninput="updateSpinPreview()">
-          <span class="hint">台電驗証調度費 10 NT$/kWh（固定費率）</span>
+        <div class="fi">
+          <label>應答時間 (Response Speed)</label>
+          <select id="spinResponseTime" onchange="updateSpinPreview()">
+            <option value="5">5 分鐘（+40 NT$/MW·h）</option>
+            <option value="3" selected>3 分鐘（+60 NT$/MW·h）</option>
+            <option value="1">1 分鐘（+100 NT$/MW·h）</option>
+          </select>
+          <span class="hint">越快響應加成費率越高，需確認硬體能力</span>
+        </div>
+        <div class="fi">
+          <label>得標費率 (NT$/MW·h)</label>
+          <input type="number" id="spinCeilingPrice" value="200" min="0" step="50" oninput="updateSpinPreview()">
+          <span class="hint">市場上限 400；保守估算可設 150~200</span>
+        </div>
+        <div class="fi">
+          <label>整年參與時數 (h/年)</label>
+          <input type="number" id="spinAnnualHrs" value="4200" min="0" max="8760" step="100" oninput="updateSpinPreview()">
+          <span class="hint">Enel X 估算約 280天 × 15h = 4,200 h/年；台電上限 8,760h</span>
+        </div>
+        <!-- 電能調度費（條件性收益，有被調度才有） -->
+        <div style="display:contents" title="條件性收益">
+          <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
+            <label style="color:#38bdf8;font-weight:700">⚡ 年度調度時數 (h/年)
+              <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
+            </label>
+            <input type="number" id="spinDispatch" value="30" min="0" step="10" oninput="updateSpinPreview()">
+            <span class="hint">全年實際被電網調用總時數，歷史約 20~100h；不確定可設 0</span>
+          </div>
+          <div class="fi" style="border-left:3px solid #38bdf8;padding-left:10px;background:rgba(56,189,248,.05);border-radius:0 6px 6px 0">
+            <label style="color:#38bdf8;font-weight:700">⚡ 調度單價 (NT$/kWh)
+              <span style="font-size:10px;font-weight:400;color:var(--text2);margin-left:4px">有被台電調度才計入</span>
+            </label>
+            <input type="number" id="spinDispatchPrice" value="10" min="0" step="1" oninput="updateSpinPreview()">
+            <span class="hint">台電驗証調度費 10 NT$/kWh（固定費率）</span>
+          </div>
+        </div>
+        <div class="fi" style="border-left:3px solid var(--accent);padding-left:10px;background:rgba(88,166,255,.04);border-radius:0 6px 6px 0">
+          <label style="color:var(--accent);font-weight:700">🔗 聚合商抽成比例 (%)</label>
+          <input type="number" id="vppPct" value="25" min="0" max="50" step="1" oninput="onParamChange();updateSpinPreview()">
+          <span class="hint">從即時備轉、補充備轉收益抽成；TOU 套利與需量反應不計入</span>
         </div>
       </div>
-      <div class="fi" style="border-left:3px solid var(--accent);padding-left:10px;background:rgba(88,166,255,.04);border-radius:0 6px 6px 0">
-        <label style="color:var(--accent);font-weight:700">🔗 聚合商抽成比例 (%)</label>
-        <input type="number" id="vppPct" value="25" min="0" max="50" step="1" oninput="onParamChange();updateSpinPreview()">
-        <span class="hint">從即時備轉、補充備轉收益抽成；TOU 套利與需量反應不計入</span>
-      </div>
+      <div id="spinCalcPreview" style="margin-top:12px;padding:10px 14px;background:rgba(255,166,87,.08);border:1px solid rgba(255,166,87,.25);border-radius:8px;font-size:12px"></div>
     </div>
-    <div id="spinCalcPreview" style="margin-top:12px;padding:10px 14px;background:rgba(255,166,87,.08);border:1px solid rgba(255,166,87,.25);border-radius:8px;font-size:12px"></div>
   </div>
 
   <!-- 補充備轉 -->
@@ -1751,7 +1761,9 @@ function calcYield(yearNum = 1){
   // ── 即時備轉 (RT Reserve) ──
   // 容量費 = 參與容量(MW) × (得標費率 + 應答加成) × 年可售時數
   // 電能費 = 參與容量(kW) × 調度率 × 年可售時數 × 10 NT$/kWh（驗証費）
-  const spinCap = v('spinRatio') * deg;                            // kW（直接輸入）
+  const spinEnabledEl = document.getElementById('spinEnabled');
+  const spinEnabledFlag = spinEnabledEl ? spinEnabledEl.checked : true;
+  const spinCap = spinEnabledFlag ? v('spinRatio') * deg : 0;      // kW（直接輸入）
   const spinSpeedMap = {1:100, 3:60, 5:40};
   const spinAddon = spinSpeedMap[vi('spinResponseTime')] || 60;    // NT$/MW/h
   const spinCapRate = v('spinCeilingPrice') + spinAddon;           // NT$/MW/h (合計)
@@ -3338,6 +3350,14 @@ function renderLoadImport() {
 // STRATEGY PANEL HELPERS
 // ═══════════════════════════════════════════════
 
+function onSpinEnabledChange(){
+  const enabled = document.getElementById('spinEnabled')?.checked !== false;
+  const body = document.getElementById('spinBody');
+  if(body) body.style.display = enabled ? 'block' : 'none';
+  onParamChange();
+  updateSpinPreview();
+}
+
 function updateSpinPreview(){
   const el = document.getElementById('spinCalcPreview');
   if(!el) return;
@@ -3724,7 +3744,7 @@ const PARAM_IDS = [
   'battKwh','pcskW','capex','opex','crate','analysisYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
-  'spinRatio','spinResponseTime','spinCeilingPrice','spinAnnualHrs','spinDispatch','spinDispatchPrice',
+  'spinEnabled','spinRatio','spinResponseTime','spinCeilingPrice','spinAnnualHrs','spinDispatch','spinDispatchPrice',
   'suppEnabled','suppRatio','suppCeilingPrice','suppDays','suppDailyHours',
   'drScheme','drCap','drExecRate','vppPct',
   'noContractExpand','avgLoadKw','avgMonthlyKwh',
@@ -3749,6 +3769,7 @@ function applyParams(data){
   });
   const um = document.getElementById('userMode')?.value || 'general';
   setUserMode(um);
+  onSpinEnabledChange();
   onParamChange(); onDRSchemeChange(); updateSpinPreview(); updateSuppPreview(); onCyclesChange();
 }
 
