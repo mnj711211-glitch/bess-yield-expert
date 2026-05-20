@@ -712,9 +712,9 @@ tr:hover td{background:rgba(28,35,51,.5)}
         </div>
         <div id="drSchemeDesc" class="fi-wide" style="margin-top:-4px"></div>
         <div class="fi">
-          <label>申報抑低容量 (kW)</label>
+          <label>DR 申報放電功率 (kW)</label>
           <input type="number" id="drCap" value="300" min="0" step="50" oninput="onDRSchemeChange()">
-          <span id="drCapHint" class="hint">依方案設定最低申報量</span>
+          <span id="drCapHint" class="hint">選定時段全力放出此功率，餘量自動溢出其他尖峰</span>
         </div>
         <div class="fi">
           <label>預期當日執行率 (%)</label>
@@ -1233,9 +1233,9 @@ function renderAnnualGrid(){
       const season2 = isSummerDay ? 'summer' : 'nonsummer';
       const drHrs2  = isSummerDay ? drHrsS : drHrsNS;
       if (!drHrs2) { perDayDRExec[dateStr] = 100; continue; }
-      // 新邏輯：需放電量 = max(0, 負載 - 申報目標值)，讓電網降到 drCapKw
-      const totalExpected = drHrs2.reduce((s, h) => s + Math.max(0, (profile[h] ?? 0) - drCapKwVal), 0);
-      const totalActual   = drHrs2.reduce((s, h) => s + Math.min(Math.max(0, (profile[h] ?? 0) - drCapKwVal), drCapKwVal), 0);
+      // 執行率：目標放電 = drCapKwVal × 時數；實際 = min(drCapKwVal, 負載) 各時段加總
+      const totalExpected = drHrs2.length * drCapKwVal;
+      const totalActual   = drHrs2.reduce((s, h) => s + Math.min(drCapKwVal, profile[h] ?? drCapKwVal), 0);
       perDayDRExec[dateStr] = totalExpected > 0 ? (totalActual / totalExpected) * 100 : 100;
     }
   }
@@ -1618,19 +1618,18 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
 
     if(isDRMode){
-      // ── DR 模式：DR時段全力放電，剩餘電量溢出其他尖峰時段 ────────────
+      // ── DR 模式：DR時段放 drCapKw（申報放電功率），剩餘溢出其他尖峰 ────
       const nonDRPeakHrs = disHrs.filter(h => !disHrSet.has(h));
       const nonDRLoadMap = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
-      // DR時段以全力放電估算消耗電量（有負載：受負載上限；無負載：以maxPow計）
+      // DR時段以申報放電功率 drCapKw 估算消耗電量（有負載：受負載上限）
       const drWindowEnergy = hasLoad
-        ? [...disHrSet].reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || maxPow), 0)
-        : disHrSet.size * maxPow;
+        ? [...disHrSet].reduce((s,h) => s + Math.min(drCapKw, loadMapD[h] || drCapKw), 0)
+        : disHrSet.size * drCapKw;
       const remainE = Math.max(0, availE - drWindowEnergy);
-      // 有非DR尖峰時段 → 計算平頂消峰目標；6h全峰時 nonDRPeakHrs=[]，剩餘電量由DR全力放自然消化
+      // 有非DR尖峰時段 → 計算平頂消峰目標；6h全峰時 nonDRPeakHrs=[]，剩餘電量由DR在時段內自然消化
       if(nonDRPeakHrs.length > 0){
         Ptarget = calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE);
       }
-      // Ptarget_drBoost 不再需要（DR全力放電已取代）
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
     } else {
@@ -1710,10 +1709,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       } else if(isDischargeHour(h)){
         let dp = 0;
         if(isDRMode && disHrSet.has(h)){
-          // DR申報時段：全力放電（有負載：受負載上限不逆送；無負載：以功率上限放）
+          // DR申報時段：以申報放電功率 drCapKw 放電，有負載時不超過用電量
           if(soc > socMin + 0.001){
             const avail = (soc - socMin) * battKwh;
-            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+            dp = hasLoad ? Math.min(drCapKw, baseLoad, avail) : Math.min(drCapKw, avail);
           }
           if(dp > 0.001){
             power = dp;
@@ -1752,9 +1751,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
-      // drExpected：DR時段的目標放電功率（全力放電）
+      // drExpected：DR時段的申報放電目標（drCapKw，受負載上限）
       const drExpected = (isDRMode && disHrSet.has(h))
-        ? (hasLoad ? Math.min(maxPow, baseLoad) : maxPow)
+        ? (hasLoad ? Math.min(drCapKw, baseLoad) : drCapKw)
         : 0;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100, drExpected});
     }
