@@ -1617,18 +1617,19 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
 
     if(isDRMode){
-      // ── DR 模式：邏輯不變 ──────────────────────────────────────────
-      const nonDRPeakHrs  = disHrs.filter(h => !disHrSet.has(h));
-      const nonDRLoadMap  = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
-      const drWindowEnergy = [...disHrSet].reduce((s,h) => s + Math.max(0,(loadMapD[h]||0)-drCapKw), 0);
+      // ── DR 模式：DR時段全力放電，剩餘電量溢出其他尖峰時段 ────────────
+      const nonDRPeakHrs = disHrs.filter(h => !disHrSet.has(h));
+      const nonDRLoadMap = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
+      // DR時段以全力放電估算消耗電量（有負載：受負載上限；無負載：以maxPow計）
+      const drWindowEnergy = hasLoad
+        ? [...disHrSet].reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || maxPow), 0)
+        : disHrSet.size * maxPow;
       const remainE = Math.max(0, availE - drWindowEnergy);
-      Ptarget = calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE);
-      // DR 時段覆蓋全部尖峰（如6小時）→ 超額電量仍在 DR 時段內平滑釋放
-      if(nonDRPeakHrs.length === 0 && remainE > 0.001){
-        const drHrsList = disHrs.filter(h => disHrSet.has(h));
-        const drLoadM   = Object.fromEntries(drHrsList.map(h => [h, loadMapD[h]]));
-        Ptarget_drBoost = calcPtarget(drHrsList, drLoadM, availE);
+      // 有非DR尖峰時段 → 計算平頂消峰目標；6h全峰時 nonDRPeakHrs=[]，剩餘電量由DR全力放自然消化
+      if(nonDRPeakHrs.length > 0){
+        Ptarget = calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE);
       }
+      // Ptarget_drBoost 不再需要（DR全力放電已取代）
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
     } else {
@@ -1708,12 +1709,16 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       } else if(isDischargeHour(h)){
         let dp = 0;
         if(isDRMode && disHrSet.has(h)){
-          // DR申報時段：放電讓電網需量降到申報目標值；若DR覆蓋全尖峰則超額電量也在此釋放
-          const avail = (soc - socMin) * battKwh;
-          const disNeeded = Math.max(0, baseLoad - drCapKw);  // 義務最低放電量
-          const dpBoost   = Ptarget_drBoost < Infinity        // 超額平滑放電（6h全峰情況）
-            ? applyDischarge(soc, baseLoad, Ptarget_drBoost) : 0;
-          dp = Math.min(Math.max(disNeeded, dpBoost), maxPow, avail, baseLoad);
+          // DR申報時段：全力放電（有負載：受負載上限不逆送；無負載：以功率上限放）
+          if(soc > socMin + 0.001){
+            const avail = (soc - socMin) * battKwh;
+            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+          }
+          if(dp > 0.001){
+            power = dp;
+            soc = Math.max(socMin, soc - dp/battKwh);
+            action = '放電(DR)';
+          }
         } else if(sched[h] === 2 && isBUMode && BU_PRIMARY.has(h)){
           // 用電大戶：18-20h 全力放電（直接以 maxPow 為放電功率，非平頂消峰）
           if(soc > socMin + 0.001){
@@ -1746,7 +1751,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
-      const drExpected = (isDRMode && disHrSet.has(h)) ? Math.max(0, baseLoad - drCapKw) : 0;
+      // drExpected：DR時段的目標放電功率（全力放電）
+      const drExpected = (isDRMode && disHrSet.has(h))
+        ? (hasLoad ? Math.min(maxPow, baseLoad) : maxPow)
+        : 0;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100, drExpected});
     }
 
@@ -2156,7 +2164,8 @@ function renderDispatch(){
     const actionClr = r.action.startsWith('放電')
       ? (drSevere ? '#f78166' : drShortfall ? '#ffa657'
           : r.action.includes('半尖') ? '#a8d8a8'
-          : r.action.includes('主力') ? '#f97316'   // 18-20 主力全力放電：橙色
+          : r.action.includes('主力') ? '#f97316'   // BU 18-20 主力全力放電：橙色
+          : r.action.includes('(DR)') ? '#e879f9'   // DR 申報時段全力放電：紫色
           : '#3fb950')
       : r.action.startsWith('充電') ? '#ffa657' : '#8b949e';
 
