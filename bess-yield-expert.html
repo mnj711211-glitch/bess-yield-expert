@@ -1528,7 +1528,13 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const contractOff = v('contractOff');
   const contractPeak= v('contractPeak');
   const usable      = battKwh * dod;
-  const maxPow      = pcsPow;
+
+  // ── 用電大戶模式：放電功率改用 bu_ess_kw，且避開 18:00~20:00 作為主要放電時段 ──
+  const isBUMode    = vs('userMode') === 'biguser';
+  const buEssKw     = parseFloat(document.getElementById('bu_ess_kw')?.value) || pcsPow;
+  const maxPow      = isBUMode ? buEssKw : pcsPow;
+  // 用電大戶避開時段：18:00~19:59（待 primary 放不完才用作溢出）
+  const BU_AVOID    = new Set([18, 19]);
 
   let soc, rows = [];
 
@@ -1604,8 +1610,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     // Step 2：計算放電目標功率
     const availE = (tempSoc - socMin) * battKwh;
 
-    let Ptarget      = Infinity;  // 尖峰時段放電目標
-    let Ptarget_semi = Infinity;  // 半尖峰溢出放電目標（預設不放）
+    let Ptarget       = Infinity;  // 尖峰時段放電目標
+    let Ptarget_semi  = Infinity;  // 半尖峰溢出放電目標（預設不放）
+    let Ptarget_peak2 = Infinity;  // 用電大戶：18-20h 次要放電目標（預設不放）
 
     if(isDRMode){
       // ── DR 模式：邏輯不變 ──────────────────────────────────────────
@@ -1617,7 +1624,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
     } else {
-      // ── TOU 模式：兩段式放電 ─────────────────────────────────────
+      // ── TOU 模式：兩段式放電（用電大戶：三段式，主峰避開18-20）─────
       const peakHrs = disHrs.filter(h => sched[h] === 2);
       const semiHrs = disHrs.filter(h => sched[h] === 1);
       const peakMap = Object.fromEntries(peakHrs.map(h => [h, loadMapD[h]]));
@@ -1628,15 +1635,59 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         ? peakHrs.reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || 0), 0)
         : Infinity;  // 無負載時不限制（純套利模式）
 
-      if(!hasLoad || availE <= peakCap || semiHrs.length === 0){
-        // 電量不超過尖峰容量上限 → 平滑消峰（現有邏輯）
-        Ptarget = calcPtarget(peakHrs, peakMap, Math.min(availE, peakCap));
-        Ptarget_semi = Infinity;
+      if(isBUMode){
+        // ── 用電大戶三段式放電 ──────────────────────────────────────
+        // Stage 1：尖峰但非 18-20h（如夏月 16-18 + 20-22）
+        // Stage 2：尖峰中的 18-20h（溢出備用）
+        // Stage 3：半尖峰（最終溢出）
+        const peak1Hrs = peakHrs.filter(h => !BU_AVOID.has(h));  // primary peak
+        const peak2Hrs = peakHrs.filter(h =>  BU_AVOID.has(h));  // secondary peak (18-20)
+        const peak1Map = Object.fromEntries(peak1Hrs.map(h => [h, loadMapD[h]]));
+        const peak2Map = Object.fromEntries(peak2Hrs.map(h => [h, loadMapD[h]]));
+
+        const peak1Cap = hasLoad
+          ? peak1Hrs.reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || 0), 0)
+          : Infinity;
+        const peak2Cap = hasLoad
+          ? peak2Hrs.reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || 0), 0)
+          : Infinity;
+
+        if(!hasLoad || availE <= peak1Cap || peak1Hrs.length === 0){
+          // 電量在 stage1 就放得完
+          Ptarget = calcPtarget(peak1Hrs.length ? peak1Hrs : peakHrs,
+                                peak1Hrs.length ? peak1Map : peakMap,
+                                Math.min(availE, peak1Cap));
+          Ptarget_semi = Infinity;
+        } else {
+          // Stage 1 全力放光
+          Ptarget = 0;
+          const remain1 = availE - peak1Cap;
+          if(remain1 <= peak2Cap || peak2Hrs.length === 0){
+            // Stage 2 可吸收剩餘
+            Ptarget_semi = Infinity;  // (peak2 handled separately below)
+          } else {
+            // Stage 2 也放不完 → 溢出到半尖峰
+            const remain2 = remain1 - peak2Cap;
+            Ptarget_semi = calcPtarget(semiHrs, semiMap, remain2);
+          }
+        }
+        // Assign stage-2 target for loop use
+        Ptarget_peak2 = (peak2Hrs.length > 0 && availE > peak1Cap)
+          ? calcPtarget(peak2Hrs, peak2Map, Math.min(availE - peak1Cap, peak2Cap))
+          : Infinity;
+
       } else {
-        // 電量超過尖峰可吸收量 → 尖峰全力放（Ptarget=0），剩餘分攤至半尖峰
-        Ptarget = 0;
-        const remainE = availE - peakCap;
-        Ptarget_semi = calcPtarget(semiHrs, semiMap, remainE);
+        // ── 一般 TOU 兩段式放電 ──────────────────────────────────────
+        if(!hasLoad || availE <= peakCap || semiHrs.length === 0){
+          // 電量不超過尖峰容量上限 → 平滑消峰（現有邏輯）
+          Ptarget = calcPtarget(peakHrs, peakMap, Math.min(availE, peakCap));
+          Ptarget_semi = Infinity;
+        } else {
+          // 電量超過尖峰可吸收量 → 尖峰全力放（Ptarget=0），剩餘分攤至半尖峰
+          Ptarget = 0;
+          const remainE = availE - peakCap;
+          Ptarget_semi = calcPtarget(semiHrs, semiMap, remainE);
+        }
       }
     }
 
@@ -1656,17 +1707,32 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           const avail = (soc - socMin) * battKwh;
           const disNeeded = Math.max(0, baseLoad - drCapKw);
           dp = Math.min(disNeeded, maxPow, avail);
+        } else if(sched[h] === 2 && isBUMode && BU_AVOID.has(h)){
+          // 用電大戶：18-20h 為次要放電時段（溢出才用）
+          if(Ptarget_peak2 < Infinity){
+            dp = applyDischarge(soc, baseLoad, Ptarget_peak2);
+          }
+          if(dp > 0.001){
+            power = dp;
+            soc = Math.max(socMin, soc - dp/battKwh);
+            action = '放電(溢出)';
+          }
         } else if(sched[h] === 2){
           // 尖峰時段：主要放電（平滑消峰或全力放）
           dp = applyDischarge(soc, baseLoad, Ptarget);
+          if(dp > 0.001){
+            power = dp;
+            soc = Math.max(socMin, soc - dp/battKwh);
+            action = '放電';
+          }
         } else if(sched[h] === 1 && Ptarget_semi < Infinity){
           // 半尖峰時段：尖峰放不完的剩餘電量分攤
           dp = applyDischarge(soc, baseLoad, Ptarget_semi);
-        }
-        if(dp > 0.001){
-          power = dp;
-          soc = Math.max(socMin, soc - dp/battKwh);
-          action = sched[h] === 1 ? '放電(半尖)' : '放電';
+          if(dp > 0.001){
+            power = dp;
+            soc = Math.max(socMin, soc - dp/battKwh);
+            action = '放電(半尖)';
+          }
         }
       }
       const gridLoad = baseLoad - power;
@@ -2079,7 +2145,10 @@ function renderDispatch(){
     const drSevere    = isDRHour && drRate < 0.6;
 
     const actionClr = r.action.startsWith('放電')
-      ? (drSevere ? '#f78166' : drShortfall ? '#ffa657' : r.action.includes('半尖') ? '#a8d8a8' : '#3fb950')
+      ? (drSevere ? '#f78166' : drShortfall ? '#ffa657'
+          : r.action.includes('半尖') ? '#a8d8a8'
+          : r.action.includes('溢出') ? '#fbbf24'   // 18-20 溢出：黃色
+          : '#3fb950')
       : r.action.startsWith('充電') ? '#ffa657' : '#8b949e';
 
     const powerClr = r.power > 0
