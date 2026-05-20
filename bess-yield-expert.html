@@ -1613,6 +1613,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     let Ptarget       = Infinity;  // 尖峰時段放電目標
     let Ptarget_semi  = Infinity;  // 半尖峰溢出放電目標（預設不放）
     let Ptarget_peak2 = Infinity;  // 用電大戶：18-20h 次要放電目標（預設不放）
+    let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
 
     if(isDRMode){
       // ── DR 模式：邏輯不變 ──────────────────────────────────────────
@@ -1621,6 +1622,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       const drWindowEnergy = [...disHrSet].reduce((s,h) => s + Math.max(0,(loadMapD[h]||0)-drCapKw), 0);
       const remainE = Math.max(0, availE - drWindowEnergy);
       Ptarget = calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE);
+      // DR 時段覆蓋全部尖峰（如6小時）→ 超額電量仍在 DR 時段內平滑釋放
+      if(nonDRPeakHrs.length === 0 && remainE > 0.001){
+        const drHrsList = disHrs.filter(h => disHrSet.has(h));
+        const drLoadM   = Object.fromEntries(drHrsList.map(h => [h, loadMapD[h]]));
+        Ptarget_drBoost = calcPtarget(drHrsList, drLoadM, availE);
+      }
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
     } else {
@@ -1703,10 +1710,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       } else if(isDischargeHour(h)){
         let dp = 0;
         if(isDRMode && disHrSet.has(h)){
-          // DR申報時段：放電讓電網需量降到申報目標值
+          // DR申報時段：放電讓電網需量降到申報目標值；若DR覆蓋全尖峰則超額電量也在此釋放
           const avail = (soc - socMin) * battKwh;
-          const disNeeded = Math.max(0, baseLoad - drCapKw);
-          dp = Math.min(disNeeded, maxPow, avail);
+          const disNeeded = Math.max(0, baseLoad - drCapKw);  // 義務最低放電量
+          const dpBoost   = Ptarget_drBoost < Infinity        // 超額平滑放電（6h全峰情況）
+            ? applyDischarge(soc, baseLoad, Ptarget_drBoost) : 0;
+          dp = Math.min(Math.max(disNeeded, dpBoost), maxPow, avail, baseLoad);
         } else if(sched[h] === 2 && isBUMode && BU_AVOID.has(h)){
           // 用電大戶：18-20h 為次要放電時段（溢出才用）
           if(Ptarget_peak2 < Infinity){
@@ -3718,23 +3727,23 @@ function onDRSchemeChange(){
     none: '',
     simple: `
       <div class="fi">
-        <label>時槽長度（每次申報）</label>
+        <label>時槽長度 &amp; 放電時間（每次申報）</label>
         <select id="drSlot" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
-          <option value="2" selected>2 小時（費率 2.47 NT$/kWh）</option>
-          <option value="4">4 小時（費率 1.84 NT$/kWh）</option>
-          <option value="6">6 小時（費率 1.69 NT$/kWh）</option>
+          <option value="2" selected>2 小時（18:00~20:00｜2.47 NT$/kWh）</option>
+          <option value="4">4 小時（16:00~20:00｜1.84 NT$/kWh）</option>
+          <option value="6">6 小時（16:00~22:00｜1.69 NT$/kWh）</option>
         </select>
-        <span class="hint">時槽越短費率越高，6h 時段涵蓋完整尖峰</span>
+        <span class="hint">放電時間依台電規則固定；時槽越短費率越高。多餘電量自動溢出至其他尖峰時段</span>
       </div>`,
     immediate: `
       <div class="fi">
-        <label>時槽長度（每次申報）</label>
+        <label>時槽長度 &amp; 放電時間（每次申報）</label>
         <select id="drSlot" onchange="onDRSchemeChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px">
-          <option value="2" selected>2 小時（NT$2.47/kWh）</option>
-          <option value="4">4 小時（NT$1.84/kWh）</option>
-          <option value="6">6 小時（NT$1.69/kWh）</option>
+          <option value="2" selected>2 小時（18:00~20:00｜2.47 NT$/kWh）</option>
+          <option value="4">4 小時（16:00~20:00｜1.84 NT$/kWh）</option>
+          <option value="6">6 小時（16:00~22:00｜1.69 NT$/kWh）</option>
         </select>
-        <span class="hint">時槽越短，費率越高</span>
+        <span class="hint">放電時間依台電規則固定；多餘電量自動溢出至其他尖峰時段</span>
       </div>`,
     capacityService: `
       <div class="fi">
