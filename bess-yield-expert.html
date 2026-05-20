@@ -2800,25 +2800,31 @@ function renderReportDispatchCharts(){
 // PDF EXPORT
 // ═══════════════════════════════════════════════
 async function exportPDF(){
-  // Ensure report is rendered
-  renderReport();
-  await new Promise(r=>setTimeout(r,200));
-
-  const el = document.getElementById('pdfContent');
-  if(!el){ alert('請先切換至「PDF 報告預覽」頁面'); return; }
-
   const btn = document.querySelector('.btn-pdf');
-  btn.textContent = '⏳ 產生中...';
-  btn.disabled = true;
+  if(btn){ btn.textContent = '⏳ 產生中...'; btn.disabled = true; }
 
-  // If panel-report is hidden (display:none), html2canvas gets zero-size elements
-  // which causes CanvasGradient non-finite errors. Force it visible off-screen.
+  // ── Step 1：先把 panel 移到螢幕外並顯示（必須在 renderReport 之前！）
+  // Chart.js 在 display:none 的容器裡 canvas 尺寸為 0，會產生空白 PDF
   const panel = document.getElementById('panel-report');
   const needsReveal = panel && getComputedStyle(panel).display === 'none';
+  const origCss = panel ? panel.style.cssText : '';
   if(needsReveal){
-    panel.style.cssText += ';display:block!important;position:fixed!important;left:-99999px!important;top:0!important;width:800px!important;z-index:-1!important;visibility:hidden!important';
+    panel.style.cssText = origCss +
+      ';display:block!important;position:fixed!important' +
+      ';left:-99999px!important;top:0!important' +
+      ';width:840px!important;overflow:visible!important';
   }
-  await new Promise(r=>setTimeout(r,100)); // let browser lay out
+
+  // ── Step 2：render（panel 已可見，Chart.js canvas 有正確尺寸）
+  renderReport();
+  await new Promise(r=>setTimeout(r,350)); // 等圖表完全渲染
+
+  const el = document.getElementById('pdfContent');
+  if(!el){
+    if(needsReveal && panel) panel.style.cssText = origCss;
+    if(btn){ btn.textContent = '⬇ 匯出 PDF 報告'; btn.disabled = false; }
+    alert('請先執行計算再匯出 PDF'); return;
+  }
 
   try {
     const { jsPDF } = window.jspdf;
@@ -2830,8 +2836,9 @@ async function exportPDF(){
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
+      windowWidth: 840,
       onclone(clonedDoc){
-        // Safety net: replace any gradient backgrounds that survive with first-color solid
+        // 將 CSS 變數展開（html2canvas 有時無法解析 var(--xxx)）
         clonedDoc.querySelectorAll('[style]').forEach(n => {
           if(n.style.background && n.style.background.includes('gradient')){
             const m = n.style.background.match(/(?:rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/);
@@ -2865,21 +2872,11 @@ async function exportPDF(){
     pdf.save(fname);
   } catch(e){
     console.error(e);
-    alert('PDF 匯出失敗，請確認瀏覽器允許下載。\n'+e.message);
+    alert('PDF 匯出失敗。\n' + e.message);
   } finally {
-    // Restore panel visibility
-    if(needsReveal && panel){
-      panel.style.cssText = panel.style.cssText
-        .replace(/display:[^;]+;?/gi,'')
-        .replace(/position:[^;]+;?/gi,'')
-        .replace(/left:[^;]+;?/gi,'')
-        .replace(/top:[^;]+;?/gi,'')
-        .replace(/width:[^;]+;?/gi,'')
-        .replace(/z-index:[^;]+;?/gi,'')
-        .replace(/visibility:[^;]+;?/gi,'');
-    }
-    btn.textContent = '⬇ 匯出 PDF 報告';
-    btn.disabled = false;
+    // 還原 panel 樣式
+    if(panel) panel.style.cssText = origCss;
+    if(btn){ btn.textContent = '⬇ 匯出 PDF 報告'; btn.disabled = false; }
   }
 }
 
