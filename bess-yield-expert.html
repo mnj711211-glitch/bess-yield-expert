@@ -1715,8 +1715,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             ? applyDischarge(soc, baseLoad, Ptarget_drBoost) : 0;
           dp = Math.min(Math.max(disNeeded, dpBoost), maxPow, avail, baseLoad);
         } else if(sched[h] === 2 && isBUMode && BU_PRIMARY.has(h)){
-          // 用電大戶：18-20h 主力放電 → 全力放（受負載與 SOC 限制）
-          dp = applyDischarge(soc, baseLoad, maxPow);
+          // 用電大戶：18-20h 全力放電（直接以 maxPow 為放電功率，非平頂消峰）
+          if(soc > socMin + 0.001){
+            const avail = (soc - socMin) * battKwh;
+            // 有負載時不可超過實際用電（避免逆送電網）；無負載時直接以功率上限放
+            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+          }
           if(dp > 0.001){
             power = dp;
             soc = Math.max(socMin, soc - dp/battKwh);
