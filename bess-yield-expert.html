@@ -1585,7 +1585,8 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
 
   // drDisHrs 覆蓋放電時段：DR申報時段；DR模式下其他尖峰時段仍可放電（消耗剩餘電量）
   const disHrSet = drDisHrs ? new Set(drDisHrs) : null;
-  const isDRMode = drDisHrs !== null && drCapKw > 0;
+  // 用電大戶模式下不可申報輔助服務，強制關閉 DR 路徑
+  const isDRMode = !isBUMode && drDisHrs !== null && drCapKw > 0;
   // DR模式：DR時段 + 其他尖峰時段；TOU模式：尖峰 + 半尖峰（溢出分攤）
   const isDischargeHour = (h) => isDRMode
     ? (disHrSet.has(h) || sched[h] === 2)
