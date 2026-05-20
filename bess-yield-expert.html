@@ -234,7 +234,6 @@ tr:hover td{background:rgba(28,35,51,.5)}
 
     <div class="nav-sec">工具</div>
     <div class="nav-item" data-panel="tariff"    onclick="nav(this)"><span class="ic">📋</span>台電電價表</div>
-    <div class="nav-item" data-panel="biguser"   onclick="nav(this)"><span class="ic">⚡</span>用電大戶義務計算</div>
     <div class="nav-item" data-panel="report"    onclick="nav(this)"><span class="ic">📄</span>PDF 報告預覽</div>
   </nav>
   <div class="sidebar-footer">
@@ -417,6 +416,104 @@ tr:hover td{background:rgba(28,35,51,.5)}
 <div class="panel" id="panel-strategy">
   <div class="ph"><div class="ph-left"><h2>操作策略設定</h2><p>各收益來源的參與方式、容量分配與投標參數</p></div></div>
 
+  <!-- 用戶類型選擇 -->
+  <div class="card" style="border-top:3px solid var(--accent)">
+    <div class="card-h">👤 用戶類型設定</div>
+    <input type="hidden" id="userMode" value="general">
+    <div style="display:flex;gap:12px">
+      <div id="umGenBtn" onclick="setUserMode('general')" style="flex:1;cursor:pointer;padding:13px 16px;border:2px solid var(--accent);border-radius:10px;text-align:center;background:rgba(11,122,79,.1);transition:.2s">
+        <div style="font-size:14px;font-weight:700;color:var(--accent)">🏢 一般用戶</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">可參與即時備轉、補充備轉、需量反應</div>
+      </div>
+      <div id="umBigBtn" onclick="setUserMode('biguser')" style="flex:1;cursor:pointer;padding:13px 16px;border:2px solid var(--border);border-radius:10px;text-align:center;transition:.2s">
+        <div style="font-size:14px;font-weight:700;color:var(--orange)">⚡ 用電大戶</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">電業法第66條義務儲能；不可申報輔助服務</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 用電大戶義務計算（biguser模式顯示） -->
+  <div id="buSection" style="display:none">
+    <div class="alert alert-info" style="margin-bottom:16px">
+      ℹ️ 固定基礎參數：執行天數 <strong>250 天</strong>、超額獎勵金單價 <strong>10 元/度</strong>、年義務參與時數 <strong>400 小時</strong>（2 小時型）
+    </div>
+    <div class="card" style="border-top:3px solid var(--orange)">
+      <div class="card-h">📋 義務配置儲能參數 <span class="cb">用電大戶條款</span></div>
+      <div class="fg" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
+        <div class="fi">
+          <label>客戶契約容量 P_contract (kW)</label>
+          <input type="number" id="bu_contract" value="8000" min="100" step="100" oninput="calcBigUser();onParamChange()">
+          <span class="hint">高壓用戶與台電簽訂之尖峰契約容量</span>
+        </div>
+        <div class="fi">
+          <label>義務降低比例 R_duty (%)</label>
+          <input type="number" id="bu_duty_pct" value="10" min="1" max="100" step="1" oninput="calcBigUser();onParamChange()">
+          <span class="hint">主管機關公告之義務比例（現行 10%）</span>
+        </div>
+        <div class="fi">
+          <label>預計裝設儲能功率 P_ess (kW)</label>
+          <input type="number" id="bu_ess_kw" value="4250" min="0" step="50" oninput="calcBigUser();onParamChange()">
+          <span class="hint">規劃配置之 PCS 額定功率</span>
+        </div>
+        <div class="fi">
+          <label>儲能每日放電時數 H_discharge (h)</label>
+          <input type="number" id="bu_dis_hrs" value="2" min="0.5" max="12" step="0.5" oninput="calcBigUser();onParamChange()">
+          <span class="hint">每日平均實際放電時間（小時）</span>
+        </div>
+      </div>
+    </div>
+    <!-- 三步驟計算卡片 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">
+      <div class="card" style="border-top:3px solid var(--orange);margin-bottom:0">
+        <div class="card-h" style="color:var(--orange)">📌 步驟 A — 法定義務量</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">P_contract × R_duty ÷ 100</div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">法定義務抑低容量</div>
+          <div id="bu_duty_kw" style="font-size:28px;font-weight:800;color:var(--orange);line-height:1">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">kW</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年法定義務放電度數</div>
+          <div id="bu_duty_kwh" style="font-size:20px;font-weight:800;color:var(--orange);line-height:1">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">度（義務容量 × 400 h/年）</div>
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--accent);margin-bottom:0">
+        <div class="card-h" style="color:var(--accent)">🔋 步驟 B — 實際放電量</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">P_ess × H_dis × 250 天</div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年實際總放電度數</div>
+          <div id="bu_actual_kwh" style="font-size:28px;font-weight:800;color:var(--accent);line-height:1">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">度</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px">義務達成率</div>
+          <div id="bu_fulfill_pct" style="font-size:20px;font-weight:800;color:var(--accent);line-height:1">—</div>
+          <div class="pbar" style="margin-top:8px"><div class="pfill" id="bu_fill_prog" style="background:var(--accent);width:0%;transition:width .4s"></div></div>
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--green);margin-bottom:0">
+        <div class="card-h" style="color:var(--green)">💰 步驟 C — 超額獎勵效益</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">max(0, 實際 − 義務) × 10元</div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">超額放電度數</div>
+          <div id="bu_excess_kwh" style="font-size:28px;font-weight:800;color:var(--green);line-height:1">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">度</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年超額獎勵金收益</div>
+          <div id="bu_revenue" style="font-size:20px;font-weight:800;color:var(--green);line-height:1">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">元 / 年</div>
+        </div>
+      </div>
+    </div>
+    <!-- 綜合摘要 -->
+    <div id="bu_summary_card" class="card" style="background:linear-gradient(135deg,rgba(11,122,79,.07),rgba(11,122,79,.02));border-color:rgba(11,122,79,.3);margin-bottom:16px">
+      <div class="card-h">📊 義務計算摘要</div>
+      <div id="bu_summary_content" style="color:var(--text2);font-size:13px">請輸入上方參數，系統將自動計算。</div>
+    </div>
+  </div>
+
   <!-- TOU -->
   <div class="card">
     <div class="card-h">🔄 TOU 時間電價套利</div>
@@ -473,7 +570,12 @@ tr:hover td{background:rgba(28,35,51,.5)}
   </div>
 
   <!-- 即時備轉 -->
-  <div class="card">
+  <div class="card" style="position:relative">
+    <div id="spinOverlay" style="display:none;position:absolute;inset:0;background:rgba(22,27,34,.88);border-radius:12px;z-index:10;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px">
+      <div style="font-size:36px;margin-bottom:10px">🚫</div>
+      <div style="font-size:15px;font-weight:700;color:#fff">用電大戶不可申報</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.6">電業法第66條義務儲能<br>不得同時申報輔助服務市場</div>
+    </div>
     <div class="card-h">⚡ 即時備轉 (RT Reserve) <span class="cb">輔助服務市場 AFC</span></div>
     <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
       📌 <b>義電 Enel X Taiwan 代理投標</b>｜容量費市場上限 <b>400 NT$/MW·h</b>，<b style="color:var(--orange)">保守估算 150~200 NT$/MW·h</b>｜驗証調度費 <b>10 NT$/kWh</b><br>
@@ -532,7 +634,12 @@ tr:hover td{background:rgba(28,35,51,.5)}
   </div>
 
   <!-- 補充備轉 -->
-  <div class="card">
+  <div class="card" style="position:relative">
+    <div id="suppOverlay" style="display:none;position:absolute;inset:0;background:rgba(22,27,34,.88);border-radius:12px;z-index:10;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px">
+      <div style="font-size:36px;margin-bottom:10px">🚫</div>
+      <div style="font-size:15px;font-weight:700;color:#fff">用電大戶不可申報</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.6">電業法第66條義務儲能<br>不得同時申報輔助服務市場</div>
+    </div>
     <div class="card-h">⚡ 補充備轉 (Supplemental Reserve) <span class="cb">輔助服務市場</span></div>
     <div class="alert alert-info" style="margin-bottom:14px;line-height:1.6">
       📌 容量費上限 <b>350 NT$/MW·h</b>（低於即時備轉 400）｜可與即時備轉搭配或單獨參與，同一容量不重複計算
@@ -567,7 +674,12 @@ tr:hover td{background:rgba(28,35,51,.5)}
   </div>
 
   <!-- 需量反應 -->
-  <div class="card">
+  <div class="card" style="position:relative">
+    <div id="drOverlay" style="display:none;position:absolute;inset:0;background:rgba(22,27,34,.88);border-radius:12px;z-index:10;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px">
+      <div style="font-size:36px;margin-bottom:10px">🚫</div>
+      <div style="font-size:15px;font-weight:700;color:#fff">用電大戶不可申報</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.6">電業法第66條義務儲能<br>不得同時申報輔助服務市場</div>
+    </div>
     <div class="card-h">📉 需量反應 (Demand Response) <span class="cb">台電方案</span></div>
     <!-- 勾選開關 -->
     <div style="margin-bottom:14px">
@@ -965,128 +1077,6 @@ tr:hover td{background:rgba(28,35,51,.5)}
   </div>
 </div>
 
-<!-- ══ BIG USER OBLIGATION ══ -->
-<div class="panel" id="panel-biguser">
-  <div class="ph">
-    <div class="ph-left">
-      <h2>⚡ 用電大戶儲能義務計算</h2>
-      <p>依《電業法》第 66 條用電大戶義務配置儲能之法定義務量與超額獎勵效益試算</p>
-    </div>
-    <div class="ph-badge">
-      <span class="badge badge-orange">用電大戶條款</span>
-      <span class="badge badge-blue">台電 2025</span>
-    </div>
-  </div>
-
-  <!-- 固定基礎參數提示 -->
-  <div class="alert alert-info" style="margin-bottom:16px">
-    ℹ️ 固定基礎參數：執行天數 <strong>250 天</strong>、超額獎勵金單價 <strong>10 元/度</strong>、年義務參與時數 <strong>400 小時</strong>（2 小時型）
-  </div>
-
-  <!-- 輸入參數 -->
-  <div class="card">
-    <div class="card-h">📋 客戶與儲能規劃參數輸入</div>
-    <div class="fg" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
-      <div class="fi">
-        <label>客戶契約容量 P_contract (kW)</label>
-        <input type="number" id="bu_contract" value="8000" min="100" step="100" oninput="calcBigUser()">
-        <span class="hint">高壓用戶與台電簽訂之尖峰契約容量</span>
-      </div>
-      <div class="fi">
-        <label>義務降低比例 R_duty (%)</label>
-        <input type="number" id="bu_duty_pct" value="10" min="1" max="100" step="1" oninput="calcBigUser()">
-        <span class="hint">主管機關公告之義務比例（現行 10%）</span>
-      </div>
-      <div class="fi">
-        <label>預計裝設儲能功率 P_ess (kW)</label>
-        <input type="number" id="bu_ess_kw" value="4250" min="0" step="50" oninput="calcBigUser()">
-        <span class="hint">規劃配置之 PCS 額定功率</span>
-      </div>
-      <div class="fi">
-        <label>儲能每日放電時數 H_discharge (h)</label>
-        <input type="number" id="bu_dis_hrs" value="2" min="0.5" max="12" step="0.5" oninput="calcBigUser()">
-        <span class="hint">每日平均實際放電時間（小時）</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 三步驟計算卡片 -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">
-
-    <!-- Step A -->
-    <div class="card" style="border-top:3px solid var(--orange);margin-bottom:0">
-      <div class="card-h" style="color:var(--orange)">📌 步驟 A — 法定義務量</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">P_contract × R_duty ÷ 100</div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">法定義務抑低容量</div>
-        <div id="bu_duty_kw" style="font-size:28px;font-weight:800;color:var(--orange);line-height:1">—</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">kW</div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年法定義務放電度數</div>
-        <div id="bu_duty_kwh" style="font-size:20px;font-weight:800;color:var(--orange);line-height:1">—</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">度（義務容量 × 400 h/年）</div>
-      </div>
-    </div>
-
-    <!-- Step B -->
-    <div class="card" style="border-top:3px solid var(--accent);margin-bottom:0">
-      <div class="card-h" style="color:var(--accent)">🔋 步驟 B — 實際放電量</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">P_ess × H_dis × 250 天</div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年實際總放電度數</div>
-        <div id="bu_actual_kwh" style="font-size:28px;font-weight:800;color:var(--accent);line-height:1">—</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">度</div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px">義務達成率</div>
-        <div id="bu_fulfill_pct" style="font-size:20px;font-weight:800;color:var(--accent);line-height:1">—</div>
-        <div class="pbar" style="margin-top:8px"><div class="pfill" id="bu_fill_prog" style="background:var(--accent);width:0%;transition:width .4s"></div></div>
-      </div>
-    </div>
-
-    <!-- Step C -->
-    <div class="card" style="border-top:3px solid var(--green);margin-bottom:0">
-      <div class="card-h" style="color:var(--green)">💰 步驟 C — 超額獎勵效益</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;font-family:monospace">max(0, 實際 − 義務) × 10元</div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">超額放電度數</div>
-        <div id="bu_excess_kwh" style="font-size:28px;font-weight:800;color:var(--green);line-height:1">—</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">度</div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">每年超額獎勵金收益</div>
-        <div id="bu_revenue" style="font-size:20px;font-weight:800;color:var(--green);line-height:1">—</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">元 / 年</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 綜合摘要 banner -->
-  <div id="bu_summary_card" class="card" style="background:linear-gradient(135deg,rgba(11,122,79,.07),rgba(11,122,79,.02));border-color:rgba(11,122,79,.3);margin-bottom:16px">
-    <div class="card-h">📊 綜合評估摘要</div>
-    <div id="bu_summary_content" style="color:var(--text2);font-size:13px">請輸入上方參數，系統將自動計算。</div>
-  </div>
-
-  <!-- 公式說明 -->
-  <div class="card">
-    <div class="card-h">📖 計算公式說明 & 法規依據</div>
-    <div class="tw">
-      <table>
-        <thead><tr><th>步驟</th><th>公式</th><th>說明</th></tr></thead>
-        <tbody>
-          <tr><td>① 義務抑低容量 (kW)</td><td style="font-family:monospace">P_contract × R_duty%</td><td>主管機關規定之義務降低比例（現行 10%）</td></tr>
-          <tr><td>② 年義務放電量 (度)</td><td style="font-family:monospace">義務容量 × 400 h/年</td><td>2 小時型每年法定參與 400 小時</td></tr>
-          <tr><td>③ 年實際放電量 (度)</td><td style="font-family:monospace">P_ess × H_dis × 250天</td><td>每年實際執行 250 天估算</td></tr>
-          <tr><td>④ 超額放電度數 (度)</td><td style="font-family:monospace">max(0, ③ − ②)</td><td>低於義務量時以 0 計，不罰款但無超額獎勵</td></tr>
-          <tr><td>⑤ 超額獎勵金 (元/年)</td><td style="font-family:monospace">④ × 10 元/度</td><td>依主管機關公告獎勵金單價計算</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="hint" style="margin-top:10px">※ 本試算依《電業法》第 66 條及經濟部公告之用電大戶義務條款估算，實際認定以台電及主管機關審核為準。</p>
-  </div>
-</div>
-
 <!-- ══ PDF REPORT ══ -->
 <div class="panel" id="panel-report">
   <div class="ph">
@@ -1361,8 +1351,7 @@ function nav(el){
     loadimport: renderLoadImport,
     dispatch: renderDispatch, revenue: renderRevenue, cashflow: renderCashflow,
     heatmap: renderHeatmap,
-    tariff: renderTariff, report: renderReport,
-    biguser: calcBigUser
+    tariff: renderTariff, report: renderReport
   };
   if(renderers[el.dataset.panel]) renderers[el.dataset.panel]();
 }
@@ -1812,9 +1801,26 @@ function calcYield(yearNum = 1){
     annualDR = baseDR * deduct * deg;
   }
 
+  // ── 用電大戶模式：輔助服務歸零，改計超額獎勵金 ──
+  const isBigUser = vs('userMode') === 'biguser';
+  const effSpin = isBigUser ? 0 : annualSpin;
+  const effSupp = isBigUser ? 0 : annualSupp;
+  const effDR   = isBigUser ? 0 : annualDR;
+
+  let bigUserReward = 0;
+  if(isBigUser){
+    const bu_Pc  = parseFloat(document.getElementById('bu_contract')?.value) || 0;
+    const bu_Rd  = parseFloat(document.getElementById('bu_duty_pct')?.value) || 10;
+    const bu_Pe  = parseFloat(document.getElementById('bu_ess_kw')?.value)   || 0;
+    const bu_Hd  = parseFloat(document.getElementById('bu_dis_hrs')?.value)  || 0;
+    const duty   = bu_Pc * bu_Rd / 100 * 400;           // kWh/年
+    const actual = bu_Pe * bu_Hd * 250 * deg;           // kWh/年（含衰退）
+    bigUserReward = Math.max(0, actual - duty) * 10 / 10000;  // 萬元
+  }
+
   // ── 聚合商抽成（僅抽即時備轉 + 補充備轉）──
-  const grossRev = annualTOU/10000 + annualSpin + annualSupp + annualDR;
-  const annualVppFee = (annualSpin + annualSupp) * v('vppPct') / 100;
+  const grossRev = annualTOU/10000 + effSpin + effSupp + effDR + bigUserReward;
+  const annualVppFee = (effSpin + effSupp) * v('vppPct') / 100;
 
   // ── 契約增購成本（扣除）──
   const cc = calcContractOverload();
@@ -1826,9 +1832,10 @@ function calcYield(yearNum = 1){
     tou:          annualTOU / 10000,
     touSummer:    dailyArbSummer    * v('touDaysSummer')    * deg / 10000,
     touNonSummer: dailyArbNonSummer * v('touDaysNonSummer') * deg / 10000,
-    spin:         annualSpin,
-    supp:         annualSupp,
-    dr:           annualDR,
+    spin:         effSpin,
+    supp:         effSupp,
+    dr:           effDR,
+    bigUserReward,
     vppFee:       annualVppFee,
     ancillary:    0,          // kept for backward compat
     contractCost: contractCostPerYear,
@@ -2093,14 +2100,18 @@ function renderDispatch(){
 // ═══════════════════════════════════════════════
 function renderRevenue(){
   const yld = calcYield(1);
-  const gross = yld.tou + yld.spin + yld.supp + yld.dr;  // 總收益（扣除前）
+  const gross = yld.tou + yld.spin + yld.supp + yld.dr + (yld.bigUserReward||0);  // 總收益（扣除前）
+  const isBU = vs('userMode') === 'biguser';
 
   document.getElementById('revenueStats').innerHTML =
     stat('年度總淨收益', fw(yld.total,1), '扣除聚合商與契約成本', 'green') +
     stat('TOU 套利',  fw(yld.tou,1),  pct(yld.tou,gross),  'blue') +
-    stat('即時備轉',  fw(yld.spin,1), pct(yld.spin,gross), 'orange') +
-    (yld.supp > 0 ? stat('補充備轉', fw(yld.supp,1), pct(yld.supp,gross), 'purple') : '') +
-    stat('需量反應',  fw(yld.dr,1),   pct(yld.dr,gross),   'green') +
+    (isBU
+      ? stat('超額獎勵金', fw(yld.bigUserReward||0,1), '用電大戶超額', 'orange')
+      : stat('即時備轉',  fw(yld.spin,1), pct(yld.spin,gross), 'orange') +
+        (yld.supp > 0 ? stat('補充備轉', fw(yld.supp,1), pct(yld.supp,gross), 'purple') : '') +
+        stat('需量反應',  fw(yld.dr,1),   pct(yld.dr,gross),   'green')
+    ) +
     (yld.vppFee > 0 ? stat('聚合商抽成（扣）', fw(-yld.vppFee,1), v('vppPct')+'% 費用', 'red') : '') +
     stat('契約增購（扣）', fw(-yld.contractCost,1), '年度額外基本電費', 'red');
 
@@ -2110,6 +2121,7 @@ function renderRevenue(){
     {label:'即時備轉', val:yld.spin, color:'#ffa657'},
     {label:'補充備轉', val:yld.supp, color:'#bc8cff'},
     {label:'需量反應', val:yld.dr,   color:'#3fb950'},
+    {label:'超額獎勵金', val:yld.bigUserReward||0, color:'#f97316'},
   ].filter(e => e.val > 0);
 
   dc('revPie');
@@ -2176,6 +2188,7 @@ function renderRevenue(){
     {n:'即時備轉 — 容量費', b:`${f0(v('spinRatio'))}kW × ${spinCapRate}NT$/MW·h × ${spinAnnualHours}h`, m:yld.spin/12, a:yld.spin},
     {n:'補充備轉 — 容量費', b:`${f0(v('pcskW')*(document.getElementById('suppEnabled')?.checked?v('suppRatio'):0)/100)}kW × ${v('suppCeilingPrice')}NT$/MW·h × ${suppAnnualHours}h`, m:yld.supp/12, a:yld.supp},
     {n:'需量反應',          b:drDescMap[drType] || '—', m:yld.dr/12, a:yld.dr},
+    {n:'超額獎勵金（用電大戶）', b:`max(0, 實際放電量 − 義務量) × 10 元/度`, m:(yld.bigUserReward||0)/12, a:yld.bigUserReward||0},
     {n:`聚合商抽成 ${v('vppPct')}%（扣）`, b:`（即時備轉 + 補充備轉）× ${v('vppPct')}%`, m:-yld.vppFee/12, a:-yld.vppFee},
     {n:'離峰契約增購（扣）',b:`${f0(cc.addNeeded)}kW × (夏月${cc.rateSummer||47.2}×4月 + 非夏月${cc.rateNonSummer||34.6}×8月)`, m:-yld.contractCost/12, a:-yld.contractCost},
   ].filter(it => it.a !== 0 || it.n.includes('TOU'));
@@ -2357,6 +2370,37 @@ function renderDegTable(){
 }
 
 // ═══════════════════════════════════════════════
+// 用戶類型切換
+// ═══════════════════════════════════════════════
+function setUserMode(mode){
+  const isBig = mode === 'biguser';
+  // Update hidden input
+  const modeEl = document.getElementById('userMode');
+  if(modeEl) modeEl.value = mode;
+  // Update button styles
+  const genBtn = document.getElementById('umGenBtn');
+  const bigBtn = document.getElementById('umBigBtn');
+  if(genBtn){
+    genBtn.style.border      = isBig ? '2px solid var(--border)' : '2px solid var(--accent)';
+    genBtn.style.background  = isBig ? 'transparent' : 'rgba(11,122,79,.1)';
+  }
+  if(bigBtn){
+    bigBtn.style.border      = isBig ? '2px solid var(--orange)' : '2px solid var(--border)';
+    bigBtn.style.background  = isBig ? 'rgba(255,166,87,.1)' : 'transparent';
+  }
+  // Show/hide biguser obligation section
+  const buSec = document.getElementById('buSection');
+  if(buSec) buSec.style.display = isBig ? 'block' : 'none';
+  // Show/hide overlays on ancillary service cards
+  ['spinOverlay','suppOverlay','drOverlay'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = isBig ? 'flex' : 'none';
+  });
+  // Recalculate
+  onParamChange();
+  if(isBig) calcBigUser();
+}
+
 // 用電大戶義務計算
 // ═══════════════════════════════════════════════
 function calcBigUser(){
@@ -2481,7 +2525,7 @@ function renderReport(){
               const spinAddonR = ({1:100,3:60,5:40})[vi('spinResponseTime')]||60;
               const spinTotalRate = v('spinCeilingPrice')+spinAddonR;
               const spinHrsR = v('spinAnnualHrs');
-              const gross2 = yld.tou+yld.spin+yld.supp+yld.dr;
+              const gross2 = yld.tou+yld.spin+yld.supp+yld.dr+(yld.bigUserReward||0);
               const suppEl2 = document.getElementById('suppEnabled');
               const suppCap2 = suppEl2?.checked ? v('pcskW')*v('suppRatio')/100 : 0;
               const drTypeR = vs('drScheme');
@@ -2501,9 +2545,12 @@ function renderReport(){
               return `
             <tr><td>TOU 套利 — 🌞 夏季</td><td style="color:#16a34a;font-weight:700">${f(yld.touSummer,1)}</td><td>${pct(yld.touSummer,gross2)}</td><td>尖峰 ${rS2.peak} − 離峰 ${rS2.off} = ${f(spS2,2)} NT$/kWh × ${v('touDaysSummer')}天（一充一放）</td></tr>
             <tr><td>TOU 套利 — ❄ 非夏季</td><td style="color:#16a34a;font-weight:700">${f(yld.touNonSummer,1)}</td><td>${pct(yld.touNonSummer,gross2)}</td><td>尖峰 ${rNS2.peak} − 離峰 ${rNS2.off} = ${f(spNS2,2)} NT$/kWh × ${v('touDaysNonSummer')}天（${dblNS2?'兩充兩放':'一充一放'}）</td></tr>
-            <tr><td>即時備轉（含應答加成）</td><td style="color:#ea580c;font-weight:700">${f(yld.spin,1)}</td><td>${pct(yld.spin,gross2)}</td><td>${f0(v('spinRatio'))}kW × NT$${spinTotalRate}/MW·h × ${spinHrsR}h；驗証費10NT$/kWh</td></tr>
+            ${vs('userMode')==='biguser'
+              ? `<tr><td>超額獎勵金（用電大戶）</td><td style="color:#ea580c;font-weight:700">${f(yld.bigUserReward||0,1)}</td><td>${pct(yld.bigUserReward||0,gross2)}</td><td>超額放電量 × 10 元/度</td></tr>`
+              : `<tr><td>即時備轉（含應答加成）</td><td style="color:#ea580c;font-weight:700">${f(yld.spin,1)}</td><td>${pct(yld.spin,gross2)}</td><td>${f0(v('spinRatio'))}kW × NT$${spinTotalRate}/MW·h × ${spinHrsR}h；驗証費10NT$/kWh</td></tr>
             <tr><td>補充備轉</td><td style="color:#7c3aed;font-weight:700">${f(yld.supp,1)}</td><td>${pct(yld.supp,gross2)}</td><td>${f0(suppCap2)}kW × NT$${v('suppCeilingPrice')}/MW·h × ${v('suppDays')*v('suppDailyHours')}h</td></tr>
-            <tr><td>需量反應</td><td style="color:#166534;font-weight:700">${f(yld.dr,1)}</td><td>${pct(yld.dr,gross2)}</td><td>${drDescR}</td></tr>
+            <tr><td>需量反應</td><td style="color:#166534;font-weight:700">${f(yld.dr,1)}</td><td>${pct(yld.dr,gross2)}</td><td>${drDescR}</td></tr>`
+            }
             ${yld.vppFee>0?`<tr style="background:#fef2f2"><td>聚合商抽成 ${v('vppPct')}%（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.vppFee,1)}</td><td>費用</td><td>所有收益合計 × ${v('vppPct')}%</td></tr>`:''}
             <tr style="background:#fef2f2"><td>離峰契約增購（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.contractCost,1)}</td><td>成本</td><td>${cc.addNeeded>0?`增購 ${f0(cc.addNeeded)} kW × (夏${cc.rateSummer||47.2}×4月+非夏${cc.rateNonSummer||34.6}×8月)`:'無需增購'}</td></tr>
             <tr style="background:#f0fdf4;font-weight:700"><td>年度淨收益合計</td><td style="color:#16a34a">${f(yld.total,1)}</td><td>100%</td><td>扣除聚合商費用與契約成本後</td></tr>`;
@@ -3681,7 +3728,8 @@ const PARAM_IDS = [
   'suppEnabled','suppRatio','suppCeilingPrice','suppDays','suppDailyHours',
   'drScheme','drCap','drExecRate','vppPct',
   'noContractExpand','avgLoadKw','avgMonthlyKwh',
-  'customerName','projectName','projectNote'
+  'customerName','projectName','projectNote',
+  'userMode','bu_contract','bu_duty_pct','bu_ess_kw','bu_dis_hrs'
 ];
 
 function collectParams(){
@@ -3699,6 +3747,8 @@ function applyParams(data){
     const el=document.getElementById(id); if(!el||p[id]===undefined) return;
     if(el.type==='checkbox') el.checked=p[id]; else el.value=p[id];
   });
+  const um = document.getElementById('userMode')?.value || 'general';
+  setUserMode(um);
   onParamChange(); onDRSchemeChange(); updateSpinPreview(); updateSuppPreview(); onCyclesChange();
 }
 
