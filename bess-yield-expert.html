@@ -1548,8 +1548,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     return Math.min(maxPow, headroom, avail);
   }
 
-  // ── 是否有有效負載資料（任一時段 > 0）──────────────────────────
-  const hasLoad = loadPeak > 0 || loadSemi > 0 || loadOff > 0;
+  // ── 是否有有效負載資料（平均欄位有值 or 已匯入逐時負載資料）──────────
+  // 匯入資料時 getRealHourlyLoad 返回實際值，必須納入 hasLoad 判斷
+  // 否則 calcPtarget 視為無負載而返回 0，導致其他尖峰時段全力放電搶光電量
+  const hasLoad = loadPeak > 0 || loadSemi > 0 || loadOff > 0 || !!window.LOAD_DATA;
 
   // ── 平滑消峰：計算放電目標水位 Ptarget ─────────────────────────
   // 有負載資料時：二分搜尋讓電池恰好放完，曲線平頂
