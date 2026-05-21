@@ -1590,10 +1590,19 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const disHrSet = drDisHrs ? new Set(drDisHrs) : null;
   // 用電大戶模式下不可申報輔助服務，強制關閉 DR 路徑
   const isDRMode = !isBUMode && drDisHrs !== null && drCapKw > 0;
-  // DR模式：DR時段 + 其他尖峰時段；TOU模式：尖峰 + 半尖峰（溢出分攤）
-  const isDischargeHour = (h) => isDRMode
-    ? (disHrSet.has(h) || sched[h] === 2)
-    : (sched[h] === 2 || sched[h] === 1);
+
+  // ── 「主力優先，窗口後溢出」原則 ─────────────────────────────────────
+  // DR 簡易型：電池保留至 DR 申報時段才放電；DR 窗口結束後，剩餘電量才溢出至後續尖峰
+  //   → DR 窗口前的尖峰時段（如夏月 16h 申報 18-20h DR）不放電，避免搶光電量
+  // 用電大戶：18:00~20:00 全力放電為第一優先；20:00 之後才溢出剩餘電量
+  //   → 18h 前的尖峰時段（夏月 16h/17h）不放電，電池保持最佳待命狀態
+  const buMaxPri  = Math.max(...BU_PRIMARY);                               // 19（BU 主力窗口最晚小時）
+  const drMaxHour = (isDRMode && drDisHrs.length > 0) ? Math.max(...drDisHrs) : -1; // DR 申報最晚小時
+  const isDischargeHour = (h) => {
+    if(isDRMode) return disHrSet.has(h) || (sched[h] === 2 && h > drMaxHour);
+    if(isBUMode) return BU_PRIMARY.has(h) || (h > buMaxPri && (sched[h] === 2 || sched[h] === 1));
+    return sched[h] === 2 || sched[h] === 1;
+  };
 
   if(!doubleMode){
     // ── 一充一放 (single cycle) ──────────────────────────────────────
@@ -1620,7 +1629,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
 
     if(isDRMode){
-      // ── DR 模式：DR時段放 drCapKw（申報放電功率），剩餘溢出其他尖峰 ────
+      // ── DR 模式：DR時段放 drCapKw（申報放電功率），剩餘溢出 DR 窗口後的尖峰 ──
+      // isDischargeHour 已確保 DR 窗口前的尖峰時段不進入 disHrs，
+      // 故 nonDRPeakHrs 只含 DR 窗口「之後」的尖峰時段（電池保留至 DR 結束才溢出）
       const nonDRPeakHrs = disHrs.filter(h => !disHrSet.has(h));
       const nonDRLoadMap = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
       // DR時段以申報放電功率 drCapKw 估算消耗電量（有負載：受負載上限）
@@ -1649,10 +1660,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       if(isBUMode){
         // ── 用電大戶放電策略（全年平日有效）────────────────────────────
         // Stage 1：18:00~20:00 全力放電（主力窗口，全年適用，不限 TOU 分級）
-        // Stage 2：其餘所有放電時段（含尖峰/半尖峰）消化剩餘電量，平頂消峰
-        // 注意：非夏月 h=18,19 可能是 sched=1，仍須觸發主力放電
+        // Stage 2：20:00 之後的尖峰時段（夏月 h=20,21）消化剩餘電量，平頂消峰
+        // 注意：18h 前（夏月 h=16,17）isDischargeHour=false，電池保留給主力窗口
         const buPriHrs = disHrs.filter(h =>  BU_PRIMARY.has(h)); // 主力：18-20h（全年）
-        const buOthHrs = disHrs.filter(h => !BU_PRIMARY.has(h)); // 其餘放電時段
+        const buOthHrs = disHrs.filter(h => !BU_PRIMARY.has(h)); // 溢出：20h 之後（isDischargeHour 已保證）
         const buOthMap = Object.fromEntries(buOthHrs.map(h => [h, loadMapD[h]]));
 
         // Stage 1 可放出的最大電量（全力放，受負載上限限制）
