@@ -1647,12 +1647,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         : Infinity;  // 無負載時不限制（純套利模式）
 
       if(isBUMode){
-        // ── 用電大戶三段式放電 ──────────────────────────────────────
-        // Stage 1：18:00~20:00 全力放電（主力窗口）
-        // Stage 2：其他尖峰（16-18, 20-22）消化剩餘電量，平頂消峰
-        // Stage 3：半尖峰，最終溢出
-        const buPriHrs = peakHrs.filter(h =>  BU_PRIMARY.has(h)); // 主力：18-20h
-        const buOthHrs = peakHrs.filter(h => !BU_PRIMARY.has(h)); // 其他尖峰：16-18, 20-22h
+        // ── 用電大戶放電策略（全年平日有效）────────────────────────────
+        // Stage 1：18:00~20:00 全力放電（主力窗口，全年適用，不限 TOU 分級）
+        // Stage 2：其餘所有放電時段（含尖峰/半尖峰）消化剩餘電量，平頂消峰
+        // 注意：非夏月 h=18,19 可能是 sched=1，仍須觸發主力放電
+        const buPriHrs = disHrs.filter(h =>  BU_PRIMARY.has(h)); // 主力：18-20h（全年）
+        const buOthHrs = disHrs.filter(h => !BU_PRIMARY.has(h)); // 其餘放電時段
         const buOthMap = Object.fromEntries(buOthHrs.map(h => [h, loadMapD[h]]));
 
         // Stage 1 可放出的最大電量（全力放，受負載上限限制）
@@ -1661,32 +1661,26 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           : buPriHrs.length * maxPow;
         const primaryE = Math.min(availE, priCap);
 
-        // Stage 2 & 3 消化剩餘電量
+        // Stage 2 消化剩餘電量
         const remainE2 = Math.max(0, availE - primaryE);
         const othCap = hasLoad
           ? buOthHrs.reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || 0), 0)
           : Infinity;
 
         if(remainE2 <= 0.001 || buOthHrs.length === 0){
-          // 剩餘電量為零 or 無其他尖峰時段
           Ptarget = Infinity;
           Ptarget_semi = Infinity;
         } else if(!hasLoad){
-          // 無負載資料：calcPtarget 無效（回傳0=全力放），改用時數均攤功率上限
-          // 避免 16-17h 全力放光後 18-20h 無電可放
+          // 無負載資料：均攤功率上限，避免搶走主力窗口電量
           Ptarget = Math.min(maxPow, remainE2 / buOthHrs.length);
           Ptarget_semi = Infinity;
         } else if(remainE2 <= othCap){
-          // 其他尖峰可吸收所有剩餘 → 平頂消峰
           Ptarget = calcPtarget(buOthHrs, buOthMap, remainE2);
           Ptarget_semi = Infinity;
         } else {
-          // 其他尖峰也放不完 → 全力放光，剩餘溢出半尖峰
           Ptarget = 0;
-          const remain3 = remainE2 - othCap;
-          Ptarget_semi = calcPtarget(semiHrs, semiMap, remain3);
+          Ptarget_semi = Infinity; // BU 模式不做半尖峰溢出（已含在 buOthHrs）
         }
-        // Ptarget_peak2 標記：Stage 1 全力放電（Step 3 直接用 maxPow，此變數僅作旗標）
         Ptarget_peak2 = buPriHrs.length > 0 ? maxPow : Infinity;
 
       } else {
@@ -1726,11 +1720,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             soc = Math.max(socMin, soc - dp/battKwh);
             action = '放電(DR)';
           }
-        } else if(sched[h] === 2 && isBUMode && BU_PRIMARY.has(h)){
-          // 用電大戶：18-20h 全力放電（直接以 maxPow 為放電功率，非平頂消峰）
+        } else if(isBUMode && BU_PRIMARY.has(h)){
+          // 用電大戶主力：18-20h 全力放電（全年有效，不限 TOU 分級）
           if(soc > socMin + 0.001){
             const avail = (soc - socMin) * battKwh;
-            // 有負載時不可超過實際用電（避免逆送電網）；無負載時直接以功率上限放
             dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
           }
           if(dp > 0.001){
@@ -1738,10 +1731,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             soc = Math.max(socMin, soc - dp/battKwh);
             action = '放電(主力)';
           }
-        } else if(sched[h] === 2){
-          // 尖峰時段：消化剩餘電量（BU 無負載：以均攤功率上限放；有負載：平頂消峰）
+        } else if(sched[h] === 2 || (isBUMode && sched[h] === 1)){
+          // 其他放電時段：消化剩餘電量（含非夏月半尖峰）
           if(isBUMode && !hasLoad && Ptarget < Infinity && Ptarget > 0.001){
-            // 無負載 BU：applyDischarge 會忽略 Ptarget，改用直接功率上限
+            // 無負載 BU：直接用均攤功率上限
             if(soc > socMin + 0.001){
               const avail = (soc - socMin) * battKwh;
               dp = Math.min(Ptarget, avail);
