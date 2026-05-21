@@ -1600,7 +1600,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const drMaxHour = (isDRMode && drDisHrs.length > 0) ? Math.max(...drDisHrs) : -1; // DR 申報最晚小時
   const isDischargeHour = (h) => {
     if(isDRMode) return disHrSet.has(h) || (sched[h] === 2 && h > drMaxHour);
-    if(isBUMode) return BU_PRIMARY.has(h) || (h > buMaxPri && (sched[h] === 2 || sched[h] === 1));
+    if(isBUMode) return BU_PRIMARY.has(h) || (h > buMaxPri && sched[h] === 2); // 溢出僅限尖峰(sched=2)，22點後半尖峰不放電
     return sched[h] === 2 || sched[h] === 1;
   };
 
