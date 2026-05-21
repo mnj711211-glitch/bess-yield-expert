@@ -1793,10 +1793,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     const CHB_HRS  = CHB_HRS_raw;
     const DISB_HRS = sched.map((p,h)=>(p===2 && h>=14)?h:-1).filter(h=>h>=0);
 
-    // ── 兩充兩放：兩段放電都強制放光（Ptarget=0）──
-    // 策略：夜間充滿→上午尖峰全力放光→午間盡量回充→下午尖峰再全力放光
+    // ── 兩充兩放：第一段放光，第二段依 BU/一般模式決定策略 ──
+    // 策略：夜間充滿→上午尖峰全力放光→午間盡量回充→下午尖峰（BU: 18-20h主力，20h後溢出）
     const PtargetA = 0;   // 上午放電①：全力放到 socMin
-    const PtargetB = 0;   // 下午放電②：全力放到 socMin
 
     // 模擬上午充電，取午間充電前 SOC（確定 tempSocB 起點）
     let tempSocA = socMin;
@@ -1822,6 +1821,35 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       tempSocB = Math.min(socMax, tempSocB + cp/battKwh);
     }
 
+    // ── BU模式：第二放電段（14-23h）依「主力優先、窗口後溢出」邏輯 ──
+    // 非夏月 DISB_HRS = h=14~23 (sched=2)
+    // BU: h=14~17 待機保留電量；h=18~19 全力放電（主力）；h=20~23 溢出剩餘電量（全在24點前）
+    const DISB_BU_PRI = isBUMode ? DISB_HRS.filter(h =>  BU_PRIMARY.has(h))                 : [];
+    const DISB_BU_OTH = isBUMode ? DISB_HRS.filter(h => !BU_PRIMARY.has(h) && h > buMaxPri) : [];
+    const loadMapDB_oth = Object.fromEntries(DISB_BU_OTH.map(h => [h, loadMapB[h]]));
+
+    let BU_DISB_Ptarget_oth = Infinity;  // 溢出時段放電目標（預設不放）
+    if(isBUMode && DISB_BU_PRI.length > 0){
+      const availEB  = (tempSocB - socMin) * battKwh;
+      const priCap   = hasLoad
+        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(maxPow, loadMapB[h] || 0), 0)
+        : DISB_BU_PRI.length * maxPow;
+      const primaryE  = Math.min(availEB, priCap);
+      const remainEB  = Math.max(0, availEB - primaryE);
+      const othCap    = hasLoad
+        ? DISB_BU_OTH.reduce((s,h) => s + Math.min(maxPow, loadMapB[h] || 0), 0)
+        : Infinity;
+      if(remainEB <= 0.001 || DISB_BU_OTH.length === 0){
+        BU_DISB_Ptarget_oth = Infinity;                                     // 主力已足夠消化，無需溢出
+      } else if(!hasLoad){
+        BU_DISB_Ptarget_oth = Math.min(maxPow, remainEB / DISB_BU_OTH.length); // 均攤
+      } else if(remainEB <= othCap){
+        BU_DISB_Ptarget_oth = calcPtarget(DISB_BU_OTH, loadMapDB_oth, remainEB);
+      } else {
+        BU_DISB_Ptarget_oth = 0;                                            // 溢出容量不足 → 全力放
+      }
+    }
+
     // ── 正式逐時建立 rows ──
     soc = socMin;
     for(let h = 0; h < 24; h++){
@@ -1838,9 +1866,31 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         const cp = chargePower(soc, socMax, baseLoad, contractOff);
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電②'; }
       } else if(DISB_HRS.includes(h)){
-        const dp = applyDischarge(soc, baseLoad, PtargetB);
-        if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
-      }
+        let dp = 0;
+        if(isBUMode && BU_PRIMARY.has(h)){
+          // 主力：18-20h 全力放電
+          if(soc > socMin + 0.001){
+            const avail = (soc - socMin) * battKwh;
+            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+          }
+          if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②(主力)'; }
+        } else if(isBUMode && h > buMaxPri && BU_DISB_Ptarget_oth < Infinity){
+          // 溢出：20h 之後尖峰（h=20~23），消化剩餘電量，24點前放完
+          if(!hasLoad && BU_DISB_Ptarget_oth > 0.001){
+            if(soc > socMin + 0.001){
+              const avail = (soc - socMin) * battKwh;
+              dp = Math.min(BU_DISB_Ptarget_oth, avail);
+            }
+          } else {
+            dp = applyDischarge(soc, baseLoad, BU_DISB_Ptarget_oth);
+          }
+          if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
+        } else if(!isBUMode){
+          // 非BU模式：全力放光
+          dp = applyDischarge(soc, baseLoad, 0);
+          if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
+        }
+        // isBUMode && h=14~17：待機，電池保留給 18-20h 主力窗口
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100});
