@@ -1891,6 +1891,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
         }
         // isBUMode && h=14~17：待機，電池保留給 18-20h 主力窗口
+      }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100});
