@@ -1669,7 +1669,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           // 剩餘電量為零 or 無其他尖峰時段
           Ptarget = Infinity;
           Ptarget_semi = Infinity;
-        } else if(!hasLoad || remainE2 <= othCap){
+        } else if(!hasLoad){
+          // 無負載資料：calcPtarget 無效（回傳0=全力放），改用時數均攤功率上限
+          // 避免 16-17h 全力放光後 18-20h 無電可放
+          Ptarget = Math.min(maxPow, remainE2 / buOthHrs.length);
+          Ptarget_semi = Infinity;
+        } else if(remainE2 <= othCap){
           // 其他尖峰可吸收所有剩餘 → 平頂消峰
           Ptarget = calcPtarget(buOthHrs, buOthMap, remainE2);
           Ptarget_semi = Infinity;
@@ -1732,8 +1737,16 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             action = '放電(主力)';
           }
         } else if(sched[h] === 2){
-          // 尖峰時段：主要放電（平滑消峰或全力放）
-          dp = applyDischarge(soc, baseLoad, Ptarget);
+          // 尖峰時段：消化剩餘電量（BU 無負載：以均攤功率上限放；有負載：平頂消峰）
+          if(isBUMode && !hasLoad && Ptarget < Infinity && Ptarget > 0.001){
+            // 無負載 BU：applyDischarge 會忽略 Ptarget，改用直接功率上限
+            if(soc > socMin + 0.001){
+              const avail = (soc - socMin) * battKwh;
+              dp = Math.min(Ptarget, avail);
+            }
+          } else {
+            dp = applyDischarge(soc, baseLoad, Ptarget);
+          }
           if(dp > 0.001){
             power = dp;
             soc = Math.max(socMin, soc - dp/battKwh);
