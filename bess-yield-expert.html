@@ -2721,7 +2721,7 @@ function renderReport(){
         return `
       <div class="pdf-section" style="page-break-before:always">
         <h2>02 客戶用電分析</h2>
-        <div style="font-size:11px;color:#6b7280;margin-bottom:14px">資料來源：${(d._filenames||[]).join('、')||'匯入CSV'}｜涵蓋期間：${d.dateRange||'—'}｜共 ${d.sortedDays.length} 天 ${d.stats.count.toLocaleString()} 筆（15分鐘間距）</div>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:14px">涵蓋期間：${d.dateRange||'—'}｜共 ${d.sortedDays.length} 天｜${d.stats.count.toLocaleString()} 筆資料（15分鐘間距）</div>
         <div class="pdf-kpi" style="grid-template-columns:repeat(4,1fr)">
           <div class="pdf-kpi-item"><div class="k">峰值需量</div><div class="v" style="color:#dc2626">${d.stats.maxDemand}</div><div class="u">kW 最高單點</div></div>
           <div class="pdf-kpi-item"><div class="k">平均需量</div><div class="v" style="color:#ea580c">${d.stats.avgDemand.toFixed(1)}</div><div class="u">kW 全時段均值</div></div>
