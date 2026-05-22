@@ -2727,8 +2727,8 @@ function renderReport(){
             <tr><td>TOU 套利 — ❄ 非夏季</td><td style="color:#16a34a;font-weight:700">${f(yld.touNonSummer,1)}</td><td>${pct(yld.touNonSummer,gross2)}</td><td>尖峰 ${rNS2.peak} − 離峰 ${rNS2.off} = ${f(spNS2,2)} NT$/kWh × ${v('touDaysNonSummer')}天（${dblNS2?'兩充兩放':'一充一放'}）</td></tr>
             ${vs('userMode')==='biguser'
               ? `<tr><td>超額獎勵金（用電大戶）</td><td style="color:#ea580c;font-weight:700">${f(yld.bigUserReward||0,1)}</td><td>${pct(yld.bigUserReward||0,gross2)}</td><td>超額放電量 × 10 元/度</td></tr>`
-              : `<tr><td>即時備轉（含應答加成）</td><td style="color:#ea580c;font-weight:700">${f(yld.spin,1)}</td><td>${pct(yld.spin,gross2)}</td><td>${f0(v('spinRatio'))}kW × NT$${spinTotalRate}/MW·h × ${spinHrsR}h；驗証費10NT$/kWh</td></tr>
-            <tr><td>補充備轉</td><td style="color:#7c3aed;font-weight:700">${f(yld.supp,1)}</td><td>${pct(yld.supp,gross2)}</td><td>${f0(suppCap2)}kW × NT$${v('suppCeilingPrice')}/MW·h × ${v('suppDays')*v('suppDailyHours')}h</td></tr>
+              : `<tr><td>即時備轉（含應答加成）</td><td style="color:#ea580c;font-weight:700">${f(yld.spin,1)}</td><td>${pct(yld.spin,gross2)}</td><td>${f0(v('spinRatio'))}kW ÷ 1000 × NT$${spinTotalRate}/MW·h × ${spinHrsR}h</td></tr>
+            <tr><td>補充備轉</td><td style="color:#7c3aed;font-weight:700">${f(yld.supp,1)}</td><td>${pct(yld.supp,gross2)}</td><td>${f0(suppCap2)}kW ÷ 1000 × NT$${v('suppCeilingPrice')}/MW·h × ${v('suppDays')*v('suppDailyHours')}h</td></tr>
             <tr><td>需量反應</td><td style="color:#166534;font-weight:700">${f(yld.dr,1)}</td><td>${pct(yld.dr,gross2)}</td><td>${drDescR}</td></tr>`
             }
             ${yld.vppFee>0?`<tr style="background:#fef2f2"><td>聚合商抽成 ${v('vppPct')}%（扣除）</td><td style="color:#dc2626;font-weight:700">-${f(yld.vppFee,1)}</td><td>費用</td><td>所有收益合計 × ${v('vppPct')}%</td></tr>`:''}
