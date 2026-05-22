@@ -2992,9 +2992,10 @@ async function exportPDF(){
   }
 
   // 暫時取消 zoom 讓 html2canvas 以原始尺寸截圖
-  const preview = document.getElementById('pdfPreview');
-  const origZoom = preview ? preview.style.zoom : '';
-  if(preview) preview.style.zoom = '1';
+  // zoom 套在 pdfContent（.pdf-preview class），必須在該元素上重設
+  const origZoom = el.style.zoom;
+  el.style.zoom = '1';
+  await new Promise(r => setTimeout(r, 50)); // 等 reflow
 
   try {
     const { jsPDF } = window.jspdf;
@@ -3046,7 +3047,7 @@ async function exportPDF(){
   } finally {
     // 還原 panel 樣式 & zoom
     if(panel) panel.style.cssText = origCss;
-    if(preview) preview.style.zoom = origZoom || '';
+    el.style.zoom = origZoom;  // 還原 pdfContent 的 zoom
     if(btn){ btn.textContent = '⬇ 匯出 PDF 報告'; btn.disabled = false; }
   }
 }
