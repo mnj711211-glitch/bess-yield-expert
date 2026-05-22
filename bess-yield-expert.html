@@ -2700,9 +2700,49 @@ function renderReport(){
         </div>
       </div>
 
+      <!-- Load Analysis (only if LOAD_DATA imported) -->
+      ${(()=>{
+        const ld = window.LOAD_DATA;
+        if(!ld) return '';
+        const d = ld;
+        const months = Object.keys(d.monthStats).map(Number).sort((a,b)=>a-b);
+        const monthRows = months.map(m => {
+          const ms = d.monthStats[m];
+          const isSummer = IS_SUMMER[m-1];
+          return `<tr>
+            <td>${MONTHS[m-1]}</td>
+            <td style="color:#dc2626;font-weight:600">${ms.peak}</td>
+            <td>${ms.avg}</td>
+            <td>${ms.offPeakAvg !== undefined ? ms.offPeakAvg : '—'}</td>
+            <td>${(ms.totalKwh/10000).toFixed(2)} 萬</td>
+            <td><span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:10px;background:${isSummer?'rgba(247,129,102,.15)':'rgba(88,166,255,.15)'};color:${isSummer?'#ea580c':'#1d4ed8'}">${isSummer?'夏月':'非夏月'}</span></td>
+          </tr>`;
+        }).join('');
+        return `
+      <div class="pdf-section" style="page-break-before:always">
+        <h2>02 客戶用電分析</h2>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:14px">資料來源：${(d._filenames||[]).join('、')||'匯入CSV'}｜涵蓋期間：${d.dateRange||'—'}｜共 ${d.sortedDays.length} 天 ${d.stats.count.toLocaleString()} 筆（15分鐘間距）</div>
+        <div class="pdf-kpi" style="grid-template-columns:repeat(4,1fr)">
+          <div class="pdf-kpi-item"><div class="k">峰值需量</div><div class="v" style="color:#dc2626">${d.stats.maxDemand}</div><div class="u">kW 最高單點</div></div>
+          <div class="pdf-kpi-item"><div class="k">平均需量</div><div class="v" style="color:#ea580c">${d.stats.avgDemand.toFixed(1)}</div><div class="u">kW 全時段均值</div></div>
+          <div class="pdf-kpi-item"><div class="k">離峰均值</div><div class="v" style="color:#16a34a">${d.offPeakAvg.toFixed(1)}</div><div class="u">kW 充電基線參考</div></div>
+          <div class="pdf-kpi-item"><div class="k">年用電量</div><div class="v" style="color:#1d4ed8">${(d.stats.totalKwh/10000).toFixed(1)}</div><div class="u">萬 kWh（估算）</div></div>
+        </div>
+        <div style="margin:16px 0 10px;font-size:12px;font-weight:700;color:#1a3a6e">實際 24H 平均負載曲線</div>
+        <canvas id="pdfChartLoadProfile" height="80" style="margin-bottom:16px"></canvas>
+        <div style="margin:10px 0;font-size:12px;font-weight:700;color:#1a3a6e">月度峰值與平均需量（kW）</div>
+        <canvas id="pdfChartMonthPeak" height="80" style="margin-bottom:16px"></canvas>
+        <div style="margin:10px 0;font-size:12px;font-weight:700;color:#1a3a6e">月度用電統計</div>
+        <table class="pdf-table">
+          <thead><tr><th>月份</th><th>峰值需量(kW)</th><th>平均需量(kW)</th><th>離峰均值(kW)</th><th>月用電量</th><th>季節</th></tr></thead>
+          <tbody>${monthRows}</tbody>
+        </table>
+      </div>`;
+      })()}
+
       <!-- Revenue breakdown -->
       <div class="pdf-section">
-        <h2>02 年度收益組成分析</h2>
+        <h2>03 年度收益組成分析</h2>
         <table class="pdf-table">
           <thead><tr><th>收益來源</th><th>年度收益（萬元）</th><th>佔比</th><th>計算說明</th></tr></thead>
           <tbody>
@@ -2780,7 +2820,7 @@ function renderReport(){
 
       <!-- 24H Dispatch Charts -->
       <div class="pdf-section">
-        <h2>03 24H 負載 &amp; 儲能調度曲線</h2>
+        <h2>06 24H 負載 &amp; 儲能調度曲線</h2>
         <div style="margin-bottom:20px">
           <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">🌞 夏月典型日（平日）</div>
           <canvas id="pdfChartSummer" height="90"></canvas>
@@ -2793,7 +2833,7 @@ function renderReport(){
 
       <!-- Hardware -->
       <div class="pdf-section">
-        <h2>06 系統規格總覽</h2>
+        <h2>07 系統規格總覽</h2>
         <table class="pdf-table">
           <thead><tr><th>規格項目</th><th>設定值</th><th>規格項目</th><th>設定值</th></tr></thead>
           <tbody>
@@ -2880,6 +2920,45 @@ function renderReportDispatchCharts(){
       }
     });
   });
+
+  // ── 客戶用電分析圖（有匯入資料才渲染）─────────────────────────────
+  const ld = window.LOAD_DATA;
+  if(ld){
+    const labels24 = Array.from({length:24},(_,h)=>`${String(h).padStart(2,'0')}:00`);
+    // 24H 負載曲線
+    const lpCanvas = document.getElementById('pdfChartLoadProfile');
+    if(lpCanvas){
+      new Chart(lpCanvas.getContext('2d'), {
+        type:'line',
+        data:{ labels:labels24, datasets:[
+          { label:'全年平均',   data:ld.hourlyAvg,          borderColor:'#6b7280', borderDash:[4,3], fill:false, tension:.4, pointRadius:0, borderWidth:1.5 },
+          { label:'夏月平均',   data:ld.summerHourlyAvg,    borderColor:'#f78166', fill:false, tension:.4, pointRadius:0, borderWidth:2 },
+          { label:'非夏月平均', data:ld.nonSummerHourlyAvg, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.06)', tension:.4, pointRadius:0, borderWidth:2 },
+        ]},
+        options:{ responsive:true, animation:false,
+          plugins:{ legend:{labels:{color:tickClr,boxWidth:8,font:{size:9}}} },
+          scales: baseScale }
+      });
+    }
+    // 月度峰值 bar chart
+    const mpCanvas = document.getElementById('pdfChartMonthPeak');
+    if(mpCanvas){
+      const months = Object.keys(ld.monthStats).map(Number).sort((a,b)=>a-b);
+      new Chart(mpCanvas.getContext('2d'), {
+        type:'bar',
+        data:{ labels: months.map(m=>MONTHS[m-1]),
+          datasets:[
+            { label:'月峰值需量(kW)', data:months.map(m=>ld.monthStats[m].peak),
+              backgroundColor:months.map(m=>IS_SUMMER[m-1]?'rgba(247,129,102,.75)':'rgba(88,166,255,.75)'), borderRadius:3 },
+            { label:'月平均需量(kW)', data:months.map(m=>ld.monthStats[m].avg),
+              backgroundColor:'rgba(63,185,80,.55)', borderRadius:3 },
+          ]},
+        options:{ responsive:true, animation:false,
+          plugins:{ legend:{labels:{color:tickClr,boxWidth:8,font:{size:9}}} },
+          scales: baseScale }
+      });
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════
