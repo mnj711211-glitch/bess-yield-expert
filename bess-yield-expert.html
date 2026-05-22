@@ -270,15 +270,15 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div class="fg">
       <div class="fi">
         <label>客戶名稱</label>
-        <input type="text" id="customerName" placeholder="例：台積電竹科廠" oninput="onParamChange()" style="font-size:15px;font-weight:600">
+        <input type="text" id="customerName" placeholder="例：台積電竹科廠" oninput="onParamChange()" onchange="onParamChange()" oncompositionend="setTimeout(onParamChange,0)" style="font-size:15px;font-weight:600">
       </div>
       <div class="fi">
         <label>專案名稱</label>
-        <input type="text" id="projectName" placeholder="例：A棟屋頂型儲能 2MW/4MWh" oninput="onParamChange()">
+        <input type="text" id="projectName" placeholder="例：A棟屋頂型儲能 2MW/4MWh" oninput="onParamChange()" onchange="onParamChange()" oncompositionend="setTimeout(onParamChange,0)">
       </div>
       <div class="fi" style="grid-column:span 2">
         <label>備註</label>
-        <input type="text" id="projectNote" placeholder="選填：版本、聯絡人等備註" oninput="onParamChange()">
+        <input type="text" id="projectNote" placeholder="選填：版本、聯絡人等備註" oninput="onParamChange()" onchange="onParamChange()" oncompositionend="setTimeout(onParamChange,0)">
       </div>
     </div>
   </div>
