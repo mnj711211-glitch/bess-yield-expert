@@ -2671,8 +2671,11 @@ function renderReport(){
     <div class="pdf-preview" id="pdfContent">
       <!-- Cover -->
       <div class="pdf-cover">
+        ${v('customerName') ? `<div style="font-size:13px;opacity:.65;letter-spacing:.05em;margin-bottom:6px;text-transform:uppercase">提案對象</div><div style="font-size:22px;font-weight:800;margin-bottom:4px">${v('customerName')}</div>` : ''}
+        ${v('projectName')  ? `<div style="font-size:13px;opacity:.8;margin-bottom:18px">${v('projectName')}</div>` : '<div style="margin-bottom:18px"></div>'}
         <h1>儲能系統投資財務分析報告</h1>
         <p class="sub">Battery Energy Storage System — Yield & ROI Analysis Report</p>
+        ${v('projectNote') ? `<p style="font-size:12px;opacity:.6;margin-top:-12px;margin-bottom:20px">${v('projectNote')}</p>` : ''}
         <div class="meta">
           <div class="meta-item"><div class="k">電價類別</div><div class="val" style="font-size:13px">${document.getElementById('tariffType').options[document.getElementById('tariffType').selectedIndex].text}</div></div>
           <div class="meta-item"><div class="k">儲能規模</div><div class="val">${f0(v('battKwh'))} kWh / ${f0(v('pcskW'))} kW</div></div>
