@@ -1411,6 +1411,8 @@ function onParamChange(){
   suggestDRCap();
   // 費率切換時同步更新兩充兩放相容性提示
   if(vs('cycles') === '2c2d_ns') onCyclesChange();
+  // 若 PDF 預覽頁已開著，即時重新渲染
+  if(document.getElementById('panel-report')?.classList.contains('active')) renderReport();
 }
 
 function updateRateDisplay(){
