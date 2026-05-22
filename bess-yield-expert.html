@@ -2991,22 +2991,26 @@ async function exportPDF(){
     alert('請先執行計算再匯出 PDF'); return;
   }
 
-  // 暫時取消 zoom 讓 html2canvas 以原始尺寸截圖
-  // zoom 套在 pdfContent（.pdf-preview class），必須在該元素上重設
-  const origZoom = el.style.zoom;
-  el.style.zoom = '1';
-  await new Promise(r => setTimeout(r, 50)); // 等 reflow
+  // 暫時取消 zoom，並鎖定寬度，避免右側被截斷
+  const origZoom  = el.style.zoom;
+  const origWidth = el.style.width;
+  const origMaxW  = el.style.maxWidth;
+  el.style.zoom     = '1';
+  el.style.width    = '840px';
+  el.style.maxWidth = '840px';
+  await new Promise(r => setTimeout(r, 80)); // 等 reflow
 
   try {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
-    const pageW = 210, pageH = 297, margin = 14;
+    const pageW = 210, pageH = 297, margin = 10;
 
     const canvas = await html2canvas(el, {
-      scale: 1.8,
+      scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
+      width: 840,
       windowWidth: 840,
       onclone(clonedDoc){
         // 將 CSS 變數展開（html2canvas 有時無法解析 var(--xxx)）
@@ -3016,6 +3020,9 @@ async function exportPDF(){
             n.style.background = m ? m[0] : 'transparent';
           }
         });
+        // 確保 cloned 版本也關閉 zoom
+        const clonedEl = clonedDoc.getElementById('pdfContent');
+        if(clonedEl){ clonedEl.style.zoom='1'; clonedEl.style.width='840px'; }
       }
     });
 
@@ -3047,7 +3054,9 @@ async function exportPDF(){
   } finally {
     // 還原 panel 樣式 & zoom
     if(panel) panel.style.cssText = origCss;
-    el.style.zoom = origZoom;  // 還原 pdfContent 的 zoom
+    el.style.zoom     = origZoom;
+    el.style.width    = origWidth;
+    el.style.maxWidth = origMaxW;
     if(btn){ btn.textContent = '⬇ 匯出 PDF 報告'; btn.disabled = false; }
   }
 }
