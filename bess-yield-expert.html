@@ -2674,7 +2674,7 @@ function renderReport(){
         <h1>儲能系統投資財務分析報告</h1>
         <p class="sub">Battery Energy Storage System — Yield & ROI Analysis Report</p>
         <div class="meta">
-          <div class="meta-item"><div class="k">電價類別</div><div class="val">${document.getElementById('tariffType').options[document.getElementById('tariffType').selectedIndex].text.split('—')[0]}</div></div>
+          <div class="meta-item"><div class="k">電價類別</div><div class="val" style="font-size:13px">${document.getElementById('tariffType').options[document.getElementById('tariffType').selectedIndex].text}</div></div>
           <div class="meta-item"><div class="k">儲能規模</div><div class="val">${f0(v('battKwh'))} kWh / ${f0(v('pcskW'))} kW</div></div>
           <div class="meta-item"><div class="k">系統 CAPEX</div><div class="val">NT$ ${fw(capex,0)}</div></div>
           <div class="meta-item"><div class="k">分析日期</div><div class="val">${new Date().toLocaleDateString('zh-TW')}</div></div>
