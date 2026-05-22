@@ -2333,6 +2333,14 @@ function renderRevenue(){
   const spinCapRate = v('spinCeilingPrice') + spinAddon;
   const spinAnnualHours = v('spinAnnualHrs');
   const suppAnnualHours = v('suppDays') * v('suppDailyHours');
+  // 即時備轉：拆解容量費 + 電能調度費供公式顯示用
+  const _spinKw   = v('spinRatio');  // kW（顯示用，不含衰退）
+  const _spinCapRev   = (_spinKw / 1000) * spinCapRate * spinAnnualHours;
+  const _spinDispHrs  = v('spinDispatch');
+  const _spinDispPx   = v('spinDispatchPrice') || 10;
+  const _spinEnergyRev = _spinKw * _spinDispHrs * _spinDispPx;
+  const spinFormula = `${f0(_spinKw)}kW ÷ 1000 × (${v('spinCeilingPrice')}＋${spinAddon}) NT$/MW·h × ${spinAnnualHours}h` +
+    (_spinDispHrs > 0 ? `　＋　調度費 ${f0(_spinKw)}kW × ${_spinDispHrs}h × ${_spinDispPx}元` : '');
 
   const drDescMap = {
     none:          '—',
@@ -2354,8 +2362,8 @@ function renderRevenue(){
     {n:`TOU 套利 — ❄ 非夏季`,
      b:`尖峰 ${rNS.peak} − 離峰 ${rNS.off} = ${f(spreadNS,2)} NT$/kWh × PCS ${f0(v('pcskW'))}kW × ${v('touDaysNonSummer')}天（${doubleNS?'兩充兩放':'一充一放'}）`,
      m: yld.touNonSummer / 12, a: yld.touNonSummer},
-    {n:'即時備轉 — 容量費', b:`${f0(v('spinRatio'))}kW × ${spinCapRate}NT$/MW·h × ${spinAnnualHours}h`, m:yld.spin/12, a:yld.spin},
-    {n:'補充備轉 — 容量費', b:`${f0(v('pcskW')*(document.getElementById('suppEnabled')?.checked?v('suppRatio'):0)/100)}kW × ${v('suppCeilingPrice')}NT$/MW·h × ${suppAnnualHours}h`, m:yld.supp/12, a:yld.supp},
+    {n:'即時備轉（容量費＋調度費）', b:spinFormula, m:yld.spin/12, a:yld.spin},
+    {n:'補充備轉 — 容量費', b:`${f0(v('pcskW')*(document.getElementById('suppEnabled')?.checked?v('suppRatio'):0)/100)}kW ÷ 1000 × ${v('suppCeilingPrice')}NT$/MW·h × ${suppAnnualHours}h`, m:yld.supp/12, a:yld.supp},
     {n:'需量反應',          b:drDescMap[drType] || '—', m:yld.dr/12, a:yld.dr},
     {n:'超額獎勵金（用電大戶）', b:`max(0, 實際放電量 − 義務量) × 10 元/度`, m:(yld.bigUserReward||0)/12, a:yld.bigUserReward||0},
     {n:`聚合商抽成 ${v('vppPct')}%（扣）`, b:`（即時備轉 + 補充備轉）× ${v('vppPct')}%`, m:-yld.vppFee/12, a:-yld.vppFee},
