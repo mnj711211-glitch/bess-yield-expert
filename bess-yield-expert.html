@@ -1602,16 +1602,17 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   // 用電大戶模式下不可申報輔助服務，強制關閉 DR 路徑
   const isDRMode = !isBUMode && drDisHrs !== null && drCapKw > 0;
 
-  // ── 「主力優先，窗口後溢出」原則 ─────────────────────────────────────
-  // DR 簡易型：電池保留至 DR 申報時段才放電；DR 窗口結束後，剩餘電量才溢出至後續尖峰
-  //   → DR 窗口前的尖峰時段（如夏月 16h 申報 18-20h DR）不放電，避免搶光電量
+  // ── 放電窗口判斷 ─────────────────────────────────────────────────────
+  // DR 模式：DR窗口前尖峰可放「超額電量」；DR窗口執行申報容量；DR窗口後放剩餘
   // 用電大戶：18:00~20:00 全力放電為第一優先；20:00 之後才溢出剩餘電量
-  //   → 18h 前的尖峰時段（夏月 16h/17h）不放電，電池保持最佳待命狀態
-  const buMaxPri  = Math.max(...BU_PRIMARY);                               // 19（BU 主力窗口最晚小時）
-  const drMaxHour = (isDRMode && drDisHrs.length > 0) ? Math.max(...drDisHrs) : -1; // DR 申報最晚小時
+  const buMaxPri  = Math.max(...BU_PRIMARY);
+  const drMaxHour = (isDRMode && drDisHrs.length > 0) ? Math.max(...drDisHrs) : -1;
+  const drMinHour = (isDRMode && drDisHrs.length > 0) ? Math.min(...drDisHrs) : 25;
   const isDischargeHour = (h) => {
-    if(isDRMode) return disHrSet.has(h) || (sched[h] === 2 && h > drMaxHour);
-    if(isBUMode) return BU_PRIMARY.has(h) || (h > buMaxPri && sched[h] === 2); // 溢出僅限尖峰(sched=2)，22點後半尖峰不放電
+    if(isDRMode) return disHrSet.has(h)
+      || (sched[h] === 2 && h > drMaxHour)    // DR窗口後尖峰：放剩餘電量
+      || (sched[h] === 2 && h < drMinHour);   // DR窗口前尖峰：放超額電量
+    if(isBUMode) return BU_PRIMARY.has(h) || (h > buMaxPri && sched[h] === 2);
     return sched[h] === 2 || sched[h] === 1;
   };
 
@@ -1638,21 +1639,35 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     let Ptarget_semi  = Infinity;  // 半尖峰溢出放電目標（預設不放）
     let Ptarget_peak2 = Infinity;  // 用電大戶：18-20h 次要放電目標（預設不放）
     let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
+    let Ptarget_preDR = Infinity;  // DR模式：DR窗口前尖峰的超額放電目標
+    let drMinSOC      = socMin;    // DR模式：放電時保留給DR的SOC下限
 
     if(isDRMode){
-      // ── DR 模式：DR時段放 drCapKw（申報放電功率），剩餘溢出 DR 窗口後的尖峰 ──
-      // isDischargeHour 已確保 DR 窗口前的尖峰時段不進入 disHrs，
-      // 故 nonDRPeakHrs 只含 DR 窗口「之後」的尖峰時段（電池保留至 DR 結束才溢出）
-      const nonDRPeakHrs = disHrs.filter(h => !disHrSet.has(h));
-      const nonDRLoadMap = Object.fromEntries(nonDRPeakHrs.map(h => [h, loadMapD[h]]));
-      // DR時段以申報放電功率 drCapKw 估算消耗電量（有負載：受負載上限）
+      // ── DR 模式最佳化：超額電量前置放電 + DR窗口申報 + 後溢出 ──
+      // 1. 計算 DR 窗口必須保留的電量
       const drWindowEnergy = hasLoad
         ? [...disHrSet].reduce((s,h) => s + Math.min(drCapKw, loadMapD[h] || drCapKw), 0)
         : disHrSet.size * drCapKw;
-      const remainE = Math.max(0, availE - drWindowEnergy);
-      // 有非DR尖峰時段 → 計算平頂消峰目標；6h全峰時 nonDRPeakHrs=[]，剩餘電量由DR在時段內自然消化
-      if(nonDRPeakHrs.length > 0){
-        Ptarget = calcPtarget(nonDRPeakHrs, nonDRLoadMap, remainE);
+
+      // 2. DR窗口前放電的SOC下限 = socMin + DR保留電量（保護DR不被提前消耗）
+      drMinSOC = Math.min(socMax - 0.01, socMin + drWindowEnergy / battKwh);
+
+      // 3. 超額電量 = 可充電量 - DR保留量（這部分在DR窗口前的尖峰時段提前放掉）
+      const excessE = Math.max(0, availE - drWindowEnergy);
+
+      // 4. DR窗口前的尖峰時段 → 計算超額平頂目標
+      const preDRPeakHrs  = disHrs.filter(h => sched[h] === 2 && h < drMinHour);
+      if(excessE > 0.001 && preDRPeakHrs.length > 0){
+        const preDRMap = Object.fromEntries(preDRPeakHrs.map(h => [h, loadMapD[h]]));
+        Ptarget_preDR = calcPtarget(preDRPeakHrs, preDRMap, excessE);
+      }
+
+      // 5. DR窗口後的尖峰時段 → 全力放掉DR後剩餘電量
+      const postDRPeakHrs = disHrs.filter(h => !disHrSet.has(h) && h > drMaxHour);
+      if(postDRPeakHrs.length > 0){
+        const postDRMap = Object.fromEntries(postDRPeakHrs.map(h => [h, loadMapD[h]]));
+        // 期望DR後剩餘≈0，但若有殘餘就全力放（Ptarget=0）
+        Ptarget = calcPtarget(postDRPeakHrs, postDRMap, 0);
       }
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
@@ -1741,6 +1756,19 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             power = dp;
             soc = Math.max(socMin, soc - dp/battKwh);
             action = '放電(DR)';
+          }
+        } else if(isDRMode && sched[h] === 2 && h < drMinHour){
+          // DR窗口前尖峰：放超額電量，SOC不得低於drMinSOC（保護DR保留電量）
+          if(soc > drMinSOC + 0.001){
+            const avail = (soc - drMinSOC) * battKwh;
+            dp = hasLoad
+              ? Math.min(maxPow, Math.max(0, baseLoad - Ptarget_preDR), avail, baseLoad)
+              : Math.min(maxPow, avail);
+            if(dp > 0.001){
+              power = dp;
+              soc = Math.max(drMinSOC, soc - dp/battKwh);
+              action = '放電';
+            }
           }
         } else if(isBUMode && BU_PRIMARY.has(h)){
           // 用電大戶主力：18-20h 全力放電（全年有效，不限 TOU 分級）
