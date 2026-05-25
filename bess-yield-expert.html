@@ -2271,6 +2271,7 @@ function renderDispatch(){
 // ═══════════════════════════════════════════════
 function renderRevenue(){
   const yld = calcYield(1);
+  window._lastYld = yld;  // cache for PDF chart renderer
   const gross = yld.tou + yld.spin + yld.supp + yld.dr + (yld.bigUserReward||0);  // 總收益（扣除前）
   const isBU = vs('userMode') === 'biguser';
 
@@ -2664,6 +2665,7 @@ function calcBigUser(){
 // ═══════════════════════════════════════════════
 function renderReport(){
   const yld = calcYield(1);
+  window._lastYld = yld;  // cache for PDF chart renderer
   const { rows, payback, npv, irr, capex } = calcCashflows();
   const r = getRates();
   const spread = r.peak - r.off;
@@ -2681,7 +2683,11 @@ function renderReport(){
         <h1>儲能系統投資財務分析報告</h1>
         <p class="sub">Battery Energy Storage System — Yield & ROI Analysis Report</p>
         ${vs('projectNote') ? `<p style="font-size:12px;opacity:.6;margin-top:-12px;margin-bottom:20px">${vs('projectNote')}</p>` : ''}
-        <div class="meta">
+        <div style="margin-top:auto;padding-top:32px;border-top:1px solid rgba(255,255,255,.2);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;opacity:.6;letter-spacing:.06em">提案單位</div>
+          <div style="font-size:14px;font-weight:700;opacity:.9">綠源科技股份有限公司</div>
+        </div>
+        <div class="meta" style="margin-top:16px">
           <div class="meta-item"><div class="k">電價類別</div><div class="val" style="font-size:13px">${document.getElementById('tariffType').options[document.getElementById('tariffType').selectedIndex].text}</div></div>
           <div class="meta-item"><div class="k">儲能規模</div><div class="val">${f0(v('battKwh'))} kWh / ${f0(v('pcskW'))} kW</div></div>
           <div class="meta-item"><div class="k">系統 CAPEX</div><div class="val">NT$ ${fw(capex,0)}</div></div>
@@ -2697,6 +2703,16 @@ function renderReport(){
           <div class="pdf-kpi-item"><div class="k">NPV 淨現值</div><div class="v" style="color:${npv>=0?'#16a34a':'#dc2626'}">${fw(npv,0)}</div><div class="u">折現率 ${v('discRate')}%</div></div>
           <div class="pdf-kpi-item"><div class="k">IRR 內報率</div><div class="v" style="color:${irr*100>=v('discRate')?'#16a34a':'#ea580c'}">${f(irr*100,1)}%</div><div class="u">Internal Rate of Return</div></div>
           <div class="pdf-kpi-item"><div class="k">年度淨收益</div><div class="v" style="color:#1d4ed8">${fw(yld.total,1)}</div><div class="u">第1年（未衰退）</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;align-items:start">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">收益組成圓餅圖</div>
+            <canvas id="pdfChartRevPie" height="140"></canvas>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">月度收益趨勢（堆疊）</div>
+            <canvas id="pdfChartRevMonthly" height="140"></canvas>
+          </div>
         </div>
       </div>
 
@@ -2958,6 +2974,65 @@ function renderReportDispatchCharts(){
           scales: baseScale }
       });
     }
+  }
+
+  // ── 收益圓餅圖 (section 01) ──────────────────────────────────────────
+  const pieCanvas = document.getElementById('pdfChartRevPie');
+  if(pieCanvas){
+    const existingPie = Chart.getChart(pieCanvas);
+    if(existingPie) existingPie.destroy();
+    const yld2 = window._lastYld || {};
+    const pieEntries2 = [
+      {label:'TOU套利',    val:yld2.tou||0,              color:'#58a6ff'},
+      {label:'即時備轉',   val:yld2.spin||0,             color:'#ffa657'},
+      {label:'補充備轉',   val:yld2.supp||0,             color:'#bc8cff'},
+      {label:'需量反應',   val:yld2.dr||0,               color:'#3fb950'},
+      {label:'超額獎勵金', val:yld2.bigUserReward||0,    color:'#f97316'},
+    ].filter(e => e.val > 0);
+    new Chart(pieCanvas.getContext('2d'), {
+      type:'doughnut',
+      data:{ labels: pieEntries2.map(e=>e.label),
+        datasets:[{data: pieEntries2.map(e=>e.val), backgroundColor: pieEntries2.map(e=>e.color), borderWidth:0, hoverOffset:4}]
+      },
+      options:{ responsive:true, animation:false, cutout:'58%',
+        plugins:{ legend:{position:'right', labels:{color:tickClr,padding:10,font:{size:10}}} }
+      }
+    });
+  }
+
+  // ── 月度收益趨勢堆疊圖 (section 01) ────────────────────────────────
+  const monthlyCanvas = document.getElementById('pdfChartRevMonthly');
+  if(monthlyCanvas){
+    const existingM = Chart.getChart(monthlyCanvas);
+    if(existingM) existingM.destroy();
+    const yld3 = window._lastYld || {};
+    const drType3 = vs('drScheme');
+    const monthlyData3 = MONTHS.map((_,i)=>{
+      const isSummer = IS_SUMMER[i];
+      const tou  = (yld3.tou||0)/12 * (isSummer?1.35:0.75);
+      const spin = (yld3.spin||0)/12;
+      const supp = (yld3.supp||0)/12;
+      let   dr   = 0;
+      if(drType3==='simple')      dr = (i>=4&&i<=9) ? (yld3.dr||0)/6  : 0;
+      else if(drType3!=='none')   dr = (yld3.dr||0)/12;
+      return { tou, spin, supp, dr };
+    });
+    new Chart(monthlyCanvas.getContext('2d'), {
+      type:'bar',
+      data:{ labels:MONTHS, datasets:[
+        {label:'TOU套利',  data:monthlyData3.map(m=>+m.tou.toFixed(2)),  backgroundColor:'rgba(88,166,255,.75)',  stack:'s', borderRadius:2},
+        {label:'即時備轉', data:monthlyData3.map(m=>+m.spin.toFixed(2)), backgroundColor:'rgba(255,166,87,.75)',  stack:'s', borderRadius:2},
+        {label:'補充備轉', data:monthlyData3.map(m=>+m.supp.toFixed(2)), backgroundColor:'rgba(188,140,255,.75)', stack:'s', borderRadius:2},
+        {label:'需量反應', data:monthlyData3.map(m=>+m.dr.toFixed(2)),   backgroundColor:'rgba(63,185,80,.75)',   stack:'s', borderRadius:2},
+      ]},
+      options:{ responsive:true, animation:false,
+        plugins:{ legend:{labels:{color:tickClr,boxWidth:10,font:{size:10}}} },
+        scales:{
+          x:{ stacked:true, ticks:{color:tickClr,font:{size:9}}, grid:{display:false} },
+          y:{ stacked:true, ticks:{color:tickClr,font:{size:9}}, grid:{color:gridClr} }
+        }
+      }
+    });
   }
 }
 
