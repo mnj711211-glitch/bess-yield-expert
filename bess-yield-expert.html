@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>綠源科技ESS 收益評估</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script>
+// Disable datalabels globally; only opt-in per chart
+document.addEventListener('DOMContentLoaded', function(){
+  if(window.ChartDataLabels && window.Chart){
+    Chart.defaults.set('plugins.datalabels', { display: false });
+  }
+});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2983,19 +2992,33 @@ function renderReportDispatchCharts(){
     if(existingPie) existingPie.destroy();
     const yld2 = window._lastYld || {};
     const pieEntries2 = [
-      {label:'TOU套利',    val:yld2.tou||0,              color:'#58a6ff'},
-      {label:'即時備轉',   val:yld2.spin||0,             color:'#ffa657'},
-      {label:'補充備轉',   val:yld2.supp||0,             color:'#bc8cff'},
-      {label:'需量反應',   val:yld2.dr||0,               color:'#3fb950'},
-      {label:'超額獎勵金', val:yld2.bigUserReward||0,    color:'#f97316'},
+      {label:'TOU套利',    val:yld2.tou||0,           color:'#58a6ff'},
+      {label:'即時備轉',   val:yld2.spin||0,          color:'#ffa657'},
+      {label:'補充備轉',   val:yld2.supp||0,          color:'#bc8cff'},
+      {label:'需量反應',   val:yld2.dr||0,            color:'#3fb950'},
+      {label:'超額獎勵金', val:yld2.bigUserReward||0, color:'#f97316'},
     ].filter(e => e.val > 0);
+    const pieTotal2 = pieEntries2.reduce((s,e)=>s+e.val, 0);
     new Chart(pieCanvas.getContext('2d'), {
       type:'doughnut',
+      plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
       data:{ labels: pieEntries2.map(e=>e.label),
         datasets:[{data: pieEntries2.map(e=>e.val), backgroundColor: pieEntries2.map(e=>e.color), borderWidth:0, hoverOffset:4}]
       },
-      options:{ responsive:true, animation:false, cutout:'58%',
-        plugins:{ legend:{position:'right', labels:{color:tickClr,padding:10,font:{size:10}}} }
+      options:{ responsive:true, animation:false, cutout:'52%',
+        plugins:{
+          legend:{position:'right', labels:{color:tickClr, padding:10, font:{size:10}}},
+          datalabels:{
+            display: true,
+            color: '#fff',
+            font:{ size:10, weight:'bold' },
+            textAlign:'center',
+            formatter(val, ctx){
+              const pct = pieTotal2 > 0 ? (val/pieTotal2*100).toFixed(1) : '0.0';
+              return `${val.toFixed(1)}萬\n${pct}%`;
+            }
+          }
+        }
       }
     });
   }
