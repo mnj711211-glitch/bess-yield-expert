@@ -2716,11 +2716,15 @@ function renderReport(){
         <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px;margin-top:20px;align-items:start">
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">收益組成圓餅圖</div>
-            <canvas id="pdfChartRevPie" style="display:block;height:200px;width:100%"></canvas>
+            <div style="position:relative;height:200px">
+              <canvas id="pdfChartRevPie"></canvas>
+            </div>
           </div>
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">月度收益趨勢（堆疊）</div>
-            <canvas id="pdfChartRevMonthly" style="display:block;height:200px;width:100%"></canvas>
+            <div style="position:relative;height:200px">
+              <canvas id="pdfChartRevMonthly"></canvas>
+            </div>
           </div>
         </div>
       </div>
