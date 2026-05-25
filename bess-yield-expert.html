@@ -3004,46 +3004,86 @@ async function exportPDF(){
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
     const pageW = 210, pageH = 297, margin = 10;
+    const printW = pageW - margin * 2;   // 190 mm
+    const printH = pageH - margin * 2;   // 277 mm
 
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: 840,
-      windowWidth: 840,
-      onclone(clonedDoc){
-        // 將 CSS 變數展開（html2canvas 有時無法解析 var(--xxx)）
-        clonedDoc.querySelectorAll('[style]').forEach(n => {
-          if(n.style.background && n.style.background.includes('gradient')){
-            const m = n.style.background.match(/(?:rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/);
-            n.style.background = m ? m[0] : 'transparent';
-          }
-        });
-        // 確保 cloned 版本也關閉 zoom
-        const clonedEl = clonedDoc.getElementById('pdfContent');
-        if(clonedEl){ clonedEl.style.zoom='1'; clonedEl.style.width='840px'; }
+    // Helper: capture one DOM element as a scaled canvas
+    async function captureSection(node) {
+      return html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 840,
+        windowWidth: 840,
+        onclone(clonedDoc) {
+          clonedDoc.querySelectorAll('[style]').forEach(n => {
+            if(n.style.background && n.style.background.includes('gradient')){
+              const m = n.style.background.match(/(?:rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/);
+              n.style.background = m ? m[0] : 'transparent';
+            }
+          });
+          // make sure zoom is off in cloned tree
+          const root = clonedDoc.getElementById('pdfContent');
+          if(root){ root.style.zoom='1'; root.style.width='840px'; }
+        }
+      });
+    }
+
+    // Collect all top-level sections (cover + each section block)
+    const sections = Array.from(el.querySelectorAll('.pdf-cover, .pdf-section'));
+    if(!sections.length){
+      // Fallback: treat the whole element as one section
+      sections.push(el);
+    }
+
+    let curY = margin;   // current Y cursor on the active PDF page (mm)
+    let firstPage = true;
+
+    for(const sec of sections){
+      const canvas = await captureSection(sec);
+
+      // mm height this section will occupy (preserving aspect ratio)
+      const secH_mm = canvas.height * printW / canvas.width;
+
+      // If it won't fit on remaining space AND we're not at the very top, start a new page
+      if(!firstPage && curY + secH_mm > pageH - margin){
+        pdf.addPage();
+        curY = margin;
       }
-    });
 
-    const imgW = pageW - margin*2;
-    const imgH = canvas.height * imgW / canvas.width;
-    const pages = Math.ceil(imgH / (pageH - margin*2));
+      // If the section itself is taller than a full page, split it into page-height strips
+      if(secH_mm > printH){
+        // pixels per mm
+        const pxPerMm = canvas.height / secH_mm;
+        let stripY_px = 0;               // source y in canvas pixels
 
-    for(let p=0;p<pages;p++){
-      if(p>0) pdf.addPage();
-      const srcY = p * (canvas.height / pages);
-      const srcH = canvas.height / pages;
+        while(stripY_px < canvas.height){
+          const availH_mm = pageH - margin - curY;           // mm left on this page
+          const availH_px = availH_mm * pxPerMm;             // px to take from canvas
+          const takeH_px  = Math.min(availH_px, canvas.height - stripY_px);
+          const takeH_mm  = takeH_px / pxPerMm;
 
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvas.width;
-      pageCanvas.height = srcH;
-      const ctx = pageCanvas.getContext('2d');
-      ctx.drawImage(canvas, 0, -srcY);
+          const strip = document.createElement('canvas');
+          strip.width  = canvas.width;
+          strip.height = Math.round(takeH_px);
+          strip.getContext('2d').drawImage(canvas, 0, -Math.round(stripY_px));
 
-      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-      const printH = (srcH / canvas.height) * imgH;
-      pdf.addImage(imgData,'JPEG',margin, margin, imgW, printH);
+          pdf.addImage(strip.toDataURL('image/jpeg', 0.92), 'JPEG', margin, curY, printW, takeH_mm);
+          stripY_px += takeH_px;
+          curY      += takeH_mm;
+
+          if(stripY_px < canvas.height){
+            pdf.addPage();
+            curY = margin;
+          }
+        }
+      } else {
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, curY, printW, secH_mm);
+        curY += secH_mm + 4;   // 4 mm gap between sections
+      }
+
+      firstPage = false;
     }
 
     const fname = `BESS-Report-${new Date().toISOString().slice(0,10)}.pdf`;
