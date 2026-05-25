@@ -2716,15 +2716,11 @@ function renderReport(){
         <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px;margin-top:20px;align-items:start">
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">收益組成圓餅圖</div>
-            <div style="position:relative;height:200px">
-              <canvas id="pdfChartRevPie"></canvas>
-            </div>
+            <canvas id="pdfChartRevPie" width="260" height="220" style="display:block;max-width:100%"></canvas>
           </div>
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">月度收益趨勢（堆疊）</div>
-            <div style="position:relative;height:200px">
-              <canvas id="pdfChartRevMonthly"></canvas>
-            </div>
+            <canvas id="pdfChartRevMonthly" width="440" height="220" style="display:block;max-width:100%"></canvas>
           </div>
         </div>
       </div>
@@ -3009,7 +3005,7 @@ function renderReportDispatchCharts(){
       data:{ labels: pieEntries2.map(e=>e.label),
         datasets:[{data: pieEntries2.map(e=>e.val), backgroundColor: pieEntries2.map(e=>e.color), borderWidth:0, hoverOffset:4}]
       },
-      options:{ responsive:true, maintainAspectRatio:false, animation:false, cutout:'52%',
+      options:{ responsive:false, animation:false, cutout:'52%',
         plugins:{
           legend:{position:'bottom', labels:{color:tickClr, padding:8, font:{size:10}, boxWidth:10}},
           datalabels:{
@@ -3052,7 +3048,7 @@ function renderReportDispatchCharts(){
         {label:'補充備轉', data:monthlyData3.map(m=>+m.supp.toFixed(2)), backgroundColor:'rgba(188,140,255,.75)', stack:'s', borderRadius:2},
         {label:'需量反應', data:monthlyData3.map(m=>+m.dr.toFixed(2)),   backgroundColor:'rgba(63,185,80,.75)',   stack:'s', borderRadius:2},
       ]},
-      options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      options:{ responsive:false, animation:false,
         plugins:{ legend:{labels:{color:tickClr,boxWidth:10,font:{size:10}}} },
         scales:{
           x:{ stacked:true, ticks:{color:tickClr,font:{size:9}}, grid:{display:false} },
