@@ -2713,14 +2713,14 @@ function renderReport(){
           <div class="pdf-kpi-item"><div class="k">IRR 內報率</div><div class="v" style="color:${irr*100>=v('discRate')?'#16a34a':'#ea580c'}">${f(irr*100,1)}%</div><div class="u">Internal Rate of Return</div></div>
           <div class="pdf-kpi-item"><div class="k">年度淨收益</div><div class="v" style="color:#1d4ed8">${fw(yld.total,1)}</div><div class="u">第1年（未衰退）</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;align-items:start">
+        <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px;margin-top:20px;align-items:start">
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">收益組成圓餅圖</div>
-            <canvas id="pdfChartRevPie" height="140"></canvas>
+            <canvas id="pdfChartRevPie" style="display:block;height:200px;width:100%"></canvas>
           </div>
           <div>
             <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">月度收益趨勢（堆疊）</div>
-            <canvas id="pdfChartRevMonthly" height="140"></canvas>
+            <canvas id="pdfChartRevMonthly" style="display:block;height:200px;width:100%"></canvas>
           </div>
         </div>
       </div>
@@ -3005,9 +3005,9 @@ function renderReportDispatchCharts(){
       data:{ labels: pieEntries2.map(e=>e.label),
         datasets:[{data: pieEntries2.map(e=>e.val), backgroundColor: pieEntries2.map(e=>e.color), borderWidth:0, hoverOffset:4}]
       },
-      options:{ responsive:true, animation:false, cutout:'52%',
+      options:{ responsive:true, maintainAspectRatio:false, animation:false, cutout:'52%',
         plugins:{
-          legend:{position:'right', labels:{color:tickClr, padding:10, font:{size:10}}},
+          legend:{position:'bottom', labels:{color:tickClr, padding:8, font:{size:10}, boxWidth:10}},
           datalabels:{
             display: true,
             color: '#fff',
@@ -3048,7 +3048,7 @@ function renderReportDispatchCharts(){
         {label:'補充備轉', data:monthlyData3.map(m=>+m.supp.toFixed(2)), backgroundColor:'rgba(188,140,255,.75)', stack:'s', borderRadius:2},
         {label:'需量反應', data:monthlyData3.map(m=>+m.dr.toFixed(2)),   backgroundColor:'rgba(63,185,80,.75)',   stack:'s', borderRadius:2},
       ]},
-      options:{ responsive:true, animation:false,
+      options:{ responsive:true, maintainAspectRatio:false, animation:false,
         plugins:{ legend:{labels:{color:tickClr,boxWidth:10,font:{size:10}}} },
         scales:{
           x:{ stacked:true, ticks:{color:tickClr,font:{size:9}}, grid:{display:false} },
