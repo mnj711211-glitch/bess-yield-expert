@@ -3293,12 +3293,28 @@ function renderReport(){
       <!-- 24H Dispatch Charts -->
       <div class="pdf-section">
         <h2>06 24H 負載 &amp; 儲能調度曲線</h2>
+
+        <!-- 尖離峰時段說明 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <span style="font-size:11px;color:#6b7280;font-weight:600;margin-right:2px">時段說明：</span>
+          <span style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);padding:2px 10px;border-radius:4px;font-size:11px;color:#15803d;font-weight:600">■ 離峰</span>
+          <span style="background:rgba(251,146,60,.15);border:1px solid rgba(251,146,60,.35);padding:2px 10px;border-radius:4px;font-size:11px;color:#c2410c;font-weight:600">■ 半尖峰</span>
+          <span style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);padding:2px 10px;border-radius:4px;font-size:11px;color:#b91c1c;font-weight:600">■ 尖峰</span>
+          <span style="font-size:10px;color:#9ca3af;margin-left:6px">（背景底色對應各時段費率區間）</span>
+        </div>
+
         <div style="margin-bottom:20px">
-          <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">🌞 夏月典型日（平日）</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:700;color:#1a3a6e">🌞 夏月典型日（平日）</div>
+            <div id="pdfDispatchDescSummer" style="font-size:10px;color:#6b7280"></div>
+          </div>
           <canvas id="pdfChartSummer" height="90"></canvas>
         </div>
         <div>
-          <div style="font-size:12px;font-weight:700;color:#1a3a6e;margin-bottom:8px">❄ 非夏月典型日（平日）</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:700;color:#1a3a6e">❄ 非夏月典型日（平日）</div>
+            <div id="pdfDispatchDescNonSummer" style="font-size:10px;color:#6b7280"></div>
+          </div>
           <canvas id="pdfChartNonSummer" height="90"></canvas>
         </div>
       </div>
@@ -3335,6 +3351,19 @@ function renderReportDispatchCharts(){
     y: { ticks:{color:tickClr,font:{size:9}}, grid:{color:gridClr} }
   };
   const labels = Array.from({length:24},(_,h)=>`${String(h).padStart(2,'0')}:00`);
+
+  // ── 動態時段說明（依選用電價填入）──────────────────────────
+  const tariff = vs('tariffType');
+  const tariffName = {hv2:'高壓二段式', hv3:'高壓三段式', ehv2:'特高壓二段式', ehv3:'特高壓三段式'}[tariff] || tariff;
+  const isHV3 = tariff === 'hv3' || tariff === 'ehv3';
+  const descS  = document.getElementById('pdfDispatchDescSummer');
+  const descNS = document.getElementById('pdfDispatchDescNonSummer');
+  if(descS)  descS.textContent  = isHV3
+    ? `${tariffName}：🔴 尖峰 16~22h｜🟠 半尖峰 9~16h / 22~24h｜🟢 離峰 0~9h`
+    : `${tariffName}：🔴 尖峰 9~24h（週一~五）｜🟢 離峰 0~9h`;
+  if(descNS) descNS.textContent = isHV3
+    ? `${tariffName}：🟠 半尖峰 6~11h / 14~24h｜🟢 離峰 0~6h / 11~14h`
+    : `${tariffName}：🔴 尖峰 6~11h / 14~24h（週一~五）｜🟢 離峰 0~6h / 11~14h`;
 
   const seasons = [
     { id:'pdfChartSummer',    season:'summer',    double:false,  label:'🌞 夏月' },
