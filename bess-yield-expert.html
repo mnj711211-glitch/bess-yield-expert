@@ -3382,18 +3382,20 @@ function renderReportDispatchCharts(){
     const bands = makeBands(sched);
 
     // Background band plugin for PDF chart
+    // bands 格式: [{ color: '#...' }, ...] × 24，與 makeBands() 相同
     const bgPlugin = {
       id:'bgBandsPdf_'+id,
       beforeDraw(chart){
-        const {ctx,chartArea:{left,right,top,bottom},scales:{x}} = chart;
-        if(!x) return;
-        const w = (right-left)/24;
-        bands.forEach(b=>{
-          const colors = {'off':'rgba(34,197,94,.08)','semi':'rgba(251,146,60,.12)','peak':'rgba(239,68,68,.12)'};
-          ctx.fillStyle = colors[b.type]||'transparent';
-          const x0 = left + b.from*w, x1 = left + (b.to+1)*w;
-          ctx.fillRect(x0, top, x1-x0, bottom-top);
+        const {ctx, chartArea, scales:{x}} = chart;
+        if(!chartArea || !x) return;
+        const {left, right, top, bottom} = chartArea;
+        const colW = (right - left) / bands.length;
+        ctx.save();
+        bands.forEach((band, i) => {
+          ctx.fillStyle = band.color;
+          ctx.fillRect(left + i * colW, top, colW, bottom - top);
         });
+        ctx.restore();
       }
     };
 
