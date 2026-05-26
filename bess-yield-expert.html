@@ -1138,10 +1138,17 @@ tr:hover td{background:rgba(28,35,51,.5)}
 // hv2 非夏月:  peak=尖峰(06-11/14-24h)6.37, semi=週六半2.54, off=離峰(00-06/11-14h)2.46
 // ehv3 夏月:   peak=超尖峰8.69, semi=尖峰5.38, off=離峰2.40
 const T = {
-  hv3:  { summer:{peak:9.39, semi:5.85, off:2.53}, nonsummer:{peak:5.47, semi:5.47, off:2.32} },
-  hv2:  { summer:{peak:6.75, semi:2.77, off:2.71}, nonsummer:{peak:6.37, semi:2.54, off:2.46} },
-  ehv3: { summer:{peak:8.69, semi:5.38, off:2.40}, nonsummer:{peak:5.03, semi:4.86, off:2.18} },
-  ehv2: { summer:{peak:6.17, semi:2.73, off:2.55}, nonsummer:{peak:5.79, semi:2.48, off:2.28} }
+  // semi    = 平日半尖峰費率（hv3 週一~五 09-16/22-24h 夏月5.85，非夏月5.47）
+  // semiSat = 週六半尖峰費率（與平日半尖峰不同！hv3夏月2.60，非夏月2.41）
+  // hv2 沒有平日半尖峰，semi = 週六半尖峰費率（兩者相同）
+  hv3:  { summer:   {peak:9.39, semi:5.85, semiSat:2.60, off:2.53},
+          nonsummer:{peak:5.47, semi:5.47, semiSat:2.41, off:2.32} },
+  hv2:  { summer:   {peak:6.75, semi:2.77, semiSat:2.77, off:2.71},
+          nonsummer:{peak:6.37, semi:2.54, semiSat:2.54, off:2.46} },
+  ehv3: { summer:   {peak:8.69, semi:5.38, semiSat:2.60, off:2.40},
+          nonsummer:{peak:5.03, semi:4.86, semiSat:2.41, off:2.18} },
+  ehv2: { summer:   {peak:6.17, semi:2.73, semiSat:2.73, off:2.55},
+          nonsummer:{peak:5.79, semi:2.48, semiSat:2.48, off:2.28} }
 };
 
 // 0=off, 1=semi, 2=peak  ─ 尖離峰時段排程（依台電2025年電價表）
@@ -2374,19 +2381,25 @@ function calcMonthlyBill(tariffKey) {
         } else {
           // 平日
           const code = schedWD[h];
-          if      (code === 2) peakKwh   += kw;   // 尖峰
-          else if (code === 1) semiWdKwh += kw;   // 平日半尖峰（hv3）
-          else                 offKwh    += kw;
+          if (code === 2) {
+            // hv3 非夏月：code=2 標記最高優先時段，但實際是「半尖峰」（peak=semi=5.47，無真正超尖峰）
+            // → 月度表顯示在「半尖峰度數」欄，以符合台電帳單格式
+            if (r.peak > r.semi + 0.01) peakKwh   += kw;   // 有真正尖峰（hv3夏月 9.39）
+            else                        semiWdKwh  += kw;   // 無超尖峰（hv3非夏月：均5.47）
+          } else if (code === 1) semiWdKwh += kw;           // 平日半尖峰（hv3 夏月 5.85）
+          else                   offKwh    += kw;
         }
       }
     }
 
     // 計算各項費用
+    // 週六半尖峰使用 r.semiSat（台電獨立費率）
+    // hv3 夏月: semiSat=2.60（不同於平日半尖峰5.85！）；hv2: semiSat=semi（兩者相同）
     const demandRate  = isSummer ? DEMAND_RATE_SUMMER : DEMAND_RATE_NONSUMMER;
     const basicFee    = Math.round(contractKw * demandRate);
     const peakCost    = Math.round(peakKwh    * r.peak);
     const semiWdCost  = Math.round(semiWdKwh  * r.semi);
-    const semiSatCost = Math.round(semiSatKwh * r.semi);
+    const semiSatCost = Math.round(semiSatKwh * (r.semiSat ?? r.semi));
     const offCost     = Math.round(offKwh     * r.off);
     const variableCost = peakCost + semiWdCost + semiSatCost + offCost;
     const totalCost    = basicFee + variableCost;
