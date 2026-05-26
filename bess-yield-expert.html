@@ -292,10 +292,13 @@ tr:hover td{background:rgba(28,35,51,.5)}
     </div>
   </div>
   <div class="card">
-    <div class="card-h">電價類別</div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center">
+      電價類別
+      <button id="compareModeBtn" onclick="toggleCompareMode()" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #c8b400;background:#fff;color:#7a6200;cursor:pointer;font-weight:600">⚖ 電價比較模式</button>
+    </div>
     <div class="fg">
       <div class="fi">
-        <label>電壓等級 & 電價類別</label>
+        <label>電壓等級 & 電價類別（方案 A）</label>
         <select id="tariffType" onchange="onParamChange()">
           <option value="hv2">高壓電力 — 二段式時間電價</option>
           <option value="hv3" selected>高壓電力 — 三段式時間電價</option>
@@ -303,6 +306,16 @@ tr:hover td{background:rgba(28,35,51,.5)}
           <option value="ehv3">特高壓電力 — 三段式時間電價</option>
         </select>
         <span class="hint">收益分析自動涵蓋夏月（5/16~10/15）與非夏月（10/16~5/15）全年計算</span>
+      </div>
+      <div class="fi" id="compareTariffRow" style="display:none">
+        <label>比較方案 B（對照電價）</label>
+        <select id="compareTariff" onchange="onParamChange()">
+          <option value="hv2" selected>高壓電力 — 二段式時間電價</option>
+          <option value="hv3">高壓電力 — 三段式時間電價</option>
+          <option value="ehv2">特高壓電力 — 二段式時間電價</option>
+          <option value="ehv3">特高壓電力 — 三段式時間電價</option>
+        </select>
+        <span class="hint">計算改用此電價後的收益差異</span>
       </div>
     </div>
     <div id="rateDisplay" style="margin-top:16px"></div>
@@ -922,6 +935,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
 <div class="panel" id="panel-revenue">
   <div class="ph"><div class="ph-left"><h2>收益分解報表</h2><p>四大收益來源明細、年度貢獻佔比與月度趨勢</p></div></div>
   <div id="revenueStats" class="stats"></div>
+  <div id="comparePanel" style="display:none"></div>
   <div class="cg">
     <div class="cb2"><h3>年度收益組成</h3><canvas id="chartRevPie"></canvas></div>
     <div class="cb2"><h3>月度收益趨勢（堆疊）</h3><canvas id="chartRevMonthly"></canvas></div>
@@ -1521,7 +1535,7 @@ function calcDailyArb(rows){
 function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType = 'weekday', drDisHrs = null, drCapKw = null){
   const season      = overrideSeason || 'nonsummer';
   const sched       = getSchedFor(season, dayType);
-  const r           = T[vs('tariffType')][season];
+  const r           = T[window._tariffOverride || vs('tariffType')][season];
   const priceMap    = [r.off, r.semi, r.peak];
   const prices      = sched.map(p => priceMap[p]);
 
@@ -2304,6 +2318,103 @@ function renderDispatch(){
 }
 
 // ═══════════════════════════════════════════════
+// TARIFF COMPARE MODE
+// ═══════════════════════════════════════════════
+let _compareModeOn = false;
+
+function toggleCompareMode(){
+  _compareModeOn = !_compareModeOn;
+  const btn = document.getElementById('compareModeBtn');
+  const row = document.getElementById('compareTariffRow');
+  if(_compareModeOn){
+    btn.style.background = '#fef9c3';
+    btn.style.borderColor = '#ca8a04';
+    btn.style.color = '#713f12';
+    btn.textContent = '⚖ 比較模式 開啟中';
+    row.style.display = '';
+  } else {
+    btn.style.background = '#fff';
+    btn.style.borderColor = '#c8b400';
+    btn.style.color = '#7a6200';
+    btn.textContent = '⚖ 電價比較模式';
+    row.style.display = 'none';
+  }
+  onParamChange();
+}
+
+// 用覆蓋 tariff 的方式計算另一組電價的收益
+function calcYieldWithTariff(tariffKey, yearNum = 1){
+  window._tariffOverride = tariffKey;
+  try { return calcYield(yearNum); }
+  finally { delete window._tariffOverride; }
+}
+
+function renderComparePanel(yldA, tariffA, yldB, tariffB){
+  const NAMES = {
+    hv2:'高壓二段式', hv3:'高壓三段式',
+    ehv2:'特高壓二段式', ehv3:'特高壓三段式'
+  };
+  const nameA = NAMES[tariffA] || tariffA;
+  const nameB = NAMES[tariffB] || tariffB;
+  const diffTotal = yldB.total - yldA.total;
+  const diffTOU   = yldB.tou   - yldA.tou;
+  const diffClr   = diffTotal >= 0 ? '#16a34a' : '#dc2626';
+  const diffSign  = diffTotal >= 0 ? '+' : '';
+  const arrowIcon = diffTotal >= 0 ? '📈' : '📉';
+
+  const rows = [
+    { label:'TOU 套利',   a: yldA.tou,   b: yldB.tou   },
+    { label:'即時備轉',   a: yldA.spin,  b: yldB.spin  },
+    { label:'補充備轉',   a: yldA.supp,  b: yldB.supp  },
+    { label:'需量反應',   a: yldA.dr,    b: yldB.dr    },
+    { label:'契約增購（扣）', a: -yldA.contractCost, b: -yldB.contractCost },
+    { label:'年度淨收益', a: yldA.total, b: yldB.total, bold: true },
+  ];
+
+  document.getElementById('comparePanel').innerHTML = `
+  <div class="card" style="border:2px solid #ca8a04;margin-bottom:16px">
+    <div class="card-h" style="background:linear-gradient(90deg,#fef9c3,#fff);color:#713f12">
+      ${arrowIcon} 電價方案比較分析
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin-bottom:12px">
+      <div style="text-align:center;padding:12px;background:#f0f9ff;border-radius:8px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">方案 A（目前選用）</div>
+        <div style="font-size:14px;font-weight:700;color:#1a3a6e">${nameA}</div>
+        <div style="font-size:22px;font-weight:800;color:#16a34a;margin-top:8px">${fw(yldA.total,1)}<span style="font-size:12px;font-weight:400"> 萬/年</span></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;padding:0 16px;font-size:20px">VS</div>
+      <div style="text-align:center;padding:12px;background:#fef9c3;border-radius:8px">
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">方案 B（比較對象）</div>
+        <div style="font-size:14px;font-weight:700;color:#713f12">${nameB}</div>
+        <div style="font-size:22px;font-weight:800;color:${diffClr};margin-top:8px">${fw(yldB.total,1)}<span style="font-size:12px;font-weight:400"> 萬/年</span></div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:10px;border-radius:8px;background:${diffTotal>=0?'rgba(22,163,74,.08)':'rgba(220,38,38,.08)'};margin-bottom:16px">
+      <span style="font-size:13px;color:#64748b">改用方案 B 每年收益差異：</span>
+      <span style="font-size:20px;font-weight:800;color:${diffClr};margin-left:8px">${diffSign}${fw(diffTotal,1)} 萬元/年</span>
+      ${diffTOU !== 0 ? `<span style="font-size:11px;color:#64748b;display:block;margin-top:4px">其中 TOU 差異：${diffTOU>=0?'+':''}${fw(diffTOU,1)} 萬元</span>` : ''}
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>收益項目</th><th>方案 A — ${nameA}（萬元）</th><th>方案 B — ${nameB}（萬元）</th><th>差異（萬元）</th></tr></thead>
+      <tbody>
+        ${rows.map(r => {
+          const d = r.b - r.a;
+          const dc = d > 0.005 ? '#16a34a' : d < -0.005 ? '#dc2626' : '#6b7280';
+          const ds = d > 0.005 ? '+' : '';
+          const fw2 = (n) => (Math.abs(n)<0.005?'—':n.toFixed(1));
+          return `<tr ${r.bold?'style="background:#f0fdf4;font-weight:700"':''}>
+            <td>${r.label}</td>
+            <td style="color:#1a3a6e">${fw2(r.a)}</td>
+            <td style="color:#713f12">${fw2(r.b)}</td>
+            <td style="color:${dc};font-weight:600">${d!==0?ds+fw2(d):'—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
 // REVENUE RENDER
 // ═══════════════════════════════════════════════
 function renderRevenue(){
@@ -2323,6 +2434,24 @@ function renderRevenue(){
     ) +
     (yld.vppFee > 0 ? stat('聚合商抽成（扣）', fw(-yld.vppFee,1), v('vppPct')+'% 費用', 'red') : '') +
     stat('契約增購（扣）', fw(-yld.contractCost,1), '年度額外基本電費', 'red');
+
+  // ── 比較模式：計算另一個電價的收益並渲染比較卡 ──
+  const compareEl = document.getElementById('comparePanel');
+  if(_compareModeOn){
+    const tariffA = vs('tariffType');
+    const tariffB = document.getElementById('compareTariff').value;
+    if(tariffA !== tariffB){
+      const yldB = calcYieldWithTariff(tariffB, 1);
+      renderComparePanel(yld, tariffA, yldB, tariffB);
+      compareEl.style.display = '';
+    } else {
+      compareEl.innerHTML = '<div style="padding:12px;color:#ca8a04;font-size:13px">⚠ 方案 A 與方案 B 選了相同電價，請選擇不同電價以進行比較。</div>';
+      compareEl.style.display = '';
+    }
+  } else {
+    compareEl.style.display = 'none';
+    compareEl.innerHTML = '';
+  }
 
   // Pie chart labels / data (exclude zero entries)
   const pieEntries = [
