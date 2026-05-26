@@ -2318,12 +2318,169 @@ function renderDispatch(){
 }
 
 // ═══════════════════════════════════════════════
+// MONTHLY ELECTRICITY BILL (逐月電費明細計算)
+// ═══════════════════════════════════════════════
+const DEMAND_RATE_SUMMER    = 223.60;  // NT$/kW/month 夏月基本費率
+const DEMAND_RATE_NONSUMMER = 166.90;  // NT$/kW/month 非夏月基本費率
+
+/**
+ * 根據匯入用電資料，逐月計算兩種電費（基本費 + 分時段流動電費）
+ * 回傳陣列，每筆代表一個年月的明細
+ */
+function calcMonthlyBill(tariffKey) {
+  const ld = window.LOAD_DATA;
+  if (!ld) return null;
+
+  const contractKw = v('contractPeak');
+  const k = tariffKey.startsWith('ehv') ? tariffKey.replace('ehv','hv') : tariffKey;
+
+  // 依 YYYY-MM 分組
+  const monthGroups = {};
+  ld.sortedDays.forEach(dateStr => {
+    const ym = dateStr.slice(0, 7);
+    if (!monthGroups[ym]) monthGroups[ym] = [];
+    monthGroups[ym].push(dateStr);
+  });
+
+  const results = [];
+  for (const ym of Object.keys(monthGroups).sort()) {
+    const month = parseInt(ym.slice(5, 7));
+    const isSummer = IS_SUMMER[month - 1];  // 5~10月為夏月
+    const season = isSummer ? 'summer' : 'nonsummer';
+    const r = T[tariffKey][season];
+
+    const schedWD  = SCHED[`${k}_${season}_weekday`]  || SCHED['hv3_nonsummer_weekday'];
+    const schedSAT = SCHED[`${k}_${season}_saturday`] || SCHED['hv3_nonsummer_saturday'];
+
+    // 分類累計 kWh
+    let peakKwh = 0, semiWdKwh = 0, semiSatKwh = 0, offKwh = 0;
+
+    for (const dateStr of monthGroups[ym]) {
+      const profile = ld.dailyProfiles[dateStr];
+      if (!profile) continue;
+      const dayType = getDayType(dateStr);
+
+      for (let h = 0; h < 24; h++) {
+        const kw = profile[h];
+        if (kw === null || kw === undefined || isNaN(kw)) continue;
+        // dailyProfiles[date][h] = 該小時平均 kW → × 1h = kWh
+
+        if (dayType === 'sunday') {
+          offKwh += kw;                    // 週日全離峰
+        } else if (dayType === 'saturday') {
+          const code = schedSAT[h];
+          if (code === 1) semiSatKwh += kw; // 週六半尖峰
+          else            offKwh     += kw;
+        } else {
+          // 平日
+          const code = schedWD[h];
+          if      (code === 2) peakKwh   += kw;   // 尖峰
+          else if (code === 1) semiWdKwh += kw;   // 平日半尖峰（hv3）
+          else                 offKwh    += kw;
+        }
+      }
+    }
+
+    // 計算各項費用
+    const demandRate  = isSummer ? DEMAND_RATE_SUMMER : DEMAND_RATE_NONSUMMER;
+    const basicFee    = Math.round(contractKw * demandRate);
+    const peakCost    = Math.round(peakKwh    * r.peak);
+    const semiWdCost  = Math.round(semiWdKwh  * r.semi);
+    const semiSatCost = Math.round(semiSatKwh * r.semi);
+    const offCost     = Math.round(offKwh     * r.off);
+    const variableCost = peakCost + semiWdCost + semiSatCost + offCost;
+    const totalCost    = basicFee + variableCost;
+
+    results.push({
+      ym, month, isSummer,
+      basicFee,
+      peakKwh:    Math.round(peakKwh),
+      semiWdKwh:  Math.round(semiWdKwh),
+      semiSatKwh: Math.round(semiSatKwh),
+      offKwh:     Math.round(offKwh),
+      peakCost, semiWdCost, semiSatCost, offCost,
+      variableCost, totalCost,
+    });
+  }
+  return results;
+}
+
+function renderBillTable(rows, tariffKey, name) {
+  if (!rows || !rows.length) return '<p style="color:#9ca3af;font-size:12px">無資料</p>';
+  const isHV3 = tariffKey === 'hv3' || tariffKey === 'ehv3';
+  const N = n => Math.round(n).toLocaleString();
+
+  const tot = k => rows.reduce((s,r) => s + r[k], 0);
+  const totBasic    = tot('basicFee');
+  const totPeak     = tot('peakKwh');
+  const totSemiWd   = tot('semiWdKwh');
+  const totSemiSat  = tot('semiSatKwh');
+  const totOff      = tot('offKwh');
+  const totPeakCost = tot('peakCost');
+  const totSemiWdC  = tot('semiWdCost');
+  const totSemiSatC = tot('semiSatCost');
+  const totOffCost  = tot('offCost');
+  const totVar      = tot('variableCost');
+  const totTotal    = tot('totalCost');
+
+  const hdKwh = isHV3
+    ? `<th>尖峰(度)</th><th>半尖峰(度)</th><th>過六半尖峰(度)</th><th>離峰(度)</th>`
+    : `<th>尖峰(度)</th><th>過六半尖峰(度)</th><th>離峰(度)</th>`;
+  const hdNT = isHV3
+    ? `<th>尖峰(元)</th><th>半尖峰(元)</th><th>過六半尖峰(元)</th><th>離峰(元)</th>`
+    : `<th>尖峰(元)</th><th>過六半尖峰(元)</th><th>離峰(元)</th>`;
+
+  const tdKwh = r => isHV3
+    ? `<td>${N(r.peakKwh)}</td><td>${N(r.semiWdKwh)}</td><td>${N(r.semiSatKwh)}</td><td>${N(r.offKwh)}</td>`
+    : `<td>${N(r.peakKwh)}</td><td>${N(r.semiSatKwh)}</td><td>${N(r.offKwh)}</td>`;
+  const tdNT = r => isHV3
+    ? `<td>${N(r.peakCost)}</td><td>${N(r.semiWdCost)}</td><td>${N(r.semiSatCost)}</td><td>${N(r.offCost)}</td>`
+    : `<td>${N(r.peakCost)}</td><td>${N(r.semiSatCost)}</td><td>${N(r.offCost)}</td>`;
+
+  const totKwh = isHV3
+    ? `<td>${N(totPeak)}</td><td>${N(totSemiWd)}</td><td>${N(totSemiSat)}</td><td>${N(totOff)}</td>`
+    : `<td>${N(totPeak)}</td><td>${N(totSemiSat)}</td><td>${N(totOff)}</td>`;
+  const totNT = isHV3
+    ? `<td>${N(totPeakCost)}</td><td>${N(totSemiWdC)}</td><td>${N(totSemiSatC)}</td><td>${N(totOffCost)}</td>`
+    : `<td>${N(totPeakCost)}</td><td>${N(totSemiSatC)}</td><td>${N(totOffCost)}</td>`;
+
+  return `
+  <div style="font-size:13px;font-weight:700;color:#1a3a6e;margin:12px 0 6px">${name}</div>
+  <div class="tw" style="font-size:11px"><table>
+    <thead>
+      <tr><th rowspan="2">用電月份</th><th rowspan="2">基本電費(元)</th>
+        ${hdKwh}${hdNT}
+        <th rowspan="2">流動電費(元)</th><th rowspan="2">月電費合計(元)</th></tr>
+    </thead>
+    <tbody>
+      ${rows.map(r => `<tr style="background:${r.isSummer?'rgba(247,129,102,.05)':'rgba(88,166,255,.04)'}">
+        <td><b>${r.ym}</b><br><span style="font-size:10px;color:${r.isSummer?'#ea580c':'#3b82f6'}">${r.isSummer?'夏月':'非夏月'}</span></td>
+        <td>${N(r.basicFee)}</td>
+        ${tdKwh(r)}${tdNT(r)}
+        <td style="color:#1d4ed8;font-weight:600">${N(r.variableCost)}</td>
+        <td style="font-weight:700">${N(r.totalCost)}</td>
+      </tr>`).join('')}
+      <tr style="background:#e8f0fe;font-weight:700;font-size:12px">
+        <td>📊 合計</td>
+        <td>${N(totBasic)}</td>
+        ${totKwh}${totNT}
+        <td style="color:#1d4ed8">${N(totVar)}</td>
+        <td style="color:#1a3a6e;font-size:14px">${N(totTotal)}</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <div style="text-align:right;font-size:13px;font-weight:800;color:#1a3a6e;margin-top:6px">
+    年度電費合計：<span style="font-size:18px;color:#dc2626">${(totTotal/10000).toFixed(1)} 萬元</span>
+    　（基本費 ${(totBasic/10000).toFixed(1)}萬 ＋ 流動費 ${(totVar/10000).toFixed(1)}萬）
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
 // TARIFF COMPARE MODE
 // ═══════════════════════════════════════════════
 let _compareModeOn = false;
 
-// ── 根據匯入用電資料估算年度流動電費 ──────────────────────────────────
-// 使用逐時平均負載 × 各時段電價 × 天數；基本電費兩種電價差異甚小，不納入差異計算
+// ── 根據匯入用電資料估算年度流動電費（舊版估算，保留供 fallback）────────
 function calcAnnualElecCost(tariffKey) {
   const ld = window.LOAD_DATA;
   if (!ld) return null;
@@ -2407,19 +2564,19 @@ function renderComparePanel(yldA, tariffA, yldB, tariffB){
   const nameA = NAMES[tariffA] || tariffA;
   const nameB = NAMES[tariffB] || tariffB;
   const diffBatt = yldB.total - yldA.total;  // 儲能收益差
-  const diffClrBatt = diffBatt >= 0 ? '#16a34a' : '#dc2626';
 
-  // ── 電費估算（若有匯入資料） ──
-  const elecA_est = calcAnnualElecCost(tariffA);  // 萬元 or null
-  const elecB_est = calcAnnualElecCost(tariffB);
-  // 手動輸入台電實際帳單
-  const manA = parseFloat(document.getElementById('manualElecA')?.value) || 0;
-  const manB = parseFloat(document.getElementById('manualElecB')?.value) || 0;
-  const elecA = manA > 0 ? manA : elecA_est;
-  const elecB = manB > 0 ? manB : elecB_est;
-  const hasElec = elecA !== null && elecB !== null;
-  const diffElec = hasElec ? (elecA - elecB) : null; // 方案B比A省多少（正=B省錢）
-  const totalBenefit = hasElec ? (diffBatt + diffElec) : null;
+  // ── 逐月電費計算（基本費 + 分時段流動費）──
+  const billRowsA = calcMonthlyBill(tariffA);
+  const billRowsB = calcMonthlyBill(tariffB);
+  const hasElec   = billRowsA !== null && billRowsB !== null;
+
+  let elecA_total = null, elecB_total = null, diffElec = null, totalBenefit = null;
+  if (hasElec) {
+    elecA_total  = billRowsA.reduce((s, r) => s + r.totalCost, 0) / 10000;  // 萬元
+    elecB_total  = billRowsB.reduce((s, r) => s + r.totalCost, 0) / 10000;
+    diffElec     = elecA_total - elecB_total;  // 正值 = B 比 A 省
+    totalBenefit = diffBatt + diffElec;
+  }
 
   const battRows = [
     { label:'TOU 套利',       a: yldA.tou,   b: yldB.tou   },
@@ -2470,44 +2627,46 @@ function renderComparePanel(yldA, tariffA, yldB, tariffB){
       </tbody>
     </table></div>
 
-    <!-- ② 電費成本比較 -->
+    <!-- ② 月度電費明細比較 -->
     <div style="font-size:13px;font-weight:700;color:#1a3a6e;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e5e7eb">
-      ② 年度用電費用差異
+      ② 年度用電費用明細比較
       <span style="font-size:10px;font-weight:400;color:#6b7280;margin-left:8px">
-        ${elecA_est !== null ? '依匯入資料估算（流動電費）' : '請手動輸入台電帳單'}
+        ${hasElec ? '依匯入用電資料逐日計算（基本費＋分時段流動費）' : '請先匯入客戶用電資料（CSV）'}
       </span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div>
-        <label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">方案 A 年度電費（萬元）${elecA_est!==null?'　估算：'+elecA_est.toFixed(1)+'萬':''}</label>
-        <input id="manualElecA" type="number" step="0.1" placeholder="${elecA_est!==null?elecA_est.toFixed(1):'輸入台電實際帳單'}"
-          style="width:100%;padding:6px 10px;border:1px solid #d0d0c8;border-radius:5px;font-size:13px"
-          oninput="renderComparePanel_refresh()">
-      </div>
-      <div>
-        <label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">方案 B 年度電費（萬元）${elecB_est!==null?'　估算：'+elecB_est.toFixed(1)+'萬':''}</label>
-        <input id="manualElecB" type="number" step="0.1" placeholder="${elecB_est!==null?elecB_est.toFixed(1):'輸入台電實際帳單'}"
-          style="width:100%;padding:6px 10px;border:1px solid #d0d0c8;border-radius:5px;font-size:13px"
-          oninput="renderComparePanel_refresh()">
-      </div>
-    </div>
+
     ${hasElec ? `
+    <!-- 方案 A 電費表 -->
+    <div style="background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:16px;overflow-x:auto">
+      ${renderBillTable(billRowsA, tariffA, '方案 A　' + nameA + '　月度電費明細')}
+    </div>
+
+    <!-- 方案 B 電費表 -->
+    <div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:16px;overflow-x:auto">
+      ${renderBillTable(billRowsB, tariffB, '方案 B　' + nameB + '　月度電費明細')}
+    </div>
+
+    <!-- 電費差異摘要 -->
     <div style="display:grid;grid-template-columns:1fr 80px 1fr 1fr;gap:8px;margin-bottom:12px;font-size:13px">
-      <div style="text-align:center;padding:8px;background:#f0f9ff;border-radius:6px">
-        <div style="font-size:10px;color:#64748b">方案 A 電費</div>
-        <div style="font-weight:700;color:#1a3a6e">${elecA.toFixed(1)} 萬</div>
+      <div style="text-align:center;padding:10px;background:#f0f9ff;border-radius:6px;border:1px solid #bfdbfe">
+        <div style="font-size:10px;color:#64748b;margin-bottom:2px">方案 A 年度電費</div>
+        <div style="font-weight:700;color:#1a3a6e;font-size:16px">${elecA_total.toFixed(1)} 萬元</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">${Math.round(elecA_total*10000).toLocaleString()} 元</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:16px">→</div>
-      <div style="text-align:center;padding:8px;background:#fef9c3;border-radius:6px">
-        <div style="font-size:10px;color:#64748b">方案 B 電費</div>
-        <div style="font-weight:700;color:#713f12">${elecB.toFixed(1)} 萬</div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:20px">→</div>
+      <div style="text-align:center;padding:10px;background:#fefce8;border-radius:6px;border:1px solid #fde68a">
+        <div style="font-size:10px;color:#64748b;margin-bottom:2px">方案 B 年度電費</div>
+        <div style="font-weight:700;color:#713f12;font-size:16px">${elecB_total.toFixed(1)} 萬元</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">${Math.round(elecB_total*10000).toLocaleString()} 元</div>
       </div>
-      <div style="text-align:center;padding:8px;background:${diffElec>=0?'rgba(22,163,74,.08)':'rgba(220,38,38,.08)'};border-radius:6px">
-        <div style="font-size:10px;color:#64748b">電費節省（B較A）</div>
-        <div style="font-weight:700;color:${clr(diffElec)}">${sgn(diffElec)}${fw2(diffElec)} 萬</div>
+      <div style="text-align:center;padding:10px;background:${diffElec>=0?'rgba(22,163,74,.08)':'rgba(220,38,38,.08)'};border-radius:6px;border:1px solid ${diffElec>=0?'#86efac':'#fca5a5'}">
+        <div style="font-size:10px;color:#64748b;margin-bottom:2px">改用方案 B 電費節省</div>
+        <div style="font-weight:700;color:${clr(diffElec)};font-size:16px">${sgn(diffElec)}${fw2(diffElec)} 萬元</div>
+        <div style="font-size:10px;color:${clr(diffElec)};margin-top:2px">${diffElec>=0?'💰 省錢':'⚠ 增加'}</div>
       </div>
-    </div>` : `<div style="padding:10px;color:#9ca3af;font-size:12px;text-align:center">
-      ${elecA_est===null ? '匯入客戶用電資料後可自動估算，或手動填入上方欄位' : ''}
+    </div>` : `
+    <div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;background:#f9fafb;border-radius:8px;border:1px dashed #d1d5db;margin-bottom:12px">
+      📂 請先匯入客戶用電資料（CSV），即可自動計算兩種電價的逐月電費明細與差異
     </div>`}
 
     <!-- ③ 綜合效益 -->
@@ -2527,7 +2686,7 @@ function renderComparePanel(yldA, tariffA, yldB, tariffB){
         <div style="font-size:22px;font-weight:800;color:${clr(totalBenefit)}">${sgn(totalBenefit)}${fw2(totalBenefit)} 萬</div>
       </div>
     </div>
-    <div style="font-size:11px;color:#9ca3af;text-align:right">= 儲能收益差 ${sgn(diffBatt)}${fw2(diffBatt)}萬 ＋ 電費節省 ${sgn(diffElec)}${fw2(diffElec)}萬</div>
+    <div style="font-size:11px;color:#9ca3af;text-align:right;margin-top:4px">= 儲能收益差 ${sgn(diffBatt)}${fw2(diffBatt)}萬 ＋ 電費節省 ${sgn(diffElec)}${fw2(diffElec)}萬</div>
     ` : ''}
   </div>`;
 }
