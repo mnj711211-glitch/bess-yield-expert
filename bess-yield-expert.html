@@ -2214,7 +2214,7 @@ function renderDispatch(){
       datasets: [
         { label:'建物基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#8b949e', borderDash:[5,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
         { label:'電網端需量(kW)',   data:rows.map(r=>r.gridLoad), borderColor:PC[2], fill:true, backgroundColor:'rgba(247,129,102,.07)', tension:.3, pointRadius:0, borderWidth:2 },
-        { label:'儲能功率(kW)',     data:rows.map(r=>r.power),    borderColor:PC[0], fill:true, backgroundColor:'rgba(88,166,255,.18)', tension:.3, pointRadius:0, borderWidth:2, type:'bar' },
+        { label:'儲能功率(kW)',     data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:'origin', backgroundColor:'rgba(59,130,246,.18)', tension:.4, pointRadius:0, borderWidth:2 },
         { label:`尖峰契約容量 ${f0(v('contractPeak'))}kW`,
           data: Array(24).fill(v('contractPeak')),
           borderColor:'rgba(239,68,68,.75)', borderDash:[8,5], fill:false,
@@ -3376,7 +3376,7 @@ function renderReportDispatchCharts(){
         datasets:[
           { label:'基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#9ca3af', borderDash:[4,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
           { label:'電網需量(kW)', data:rows.map(r=>r.gridLoad), borderColor:'#ef4444', fill:true, backgroundColor:'rgba(239,68,68,.07)', tension:.3, pointRadius:0, borderWidth:2 },
-          { label:'儲能功率(kW)', data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:true, backgroundColor:'rgba(59,130,246,.15)', tension:.3, pointRadius:0, borderWidth:1.5, type:'bar' },
+          { label:'儲能功率(kW)', data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:'origin', backgroundColor:'rgba(59,130,246,.18)', tension:.4, pointRadius:0, borderWidth:1.5 },
           { label:`尖峰契約 ${f0(v('contractPeak'))}kW`, data:Array(24).fill(v('contractPeak')), borderColor:'rgba(239,68,68,.7)', borderDash:[6,4], fill:false, pointRadius:0, borderWidth:1, tension:0 },
           { label:`離峰契約 ${f0(v('contractOff'))}kW`,  data:Array(24).fill(v('contractOff')),  borderColor:'rgba(59,130,246,.6)', borderDash:[4,4], fill:false, pointRadius:0, borderWidth:1, tension:0 }
         ]
