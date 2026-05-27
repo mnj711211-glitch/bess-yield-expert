@@ -4901,20 +4901,31 @@ const fbAuth = firebase.auth();
 const fbDb   = firebase.firestore();
 const fbGoogleProvider = new firebase.auth.GoogleAuthProvider();
 
-let _currentUser  = null;
-let _isAdmin      = false;
-let _appShown     = false;  // 主畫面已顯示後，不再因 null 跳回登入
+let _currentUser     = null;
+let _isAdmin         = false;
+let _appShown        = false;
+let _redirectPending = sessionStorage.getItem('authRedirect') === '1';
+
+// 安全逾時：最多等 5 秒，若還沒確認身分就直接顯示登入畫面
+const _authSafetyTimer = setTimeout(() => {
+  if (!_appShown) {
+    sessionStorage.removeItem('authRedirect');
+    _redirectPending = false;
+    showLoginScreen();
+  }
+}, 5000);
 
 // ── Auth 狀態監聽 ────────────────────────────────
 fbAuth.onAuthStateChanged(async (user) => {
   if (!user) {
-    // 若正在處理 redirect 登入，不要跳至登入畫面
-    const redirecting = sessionStorage.getItem('authRedirect') === '1';
-    if (!_appShown && !redirecting) showLoginScreen();
+    // redirect 期間暫時不顯示登入畫面（等 getRedirectResult 處理完）
+    if (!_appShown && !_redirectPending) showLoginScreen();
     return;
   }
 
-  // ★ 有 user → 立刻鎖定，清除 redirect flag，避免後續 null 跳回登入畫面
+  // 有 user → 立刻鎖定，清除所有旗標
+  clearTimeout(_authSafetyTimer);
+  _redirectPending = false;
   sessionStorage.removeItem('authRedirect');
   _appShown    = true;
   _currentUser = user;
@@ -4923,7 +4934,6 @@ fbAuth.onAuthStateChanged(async (user) => {
   // 管理員直接進入
   if (_isAdmin) {
     showMainApp();
-    // 背景寫入 Firestore（失敗也沒關係）
     fbDb.collection('users').doc(user.uid).set({
       email: user.email, displayName: user.displayName || '',
       photoURL: user.photoURL || '', approved: true, role: 'admin',
@@ -4936,7 +4946,6 @@ fbAuth.onAuthStateChanged(async (user) => {
   try {
     const userRef = fbDb.collection('users').doc(user.uid);
     const userDoc = await userRef.get();
-
     if (userDoc.exists && userDoc.data().approved === true) {
       userRef.update({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
       showMainApp();
@@ -4950,7 +4959,6 @@ fbAuth.onAuthStateChanged(async (user) => {
     }
   } catch(e) {
     console.error('Firestore error:', e.message);
-    // Firestore 失敗時，管理員直接進入，其他人顯示等待
     if (_isAdmin) showMainApp(); else showPendingScreen(user);
   }
 });
@@ -5014,15 +5022,25 @@ async function googleSignIn(){
 }
 
 // 頁面載入時處理 redirect 登入結果
+// ★ getRedirectResult 是關鍵：
+//   - 有 redirect 正在處理 → 等 onAuthStateChanged(user) 完成
+//   - 沒有 redirect（或 flag 殘留）→ 立刻清旗標並顯示登入畫面
 fbAuth.getRedirectResult().then(result => {
-  // redirect 成功，onAuthStateChanged 會接著處理
+  if (!result || !result.user) {
+    // 沒有進行中的 redirect，清旗標，讓 onAuthStateChanged 判斷
+    _redirectPending = false;
+    sessionStorage.removeItem('authRedirect');
+    if (!_appShown) showLoginScreen();
+  }
+  // 有 result.user → onAuthStateChanged(user) 會接著處理，不需額外動作
 }).catch(e => {
+  _redirectPending = false;
   sessionStorage.removeItem('authRedirect');
-  if(e.code && e.code !== 'auth/no-current-user'){
+  if (e.code && e.code !== 'auth/no-current-user') {
     const err = document.getElementById('loginError');
     if(err){ err.textContent = '登入失敗：' + (e.message || e.code); err.style.display = 'block'; }
-    showLoginScreen();
   }
+  if (!_appShown) showLoginScreen();
 });
 
 function fbSignOut(){
