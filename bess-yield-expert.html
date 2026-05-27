@@ -4899,33 +4899,46 @@ fbAuth.onAuthStateChanged(async (user) => {
   _currentUser = user;
   _isAdmin     = (user.uid === ADMIN_UID);
 
-  // 寫入/更新 users 集合
-  const userRef = fbDb.collection('users').doc(user.uid);
-  const userDoc = await userRef.get();
-
+  // 管理員直接進入（不依賴 Firestore）
   if (_isAdmin) {
-    await userRef.set({
-      email:       user.email,
-      displayName: user.displayName || '',
-      photoURL:    user.photoURL    || '',
-      approved:    true,
-      role:        'admin',
-      lastLogin:   firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
     showMainApp();
-  } else if (userDoc.exists && userDoc.data().approved === true) {
-    await userRef.update({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() });
-    showMainApp();
-  } else {
-    // 未審核 → 登記並顯示等待畫面
-    await userRef.set({
-      email:       user.email,
-      displayName: user.displayName || '',
-      photoURL:    user.photoURL    || '',
-      approved:    false,
-      role:        'pending',
-      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    // 背景更新 Firestore（不擋住主畫面）
+    try {
+      await fbDb.collection('users').doc(user.uid).set({
+        email: user.email, displayName: user.displayName || '',
+        photoURL: user.photoURL || '', approved: true, role: 'admin',
+        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch(e) { console.warn('Firestore write failed:', e.message); }
+    return;
+  }
+
+  // 一般使用者 → 查詢 Firestore 確認授權
+  try {
+    const userRef = fbDb.collection('users').doc(user.uid);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists && userDoc.data().approved === true) {
+      userRef.update({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
+      showMainApp();
+    } else {
+      // 未審核 → 登記並顯示等待畫面
+      await userRef.set({
+        email: user.email, displayName: user.displayName || '',
+        photoURL: user.photoURL || '', approved: false, role: 'pending',
+        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      showPendingScreen(user);
+    }
+  } catch(e) {
+    // Firestore 尚未建立或讀取失敗 → 顯示提示但不卡登入畫面
+    console.error('Firestore error:', e.message);
+    const err = document.getElementById('loginError');
+    if(err){
+      err.textContent = '⚠️ 資料庫尚未建立，請至 Firebase Console 建立 Firestore Database。管理員請先設定 ADMIN_UID。';
+      err.style.display = 'block';
+    }
+    // 若 ADMIN_UID 未設定，仍顯示等待畫面
     showPendingScreen(user);
   }
 });
