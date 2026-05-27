@@ -4905,8 +4905,23 @@ let _currentUser = null;
 let _isAdmin     = false;
 let _appShown    = false;
 
+// ── Debug 面板（排查用，之後移除）──────────────────
+function _dbg(msg) {
+  let el = document.getElementById('_authDbg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_authDbg';
+    el.style.cssText = 'position:fixed;bottom:8px;left:8px;background:rgba(0,0,0,.85);color:#4ade80;font:11px/1.5 monospace;padding:8px 10px;border-radius:8px;z-index:99999;max-width:94vw;max-height:35vh;overflow-y:auto;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  const t = new Date().toISOString().slice(11,19);
+  el.innerHTML += `<div>${t} ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
 // 安全逾時：最多 8 秒，防止任何情況卡在 initScreen
 const _safetyTimer = setTimeout(() => {
+  _dbg('⏰ safety timeout → showLoginScreen');
   if (!_appShown) showLoginScreen();
 }, 8000);
 
@@ -4916,22 +4931,28 @@ async function _handleUser(user) {
   _appShown    = true;
   _currentUser = user;
   _isAdmin     = (user.uid === ADMIN_UID);
+  _dbg(`👤 uid=${user.uid}`);
+  _dbg(`🔑 admin=${_isAdmin} (ADMIN_UID=${ADMIN_UID})`);
 
   if (_isAdmin) {
+    _dbg('✅ admin → showMainApp');
     showMainApp();
     fbDb.collection('users').doc(user.uid).set({
       email: user.email, displayName: user.displayName || '',
       photoURL: user.photoURL || '', approved: true, role: 'admin',
       lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(e => console.warn('Firestore:', e.message));
+    }, { merge: true }).catch(e => _dbg('⚠️ Firestore:' + e.message));
     return;
   }
 
+  _dbg('🔍 non-admin → checking Firestore...');
   try {
     const userRef = fbDb.collection('users').doc(user.uid);
     const userDoc = await userRef.get();
+    _dbg(`📄 doc.exists=${userDoc.exists} approved=${userDoc.exists ? userDoc.data().approved : 'n/a'}`);
     if (userDoc.exists && userDoc.data().approved === true) {
       userRef.update({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() }).catch(()=>{});
+      _dbg('✅ approved → showMainApp');
       showMainApp();
     } else {
       await userRef.set({
@@ -4939,27 +4960,31 @@ async function _handleUser(user) {
         photoURL: user.photoURL || '', approved: false, role: 'pending',
         requestedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      _dbg('⏳ pending → showPendingScreen');
       showPendingScreen(user);
     }
   } catch(e) {
-    console.error('Firestore error:', e.message);
+    _dbg('❌ Firestore error:' + e.message);
     showPendingScreen(user);
   }
 }
 
-// ── Auth 初始化：先等 redirect 處理完，再聽 auth 狀態 ──
-// 把 onAuthStateChanged 放在 getRedirectResult().finally() 內，
-// 確保 redirect 完全處理後 auth state 才穩定，不會出現 null→user→null
-fbAuth.getRedirectResult().catch(e => {
+// ── Auth 初始化 ──────────────────────────────────
+_dbg('🚀 init, getRedirectResult...');
+fbAuth.getRedirectResult().then(r => {
+  _dbg(`↩️ getRedirectResult: user=${r && r.user ? r.user.uid : 'null'}`);
+}).catch(e => {
+  _dbg(`❌ getRedirectResult err: ${e.code}`);
   if (e.code && e.code !== 'auth/no-current-user') {
     const err = document.getElementById('loginError');
     if(err){ err.textContent = '登入失敗：' + (e.message || e.code); err.style.display = 'block'; }
   }
 }).finally(() => {
-  // Redirect 已處理完畢（成功或失敗），現在 auth 狀態穩定
+  _dbg('✔️ getRedirectResult done → register onAuthStateChanged');
   fbAuth.onAuthStateChanged(async (user) => {
+    _dbg(`🔔 onAuthStateChanged: user=${user ? user.uid : 'null'}, _appShown=${_appShown}`);
     if (!user) {
-      if (!_appShown) showLoginScreen();
+      if (!_appShown) { _dbg('→ showLoginScreen'); showLoginScreen(); }
       return;
     }
     await _handleUser(user);
