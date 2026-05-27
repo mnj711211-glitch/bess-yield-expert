@@ -4901,13 +4901,14 @@ const fbAuth = firebase.auth();
 const fbDb   = firebase.firestore();
 const fbGoogleProvider = new firebase.auth.GoogleAuthProvider();
 
-let _currentUser = null;
-let _isAdmin     = false;
+let _currentUser  = null;
+let _isAdmin      = false;
+let _appShown     = false;  // 主畫面已顯示後，不再因 null 跳回登入
 
 // ── Auth 狀態監聽 ────────────────────────────────
 fbAuth.onAuthStateChanged(async (user) => {
   if (!user) {
-    showLoginScreen();
+    if (!_appShown) showLoginScreen();  // 還沒進主畫面才顯示登入
     return;
   }
   _currentUser = user;
@@ -4979,6 +4980,7 @@ function showPendingScreen(user){
 }
 
 function showMainApp(){
+  _appShown = true;
   hideInitScreen();
   const u = _currentUser;
   document.getElementById('loginScreen').style.display  = 'none';
