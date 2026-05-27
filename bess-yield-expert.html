@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', function(){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Firebase SDK (compat v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#f0f4f3;--surface:#ffffff;--surface2:#eaf3ef;--border:#c8ddd5;
@@ -220,6 +224,88 @@ tr:hover td{background:rgba(28,35,51,.5)}
 </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════════
+     登入畫面 (Login Gate)
+════════════════════════════════════════════════ -->
+<div id="loginScreen" style="position:fixed;inset:0;background:linear-gradient(145deg,#064e35 0%,#0b7a4f 60%,#0d9b63 100%);display:flex;align-items:center;justify-content:center;z-index:9999;font-family:'Segoe UI',system-ui,sans-serif">
+  <div style="background:#fff;border-radius:20px;padding:52px 44px;text-align:center;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.25)">
+    <div style="font-size:48px;margin-bottom:4px">🔋</div>
+    <h1 style="font-size:22px;font-weight:800;color:#1a2e25;margin:0 0 6px">綠源科技 ESS 評估系統</h1>
+    <p style="color:#6b7280;font-size:13px;margin:0 0 36px;line-height:1.5">儲能收益分析專業工具<br>請以授權的 Google 帳號登入</p>
+    <button onclick="googleSignIn()" id="loginBtn"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:13px 20px;background:#fff;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;font-weight:600;color:#374151;cursor:pointer;transition:.2s;box-shadow:0 2px 8px rgba(0,0,0,.06)"
+      onmouseover="this.style.borderColor='#0b7a4f';this.style.background='#f0fdf4'"
+      onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff'">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      使用 Google 帳號登入
+    </button>
+    <p id="loginError" style="margin-top:14px;font-size:12px;color:#dc2626;display:none"></p>
+    <p style="margin-top:24px;font-size:11px;color:#9ca3af">僅限授權帳號使用　©2025 綠源科技</p>
+  </div>
+</div>
+
+<!-- 等待審核畫面 -->
+<div id="pendingScreen" style="position:fixed;inset:0;background:linear-gradient(145deg,#064e35,#0b7a4f);display:none;align-items:center;justify-content:center;z-index:9999;font-family:'Segoe UI',system-ui,sans-serif">
+  <div style="background:#fff;border-radius:20px;padding:52px 44px;text-align:center;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.25)">
+    <div style="font-size:48px;margin-bottom:8px">⏳</div>
+    <h2 style="font-size:18px;font-weight:700;color:#1a2e25;margin:0 0 10px">等待管理員審核</h2>
+    <div id="pendingUserInfo" style="display:flex;align-items:center;gap:10px;background:#f9fafb;border-radius:10px;padding:12px 16px;margin:0 0 16px;text-align:left">
+      <img id="pendingAvatar" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover">
+      <div>
+        <div id="pendingName" style="font-size:13px;font-weight:600;color:#1a2e25"></div>
+        <div id="pendingEmail" style="font-size:12px;color:#6b7280"></div>
+      </div>
+    </div>
+    <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0 0 24px">您的帳號已登錄，請等待管理員開通權限。<br>開通後重新整理頁面即可使用。</p>
+    <button onclick="fbSignOut()" style="padding:10px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;color:#374151;cursor:pointer">登出並切換帳號</button>
+  </div>
+</div>
+
+<!-- ══ 專案管理 Modal ══ -->
+<div id="projectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif" onclick="if(event.target===this)closeProjectModal()">
+  <div style="background:#fff;border-radius:16px;width:min(680px,95vw);max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.2)">
+    <div style="padding:20px 24px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:#1a2e25">📁 雲端專案庫</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="openSaveNewProject()" style="padding:7px 16px;background:#0b7a4f;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">＋ 儲存目前專案</button>
+        <button onclick="closeProjectModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <!-- 儲存新專案表單 (預設隱藏) -->
+    <div id="saveNewForm" style="display:none;padding:16px 24px;background:#f0fdf4;border-bottom:1px solid #a7f3d0">
+      <div style="font-size:13px;font-weight:600;color:#065f46;margin-bottom:8px">儲存目前計算結果</div>
+      <div style="display:flex;gap:8px">
+        <input id="newProjectName" placeholder="輸入專案名稱（如：台中某工廠 300kWh）" style="flex:1;padding:8px 12px;border:1px solid #a7f3d0;border-radius:7px;font-size:13px;outline:none">
+        <button onclick="fbSaveProject()" style="padding:8px 16px;background:#0b7a4f;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">儲存</button>
+        <button onclick="document.getElementById('saveNewForm').style.display='none'" style="padding:8px 12px;background:#e5e7eb;border:none;border-radius:7px;font-size:13px;cursor:pointer">取消</button>
+      </div>
+    </div>
+    <div id="projectList" style="flex:1;overflow-y:auto;padding:16px 24px">
+      <div style="text-align:center;color:#9ca3af;padding:40px;font-size:13px">載入中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 管理後台 Modal ══ -->
+<div id="adminModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif" onclick="if(event.target===this)closeAdminModal()">
+  <div style="background:#fff;border-radius:16px;width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.2)">
+    <div style="padding:20px 24px 0;border-bottom:1px solid #e5e7eb">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:16px;font-weight:700;color:#1a2e25">⚙️ 管理後台</div>
+        <button onclick="closeAdminModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button>
+      </div>
+      <div style="display:flex;gap:0;border-bottom:2px solid #e5e7eb;margin-bottom:0">
+        <button onclick="adminTab('users')" id="tabUsers" style="padding:8px 20px;border:none;background:none;font-size:13px;font-weight:700;color:#0b7a4f;border-bottom:2px solid #0b7a4f;cursor:pointer;margin-bottom:-2px">👥 使用者管理</button>
+        <button onclick="adminTab('projects')" id="tabProjects" style="padding:8px 20px;border:none;background:none;font-size:13px;font-weight:600;color:#6b7280;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-2px">📁 所有專案</button>
+      </div>
+    </div>
+    <div id="adminContent" style="flex:1;overflow-y:auto;padding:20px 24px">
+      <div style="text-align:center;color:#9ca3af;padding:40px;font-size:13px">載入中...</div>
+    </div>
+  </div>
+</div>
+
 <div class="shell">
 
 <!-- ═══ SIDEBAR ═══ -->
@@ -228,6 +314,21 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <h1>🌿 綠源科技ESS</h1>
     <p>收益評估系統</p>
     <span class="ver">Professional v3.0</span>
+    <!-- 登入使用者資訊 -->
+    <div id="userInfoBar" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <img id="userAvatar" src="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">
+        <div style="flex:1;min-width:0">
+          <div id="userName" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div id="userRole" style="font-size:10px;color:var(--accent);font-weight:600"></div>
+        </div>
+        <button onclick="fbSignOut()" title="登出" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px">🚪</button>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button onclick="openProjectModal()" style="flex:1;padding:5px 4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;color:var(--text);cursor:pointer" title="雲端專案庫">📁 我的專案</button>
+        <button id="adminBtn" onclick="openAdminModal()" style="display:none;flex:1;padding:5px 4px;background:rgba(109,59,191,.1);border:1px solid rgba(109,59,191,.25);border-radius:6px;font-size:11px;font-weight:600;color:#6d3bbf;cursor:pointer" title="管理後台">⚙️ 後台管理</button>
+      </div>
+    </div>
   </div>
   <nav class="nav">
     <div class="nav-sec">參數設定</div>
@@ -4756,5 +4857,406 @@ populateDayPicker(); // init: disable data-requiring dispatch modes when no LOAD
   <span class="tt-close" onclick="closeGridTooltip()">✕</span>
   <div id="gridTooltipBody"></div>
 </div>
+
+<!-- ══════════════════════════════════════════════
+     FIREBASE 初始化 & 認證邏輯
+════════════════════════════════════════════════ -->
+<script>
+// ╔══════════════════════════════════════════════╗
+// ║  ⚠️  請填入你的 Firebase 專案設定              ║
+// ║  Firebase Console → 專案設定 → 您的應用程式   ║
+// ╚══════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey:            "REPLACE_WITH_YOUR_API_KEY",
+  authDomain:        "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
+  projectId:         "REPLACE_WITH_YOUR_PROJECT_ID",
+  storageBucket:     "REPLACE_WITH_YOUR_PROJECT.appspot.com",
+  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+  appId:             "REPLACE_WITH_YOUR_APP_ID"
+};
+
+// ╔══════════════════════════════════════════════╗
+// ║  ⚠️  填入你自己的 Firebase UID                ║
+// ║  第一次登入後在 Firebase Console → Auth 查詢  ║
+// ╚══════════════════════════════════════════════╝
+const ADMIN_UID = "REPLACE_WITH_YOUR_FIREBASE_UID";
+
+// ── 初始化 ──────────────────────────────────────
+firebase.initializeApp(FIREBASE_CONFIG);
+const fbAuth = firebase.auth();
+const fbDb   = firebase.firestore();
+const fbGoogleProvider = new firebase.auth.GoogleAuthProvider();
+
+let _currentUser = null;
+let _isAdmin     = false;
+
+// ── Auth 狀態監聽 ────────────────────────────────
+fbAuth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    showLoginScreen();
+    return;
+  }
+  _currentUser = user;
+  _isAdmin     = (user.uid === ADMIN_UID);
+
+  // 寫入/更新 users 集合
+  const userRef = fbDb.collection('users').doc(user.uid);
+  const userDoc = await userRef.get();
+
+  if (_isAdmin) {
+    await userRef.set({
+      email:       user.email,
+      displayName: user.displayName || '',
+      photoURL:    user.photoURL    || '',
+      approved:    true,
+      role:        'admin',
+      lastLogin:   firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    showMainApp();
+  } else if (userDoc.exists && userDoc.data().approved === true) {
+    await userRef.update({ lastLogin: firebase.firestore.FieldValue.serverTimestamp() });
+    showMainApp();
+  } else {
+    // 未審核 → 登記並顯示等待畫面
+    await userRef.set({
+      email:       user.email,
+      displayName: user.displayName || '',
+      photoURL:    user.photoURL    || '',
+      approved:    false,
+      role:        'pending',
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    showPendingScreen(user);
+  }
+});
+
+// ── UI 顯示控制 ──────────────────────────────────
+function showLoginScreen(){
+  document.getElementById('loginScreen').style.display  = 'flex';
+  document.getElementById('pendingScreen').style.display = 'none';
+  document.getElementById('userInfoBar').style.display   = 'none';
+}
+
+function showPendingScreen(user){
+  document.getElementById('loginScreen').style.display  = 'none';
+  document.getElementById('pendingScreen').style.display = 'flex';
+  document.getElementById('pendingAvatar').src = user.photoURL || '';
+  document.getElementById('pendingName').textContent  = user.displayName || '';
+  document.getElementById('pendingEmail').textContent = user.email || '';
+}
+
+function showMainApp(){
+  const u = _currentUser;
+  document.getElementById('loginScreen').style.display  = 'none';
+  document.getElementById('pendingScreen').style.display = 'none';
+
+  // 更新 sidebar 使用者列
+  const bar = document.getElementById('userInfoBar');
+  bar.style.display = 'block';
+  document.getElementById('userAvatar').src = u.photoURL || '';
+  document.getElementById('userName').textContent = u.displayName || u.email;
+  document.getElementById('userRole').textContent = _isAdmin ? '👑 管理員' : '✅ 已授權';
+  const adminBtn = document.getElementById('adminBtn');
+  if(_isAdmin) adminBtn.style.display = 'flex';
+}
+
+// ── 登入 / 登出 ──────────────────────────────────
+async function googleSignIn(){
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  btn.disabled = true;
+  btn.textContent = '登入中...';
+  err.style.display = 'none';
+  try {
+    await fbAuth.signInWithPopup(fbGoogleProvider);
+  } catch(e) {
+    err.textContent = '登入失敗：' + (e.message || e.code);
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg> 使用 Google 帳號登入';
+  }
+}
+
+function fbSignOut(){
+  fbAuth.signOut().then(() => { location.reload(); });
+}
+
+// ══════════════════════════════════════════════
+// 專案管理 (Firestore)
+// ══════════════════════════════════════════════
+
+async function fbSaveProject(){
+  const u = _currentUser;
+  if(!u){ alert('請先登入'); return; }
+  const nameEl = document.getElementById('newProjectName');
+  const name   = (nameEl.value || '').trim() || '未命名專案';
+
+  // 收集目前所有參數
+  const params = {};
+  (typeof PARAM_IDS !== 'undefined' ? PARAM_IDS : []).forEach(id => {
+    const el = document.getElementById(id);
+    if(el) params[id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+
+  // 收益摘要
+  let summary = {};
+  try {
+    const yld = calcYield(1);
+    const cc  = calcContractOverload();
+    summary = {
+      tariff:        params.tariffType || '',
+      battKwh:       parseFloat(params.battKwh) || 0,
+      pcskW:         parseFloat(params.pcskW)   || 0,
+      totalRevenue:  +(yld.total.toFixed(2)),
+      tou:           +(yld.tou.toFixed(2)),
+      dr:            +((yld.dr||0).toFixed(2)),
+      spin:          +((yld.spin||0).toFixed(2)),
+      capex:         parseFloat(params.capex)   || 0,
+      payback:       yld.total > 0 ? +((parseFloat(params.capex)/yld.total/10000).toFixed(1)) : null
+    };
+  } catch(e){}
+
+  try {
+    await fbDb.collection('projects').add({
+      userId:      u.uid,
+      userEmail:   u.email,
+      userName:    u.displayName || u.email,
+      name,
+      params,
+      summary,
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp()
+    });
+    nameEl.value = '';
+    document.getElementById('saveNewForm').style.display = 'none';
+    showSaveStatus('☁️ 已儲存至雲端');
+    loadProjectList();  // 重新整理列表
+  } catch(e) {
+    alert('儲存失敗：' + e.message);
+  }
+}
+
+async function loadProjectList(){
+  const u = _currentUser;
+  if(!u) return;
+  const listEl = document.getElementById('projectList');
+  listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;font-size:13px">載入中...</div>';
+
+  try {
+    let q;
+    if(_isAdmin){
+      q = fbDb.collection('projects').orderBy('createdAt','desc').limit(60);
+    } else {
+      q = fbDb.collection('projects')
+        .where('userId','==', u.uid)
+        .orderBy('createdAt','desc')
+        .limit(30);
+    }
+    const snap = await q.get();
+
+    if(snap.empty){
+      listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px;font-size:13px">尚無儲存的專案<br>點擊「儲存目前專案」建立第一個</div>';
+      return;
+    }
+
+    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式'};
+    listEl.innerHTML = snap.docs.map(d => {
+      const p  = d.data();
+      const s  = p.summary || {};
+      const dt = p.createdAt ? new Date(p.createdAt.toDate()).toLocaleString('zh-TW') : '—';
+      const adminTag = (_isAdmin && p.userEmail) ? `<span style="font-size:10px;background:#f3f4f6;border-radius:4px;padding:1px 6px;color:#6b7280;margin-left:4px">${p.userEmail}</span>` : '';
+      return `
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:.15s"
+           onmouseover="this.style.borderColor='#0b7a4f';this.style.background='#f0fdf4'"
+           onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff'">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1" onclick="fbLoadProject('${d.id}')">
+            <div style="font-size:14px;font-weight:700;color:#1a2e25;margin-bottom:4px">${p.name}${adminTag}</div>
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">${dt}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">
+              ${s.battKwh ? `<span style="color:#6b7280">🔋 ${s.battKwh} kWh / ${s.pcskW||'—'} kW</span>` : ''}
+              ${s.tariff  ? `<span style="color:#6b7280">📋 ${tariffNames[s.tariff]||s.tariff}</span>` : ''}
+              ${s.totalRevenue ? `<span style="color:#0b7a4f;font-weight:600">💰 ${s.totalRevenue.toFixed(1)} 萬/年</span>` : ''}
+              ${s.payback ? `<span style="color:#c2720a;font-weight:600">📈 回收 ${s.payback} 年</span>` : ''}
+            </div>
+          </div>
+          <button onclick="fbDeleteProject('${d.id}',this)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#d1d5db;padding:2px;flex-shrink:0" title="刪除" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#d1d5db'">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = `<div style="color:#dc2626;padding:20px;font-size:13px">載入失敗：${e.message}</div>`;
+  }
+}
+
+async function fbLoadProject(docId){
+  try {
+    const doc = await fbDb.collection('projects').doc(docId).get();
+    if(!doc.exists){ alert('專案不存在'); return; }
+    const data = doc.data();
+    if(data.params) applyParams({ params: data.params });
+    closeProjectModal();
+    showSaveStatus('☁️ 已載入：' + data.name);
+    setTimeout(() => runAll(), 100);
+  } catch(e) { alert('載入失敗：' + e.message); }
+}
+
+async function fbDeleteProject(docId, btn){
+  if(!confirm('確定要刪除此專案？')) return;
+  try {
+    await fbDb.collection('projects').doc(docId).delete();
+    btn.closest('[style]').remove();
+  } catch(e) { alert('刪除失敗：' + e.message); }
+}
+
+// Modal 控制
+function openProjectModal(){
+  document.getElementById('projectModal').style.display = 'flex';
+  loadProjectList();
+}
+function closeProjectModal(){
+  document.getElementById('projectModal').style.display = 'none';
+}
+function openSaveNewProject(){
+  const f = document.getElementById('saveNewForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if(f.style.display === 'block') document.getElementById('newProjectName').focus();
+}
+
+// ══════════════════════════════════════════════
+// 管理後台
+// ══════════════════════════════════════════════
+let _adminCurrentTab = 'users';
+
+function openAdminModal(){
+  if(!_isAdmin){ alert('僅限管理員使用'); return; }
+  document.getElementById('adminModal').style.display = 'flex';
+  adminTab('users');
+}
+function closeAdminModal(){
+  document.getElementById('adminModal').style.display = 'none';
+}
+
+function adminTab(tab){
+  _adminCurrentTab = tab;
+  const tabs = ['users','projects'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if(!btn) return;
+    if(t === tab){
+      btn.style.color = '#0b7a4f';
+      btn.style.borderBottomColor = '#0b7a4f';
+      btn.style.fontWeight = '700';
+    } else {
+      btn.style.color = '#6b7280';
+      btn.style.borderBottomColor = 'transparent';
+      btn.style.fontWeight = '600';
+    }
+  });
+  if(tab === 'users') loadAdminUsers();
+  else loadAdminProjects();
+}
+
+async function loadAdminUsers(){
+  const el = document.getElementById('adminContent');
+  el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;font-size:13px">載入中...</div>';
+  try {
+    const snap = await fbDb.collection('users').orderBy('requestedAt','desc').get();
+    if(snap.empty){ el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px">尚無使用者記錄</div>'; return; }
+
+    el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#f9fafb">
+          <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">使用者</th>
+          <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">狀態</th>
+          <th style="padding:10px 12px;text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">申請時間</th>
+          <th style="padding:10px 12px;text-align:center;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${snap.docs.map(d => {
+          const u  = d.data();
+          const dt = u.requestedAt ? new Date(u.requestedAt.toDate()).toLocaleString('zh-TW') : '—';
+          const isMe = d.id === ADMIN_UID;
+          const badge = u.role === 'admin'
+            ? '<span style="background:#fef9c3;color:#713f12;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">👑 管理員</span>'
+            : u.approved
+            ? '<span style="background:#f0fdf4;color:#15803d;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">✅ 已授權</span>'
+            : '<span style="background:#fef2f2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">⏳ 待審核</span>';
+          const actions = isMe ? '<span style="font-size:12px;color:#9ca3af">（管理員帳號）</span>'
+            : u.approved
+            ? `<button onclick="revokeUser('${d.id}',this)" style="padding:4px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:12px;font-weight:600;cursor:pointer">撤銷</button>`
+            : `<button onclick="approveUser('${d.id}',this)" style="padding:4px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:5px;color:#16a34a;font-size:12px;font-weight:600;cursor:pointer">✓ 開通</button>`;
+          return `<tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:12px">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${u.photoURL ? `<img src="${u.photoURL}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : '<div style="width:32px;height:32px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-size:14px">👤</div>'}
+                <div>
+                  <div style="font-weight:600;color:#1a2e25">${u.displayName || '—'}</div>
+                  <div style="font-size:11px;color:#6b7280">${u.email || '—'}</div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:12px">${badge}</td>
+            <td style="padding:12px;font-size:12px;color:#6b7280">${dt}</td>
+            <td style="padding:12px;text-align:center">${actions}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#dc2626;padding:20px">載入失敗：${e.message}</div>`;
+  }
+}
+
+async function approveUser(uid, btn){
+  try {
+    await fbDb.collection('users').doc(uid).update({ approved:true, role:'user' });
+    btn.closest('tr').querySelector('td:nth-child(2)').innerHTML =
+      '<span style="background:#f0fdf4;color:#15803d;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">✅ 已授權</span>';
+    btn.outerHTML = `<button onclick="revokeUser('${uid}',this)" style="padding:4px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:5px;color:#dc2626;font-size:12px;font-weight:600;cursor:pointer">撤銷</button>`;
+  } catch(e) { alert('操作失敗：'+e.message); }
+}
+
+async function revokeUser(uid, btn){
+  if(!confirm('確定撤銷此帳號的存取權限？')) return;
+  try {
+    await fbDb.collection('users').doc(uid).update({ approved:false, role:'revoked' });
+    btn.closest('tr').querySelector('td:nth-child(2)').innerHTML =
+      '<span style="background:#fef2f2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">⛔ 已撤銷</span>';
+    btn.outerHTML = `<button onclick="approveUser('${uid}',this)" style="padding:4px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:5px;color:#16a34a;font-size:12px;font-weight:600;cursor:pointer">✓ 重新開通</button>`;
+  } catch(e) { alert('操作失敗：'+e.message); }
+}
+
+async function loadAdminProjects(){
+  const el = document.getElementById('adminContent');
+  el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px;font-size:13px">載入中...</div>';
+  try {
+    const snap = await fbDb.collection('projects').orderBy('createdAt','desc').limit(100).get();
+    if(snap.empty){ el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px">尚無專案記錄</div>'; return; }
+    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式'};
+    el.innerHTML = `
+    <div style="font-size:12px;color:#6b7280;margin-bottom:12px">共 ${snap.size} 個專案</div>
+    ${snap.docs.map(d => {
+      const p = d.data(), s = p.summary || {};
+      const dt = p.createdAt ? new Date(p.createdAt.toDate()).toLocaleString('zh-TW') : '—';
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#1a2e25;margin-bottom:3px">${p.name}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:6px">${p.userName||p.userEmail||'—'} ‧ ${dt}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px">
+            ${s.battKwh ? `<span style="color:#6b7280">🔋 ${s.battKwh}kWh/${s.pcskW||'?'}kW</span>` : ''}
+            ${s.tariff  ? `<span style="color:#6b7280">${tariffNames[s.tariff]||s.tariff}</span>` : ''}
+            ${s.totalRevenue ? `<span style="color:#0b7a4f;font-weight:600">💰 ${s.totalRevenue.toFixed(1)}萬/年</span>` : ''}
+          </div>
+        </div>
+        <button onclick="fbDeleteProject('${d.id}',this)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#d1d5db;flex-shrink:0" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#d1d5db'">🗑</button>
+      </div>`;
+    }).join('')}`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#dc2626;padding:20px">載入失敗：${e.message}</div>`;
+  }
+}
+</script>
 </body>
 </html>
