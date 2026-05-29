@@ -4905,23 +4905,10 @@ let _currentUser = null;
 let _isAdmin     = false;
 let _appShown    = false;
 
-// ── Debug 面板（排查用，之後移除）──────────────────
-function _dbg(msg) {
-  let el = document.getElementById('_authDbg');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = '_authDbg';
-    el.style.cssText = 'position:fixed;bottom:8px;left:8px;background:rgba(0,0,0,.85);color:#4ade80;font:11px/1.5 monospace;padding:8px 10px;border-radius:8px;z-index:99999;max-width:94vw;max-height:35vh;overflow-y:auto;pointer-events:none';
-    document.body.appendChild(el);
-  }
-  const t = new Date().toISOString().slice(11,19);
-  el.innerHTML += `<div>${t} ${msg}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
+function _dbg(msg) { console.log('[auth]', msg); }
 
 // 安全逾時：最多 8 秒，防止任何情況卡在 initScreen
 const _safetyTimer = setTimeout(() => {
-  _dbg('⏰ safety timeout → showLoginScreen');
   if (!_appShown) showLoginScreen();
 }, 8000);
 
