@@ -26,6 +26,19 @@ document.addEventListener('DOMContentLoaded', function(){
   --bg:#f0f4f3;--surface:#ffffff;--surface2:#eaf3ef;--border:#c8ddd5;
   --accent:#0b7a4f;--green:#0b7a4f;--orange:#c2720a;--red:#c0392b;--purple:#6d3bbf;
   --text:#1a2e25;--text2:#5a7a6a;--shadow:0 4px 24px rgba(0,80,40,.08);
+  --btn-grad:linear-gradient(135deg,#0b7a4f,#085e3c);
+}
+[data-theme="blue"]{
+  --bg:#eef2f8;--surface:#ffffff;--surface2:#e8eef8;--border:#c5d3e8;
+  --accent:#1a56db;--green:#1a56db;--orange:#c2720a;--red:#c0392b;--purple:#6d3bbf;
+  --text:#0f1e3d;--text2:#4a6080;--shadow:0 4px 24px rgba(0,40,120,.08);
+  --btn-grad:linear-gradient(135deg,#1a56db,#1040b0);
+}
+[data-theme="green"]{
+  --bg:#f0f7f0;--surface:#ffffff;--surface2:#e4f3e4;--border:#b8dbb8;
+  --accent:#2e7d32;--green:#2e7d32;--orange:#c2720a;--red:#c0392b;--purple:#6d3bbf;
+  --text:#1a2e1a;--text2:#4a6e4a;--shadow:0 4px 24px rgba(0,80,0,.08);
+  --btn-grad:linear-gradient(135deg,#2e7d32,#1b5e20);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
@@ -44,7 +57,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(88,166,255,.07);font-weight:600}
 .nav-item .ic{font-size:14px;width:18px;text-align:center}
 .sidebar-footer{padding:12px}
-.btn-primary{width:100%;padding:11px;background:linear-gradient(135deg,#0b7a4f,#085e3c);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;transition:.15s;letter-spacing:.3px}
+.btn-primary{width:100%;padding:11px;background:var(--btn-grad);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;transition:.15s;letter-spacing:.3px}
 .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .btn-pdf{width:100%;margin-top:8px;padding:10px;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;color:var(--red);font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
 .btn-pdf:hover{background:rgba(192,57,43,.18)}
@@ -375,6 +388,14 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div id="saveStatus" style="font-size:11px;color:var(--text2);text-align:center;min-height:16px;margin-bottom:6px"></div>
     <button class="btn-primary" onclick="runAll()">▶執行全部計算</button>
     <button class="btn-pdf" onclick="exportPDF()">⬇ 匯出 PDF 報告</button>
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">介面主題</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="setTheme('')"     id="theme-btn-default" style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#0b7a4f;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🌿 預設綠</button>
+        <button onclick="setTheme('blue')" id="theme-btn-blue"    style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#1a56db;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🔷 科技藍</button>
+        <button onclick="setTheme('green')"id="theme-btn-green"   style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#2e7d32;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🌱 環保綠</button>
+      </div>
+    </div>
   </div>
 </aside>
 
@@ -1721,9 +1742,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   // ── 放電執行 helper ─────────────────────────────────────────────
   // 有負載：平滑消峰，放到 baseLoad - Ptarget，gridLoad 永遠 ≥ 0
   // 無負載：以 PCS 全力放電，但 baseLoad > 0 時仍受 baseLoad 限制
-  function applyDischarge(curSoc, baseLoad, Ptarget){
-    if(curSoc <= socMin + 0.001) return 0;
-    const avail = (curSoc - socMin) * battKwh;
+  // floor：放電 SOC 下限（預設 socMin；BU 兩充兩放上午段用 morningFloor 保留義務量）
+  function applyDischarge(curSoc, baseLoad, Ptarget, floor = socMin){
+    if(curSoc <= floor + 0.001) return 0;
+    const avail = (curSoc - floor) * battKwh;
     if(!hasLoad){
       // 純 TOU 套利：受建物負載上限，不讓電網為負
       const cap = baseLoad > 0 ? baseLoad : maxPow;
@@ -1987,21 +2009,40 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         loadMapB[h] = bl;
       }
     }
-    // 上午放電結束後 SOC = socMin（強制放光）
-    // 午間充電從 socMin 開始
-    let tempSocB = socMin;
-    for(const h of CHB_HRS){
-      const bl = getRealHourlyLoad(h, sched[h], season, loadPeak, loadSemi, loadOff);
-      const cp = chargePower(tempSocB, socMax, bl, contractOff);
-      tempSocB = Math.min(socMax, tempSocB + cp/battKwh);
-    }
-
     // ── BU模式：第二放電段（14-23h）依「主力優先、窗口後溢出」邏輯 ──
     // 非夏月 DISB_HRS = h=14~23 (sched=2)
     // BU: h=14~17 待機保留電量；h=18~19 全力放電（主力）；h=20~23 溢出剩餘電量（全在24點前）
     const DISB_BU_PRI = isBUMode ? DISB_HRS.filter(h =>  BU_PRIMARY.has(h))                 : [];
     const DISB_BU_OTH = isBUMode ? DISB_HRS.filter(h => !BU_PRIMARY.has(h) && h > buMaxPri) : [];
     const loadMapDB_oth = Object.fromEntries(DISB_BU_OTH.map(h => [h, loadMapB[h]]));
+
+    // 午間充電能力估算 helper：給定起始 SOC，跑完 CHB_HRS 後的 SOC
+    function simMiddayCharge(startSoc){
+      let s = startSoc;
+      for(const h of CHB_HRS){
+        const bl = getRealHourlyLoad(h, sched[h], season, loadPeak, loadSemi, loadOff);
+        const cp = chargePower(s, socMax, bl, contractOff);
+        s = Math.min(socMax, s + cp/battKwh);
+      }
+      return s;
+    }
+
+    // ── BU：上午放電①不可放光 — 午間充不回義務量時，缺口由上午保留 ──
+    // needE = 18-20h 主力窗口所需放電量；middayE = 午間從 socMin 起可充回的電量
+    // 缺口 shortE 換算成上午放電的 SOC 下限 morningFloor
+    let morningFloor = socMin;
+    if(isBUMode && DISB_BU_PRI.length > 0){
+      const needE   = hasLoad
+        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(maxPow, loadMapB[h] || 0), 0)
+        : DISB_BU_PRI.length * maxPow;
+      const middayE = (simMiddayCharge(socMin) - socMin) * battKwh;
+      const shortE  = Math.max(0, needE - middayE);
+      morningFloor  = Math.min(socMax, socMin + shortE / battKwh);
+    }
+
+    // 上午放電結束後 SOC = morningFloor（一般模式 = socMin 放光；BU = 保留義務缺口）
+    // 午間充電從 morningFloor 開始
+    const tempSocB = simMiddayCharge(morningFloor);
 
     let BU_DISB_Ptarget_oth = Infinity;  // 溢出時段放電目標（預設不放）
     if(isBUMode && DISB_BU_PRI.length > 0){
@@ -2035,8 +2076,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         const cp = chargePower(soc, socMax, baseLoad, contractOff);
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電①'; }
       } else if(DISA_HRS.includes(h)){
-        const dp = applyDischarge(soc, baseLoad, PtargetA);
-        if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電①'; }
+        // BU：下限 morningFloor，保留午間充不回來的義務缺口
+        const dp = applyDischarge(soc, baseLoad, PtargetA, morningFloor);
+        if(dp > 0.001){ power = dp; soc = Math.max(morningFloor, soc - dp/battKwh); action = '放電①'; }
       } else if(CHB_HRS.includes(h)){
         const cp = chargePower(soc, socMax, baseLoad, contractOff);
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電②'; }
@@ -5060,6 +5102,19 @@ async function googleSignIn(){
 function fbSignOut(){
   fbAuth.signOut().then(() => { location.reload(); });
 }
+
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('ess-theme', t);
+  ['default','blue','green'].forEach(k => {
+    const btn = document.getElementById('theme-btn-' + k);
+    if(btn) btn.style.outline = ((k === (t||'default')) ? '2px solid #fff' : 'none');
+  });
+}
+(function(){
+  const saved = localStorage.getItem('ess-theme') || '';
+  setTheme(saved);
+})();
 
 // ══════════════════════════════════════════════
 // 專案管理 (Firestore)
