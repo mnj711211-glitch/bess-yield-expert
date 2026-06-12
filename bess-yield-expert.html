@@ -620,9 +620,9 @@ tr:hover td{background:rgba(28,35,51,.5)}
         </div>
         <div class="fi">
           <label>每日放電時段</label>
-          <input type="text" id="bu_dis_hrs" value="4" readonly
+          <input type="text" id="bu_dis_hrs" value="2" readonly
             style="background:#f0f4f3!important;color:var(--accent)!important;font-weight:700;cursor:default">
-          <span class="hint">固定 4 小時（18:00~22:00），不可更改</span>
+          <span class="hint">固定 2 小時（18:00~20:00），不可更改</span>
         </div>
       </div>
     </div>
@@ -2203,7 +2203,7 @@ function calcYield(yearNum = 1){
     const bu_Pc  = parseFloat(document.getElementById('bu_contract')?.value) || 0;
     const bu_Rd  = parseFloat(document.getElementById('bu_duty_pct')?.value) || 10;
     const bu_Pe  = parseFloat(document.getElementById('bu_ess_kw')?.value)   || 0;
-    const bu_Hd  = 4;  // 固定 4 小時（18:00~22:00）
+    const bu_Hd  = 2;  // 義務時段固定 2 小時（18:00~20:00）；派電模擬窗口另為 18~22
     const duty   = bu_Pc * bu_Rd / 100 * 400;           // kWh/年
     const actual = bu_Pe * bu_Hd * 250 * deg;           // kWh/年（含衰退）
     bigUserReward = Math.max(0, actual - duty) * 10 / 10000;  // 萬元
@@ -3209,7 +3209,7 @@ function calcBigUser(){
   const P_contract = parseFloat(document.getElementById('bu_contract')?.value) || 0;
   const R_duty     = parseFloat(document.getElementById('bu_duty_pct')?.value)  || 10;
   const P_ess      = parseFloat(document.getElementById('bu_ess_kw')?.value)    || 0;
-  const H_dis      = 4;  // 固定 4 小時（18:00~22:00）
+  const H_dis      = 2;  // 義務時段固定 2 小時（18:00~20:00）；派電模擬窗口另為 18~22
 
   // 固定基礎參數
   const EXEC_DAYS  = 250;
@@ -4844,9 +4844,6 @@ function applyParams(data){
     const el=document.getElementById(id); if(!el||p[id]===undefined) return;
     if(el.type==='checkbox') el.checked=p[id]; else el.value=p[id];
   });
-  // 舊版專案存檔為 2 小時窗口，一律以現行固定 4 小時（18:00~22:00）顯示
-  const buHrsEl = document.getElementById('bu_dis_hrs');
-  if(buHrsEl) buHrsEl.value = '4';
   const um = document.getElementById('userMode')?.value || 'general';
   setUserMode(um);
   onSpinEnabledChange();
