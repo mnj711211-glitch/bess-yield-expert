@@ -510,6 +510,11 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <input type="number" id="pcskW" value="500" min="50" step="50" oninput="onHwChange()">
       </div>
       <div class="fi">
+        <label>變壓器容量 (kW)</label>
+        <input type="number" id="xfmrKw" value="0" min="0" step="50" oninput="onHwChange();onParamChange()">
+        <span class="hint">最大輸出受變壓器限制；0 = 不限制（以 PCS 為準）</span>
+      </div>
+      <div class="fi">
         <label>系統總建置成本 CAPEX（萬元）</label>
         <input type="number" id="capex" value="2400" min="100" step="100">
         <span class="hint">含電池、PCS、BMS、工程</span>
@@ -611,13 +616,13 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <div class="fi">
           <label>預計放電功率 P_discharge (kW)</label>
           <input type="number" id="bu_ess_kw" value="4250" min="0" step="50" oninput="calcBigUser();onParamChange()">
-          <span class="hint">18:00~20:00 全力放電功率，餘量自動溢出尖峰</span>
+          <span class="hint">18:00~22:00 主力窗口放電功率，其他時段依 PCS 功率放電</span>
         </div>
         <div class="fi">
           <label>每日放電時段</label>
-          <input type="text" id="bu_dis_hrs" value="2" readonly
+          <input type="text" id="bu_dis_hrs" value="4" readonly
             style="background:#f0f4f3!important;color:var(--accent)!important;font-weight:700;cursor:default">
-          <span class="hint">固定 2 小時（18:00~20:00），不可更改</span>
+          <span class="hint">固定 4 小時（18:00~22:00），不可更改</span>
         </div>
       </div>
     </div>
@@ -1698,12 +1703,16 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const contractPeak= v('contractPeak');
   const usable      = battKwh * dod;
 
-  // ── 用電大戶模式：18:00~20:00 全力放電為主力，餘量溢出其他尖峰時段 ──
+  // ── 用電大戶模式：18:00~22:00 主力窗口以 P_discharge 放電，其他時段依 PCS 功率 ──
   const isBUMode    = vs('userMode') === 'biguser';
   const buEssKw     = parseFloat(document.getElementById('bu_ess_kw')?.value) || pcsPow;
-  const maxPow      = isBUMode ? buEssKw : pcsPow;
-  // 用電大戶主力放電窗口：18:00~19:59（全力放電）
-  const BU_PRIMARY  = new Set([18, 19]);
+  // 變壓器容量限制：實際輸出上限 = min(設定功率, 變壓器容量)；0 = 不限制
+  const xfmrKw      = v('xfmrKw') || 0;
+  const xfmrCap     = xfmrKw > 0 ? xfmrKw : Infinity;
+  const maxPow      = Math.min(pcsPow, xfmrCap);                       // 一般時段（含充電）功率上限
+  const buWinPow    = isBUMode ? Math.min(buEssKw, xfmrCap) : maxPow;  // BU 主力窗口功率上限
+  // 用電大戶主力放電窗口：18:00~21:59（以 P_discharge 全力放電）
+  const BU_PRIMARY  = new Set([18, 19, 20, 21]);
 
   let soc, rows = [];
 
@@ -1762,7 +1771,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
 
   // ── 放電窗口判斷 ─────────────────────────────────────────────────────
   // DR 模式：DR窗口前尖峰可放「超額電量」；DR窗口執行申報容量；DR窗口後放剩餘
-  // 用電大戶：18:00~20:00 全力放電為第一優先；20:00 之後才溢出剩餘電量
+  // 用電大戶：18:00~22:00 主力窗口放電為第一優先；22:00 之後才溢出剩餘電量
   const buMaxPri  = Math.max(...BU_PRIMARY);
   const drMaxHour = (isDRMode && drDisHrs.length > 0) ? Math.max(...drDisHrs) : -1;
   const drMinHour = (isDRMode && drDisHrs.length > 0) ? Math.min(...drDisHrs) : 25;
@@ -1795,7 +1804,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
 
     let Ptarget       = Infinity;  // 尖峰時段放電目標
     let Ptarget_semi  = Infinity;  // 半尖峰溢出放電目標（預設不放）
-    let Ptarget_peak2 = Infinity;  // 用電大戶：18-20h 次要放電目標（預設不放）
+    let Ptarget_peak2 = Infinity;  // 用電大戶：18-22h 次要放電目標（預設不放）
     let Ptarget_drBoost = Infinity; // DR：DR時段覆蓋全尖峰時，超額電量仍在DR時段釋放
     let Ptarget_preDR = Infinity;  // DR模式：DR窗口前尖峰的超額放電目標
     let drMinSOC      = socMin;    // DR模式：放電時保留給DR的SOC下限
@@ -1830,7 +1839,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       // DR 模式不做半尖峰溢出（Ptarget_semi 維持 Infinity）
 
     } else {
-      // ── TOU 模式：兩段式放電（用電大戶：三段式，主峰避開18-20）─────
+      // ── TOU 模式：兩段式放電（用電大戶：三段式，主峰避開18-22）─────
       const peakHrs = disHrs.filter(h => sched[h] === 2);
       const semiHrs = disHrs.filter(h => sched[h] === 1);
       const peakMap = Object.fromEntries(peakHrs.map(h => [h, loadMapD[h]]));
@@ -1843,17 +1852,17 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
 
       if(isBUMode){
         // ── 用電大戶放電策略（全年平日有效）────────────────────────────
-        // Stage 1：18:00~20:00 全力放電（主力窗口，全年適用，不限 TOU 分級）
-        // Stage 2：20:00 之後的尖峰時段（夏月 h=20,21）消化剩餘電量，平頂消峰
+        // Stage 1：18:00~22:00 以 P_discharge 全力放電（主力窗口，全年適用，不限 TOU 分級）
+        // Stage 2：22:00 之後的尖峰時段消化剩餘電量（依 PCS 功率），平頂消峰
         // 注意：18h 前（夏月 h=16,17）isDischargeHour=false，電池保留給主力窗口
-        const buPriHrs = disHrs.filter(h =>  BU_PRIMARY.has(h)); // 主力：18-20h（全年）
-        const buOthHrs = disHrs.filter(h => !BU_PRIMARY.has(h)); // 溢出：20h 之後（isDischargeHour 已保證）
+        const buPriHrs = disHrs.filter(h =>  BU_PRIMARY.has(h)); // 主力：18-22h（全年）
+        const buOthHrs = disHrs.filter(h => !BU_PRIMARY.has(h)); // 溢出：22h 之後（isDischargeHour 已保證）
         const buOthMap = Object.fromEntries(buOthHrs.map(h => [h, loadMapD[h]]));
 
         // Stage 1 可放出的最大電量（全力放，受負載上限限制）
         const priCap = hasLoad
-          ? buPriHrs.reduce((s,h) => s + Math.min(maxPow, loadMapD[h] || 0), 0)
-          : buPriHrs.length * maxPow;
+          ? buPriHrs.reduce((s,h) => s + Math.min(buWinPow, loadMapD[h] || 0), 0)
+          : buPriHrs.length * buWinPow;
         const primaryE = Math.min(availE, priCap);
 
         // Stage 2 消化剩餘電量
@@ -1876,7 +1885,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           Ptarget = 0;
           Ptarget_semi = Infinity; // BU 模式不做半尖峰溢出（已含在 buOthHrs）
         }
-        Ptarget_peak2 = buPriHrs.length > 0 ? maxPow : Infinity;
+        Ptarget_peak2 = buPriHrs.length > 0 ? buWinPow : Infinity;
 
       } else {
         // ── 一般 TOU 兩段式放電 ──────────────────────────────────────
@@ -1929,10 +1938,10 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             }
           }
         } else if(isBUMode && BU_PRIMARY.has(h)){
-          // 用電大戶主力：18-20h 全力放電（全年有效，不限 TOU 分級）
+          // 用電大戶主力：18-22h 以 P_discharge 全力放電（全年有效，不限 TOU 分級）
           if(soc > socMin + 0.001){
             const avail = (soc - socMin) * battKwh;
-            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+            dp = hasLoad ? Math.min(buWinPow, baseLoad, avail) : Math.min(buWinPow, avail);
           }
           if(dp > 0.001){
             power = dp;
@@ -1991,7 +2000,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     const DISB_HRS = sched.map((p,h)=>(p===2 && h>=14)?h:-1).filter(h=>h>=0);
 
     // ── 兩充兩放：第一段放光，第二段依 BU/一般模式決定策略 ──
-    // 策略：夜間充滿→上午尖峰全力放光→午間盡量回充→下午尖峰（BU: 18-20h主力，20h後溢出）
+    // 策略：夜間充滿→上午尖峰全力放光→午間盡量回充→下午尖峰（BU: 18-22h主力，22h後溢出）
     const PtargetA = 0;   // 上午放電①：全力放到 socMin
 
     // 模擬上午充電，取午間充電前 SOC（確定 tempSocB 起點）
@@ -2011,7 +2020,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     }
     // ── BU模式：第二放電段（14-23h）依「主力優先、窗口後溢出」邏輯 ──
     // 非夏月 DISB_HRS = h=14~23 (sched=2)
-    // BU: h=14~17 待機保留電量；h=18~19 全力放電（主力）；h=20~23 溢出剩餘電量（全在24點前）
+    // BU: h=14~17 待機保留電量；h=18~21 以 P_discharge 全力放電（主力）；h=22~23 溢出剩餘電量（全在24點前）
     const DISB_BU_PRI = isBUMode ? DISB_HRS.filter(h =>  BU_PRIMARY.has(h))                 : [];
     const DISB_BU_OTH = isBUMode ? DISB_HRS.filter(h => !BU_PRIMARY.has(h) && h > buMaxPri) : [];
     const loadMapDB_oth = Object.fromEntries(DISB_BU_OTH.map(h => [h, loadMapB[h]]));
@@ -2028,13 +2037,13 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     }
 
     // ── BU：上午放電①不可放光 — 午間充不回義務量時，缺口由上午保留 ──
-    // needE = 18-20h 主力窗口所需放電量；middayE = 午間從 socMin 起可充回的電量
+    // needE = 18-22h 主力窗口所需放電量；middayE = 午間從 socMin 起可充回的電量
     // 缺口 shortE 換算成上午放電的 SOC 下限 morningFloor
     let morningFloor = socMin;
     if(isBUMode && DISB_BU_PRI.length > 0){
       const needE   = hasLoad
-        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(maxPow, loadMapB[h] || 0), 0)
-        : DISB_BU_PRI.length * maxPow;
+        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(buWinPow, loadMapB[h] || 0), 0)
+        : DISB_BU_PRI.length * buWinPow;
       const middayE = (simMiddayCharge(socMin) - socMin) * battKwh;
       const shortE  = Math.max(0, needE - middayE);
       morningFloor  = Math.min(socMax, socMin + shortE / battKwh);
@@ -2048,8 +2057,8 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
     if(isBUMode && DISB_BU_PRI.length > 0){
       const availEB  = (tempSocB - socMin) * battKwh;
       const priCap   = hasLoad
-        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(maxPow, loadMapB[h] || 0), 0)
-        : DISB_BU_PRI.length * maxPow;
+        ? DISB_BU_PRI.reduce((s,h) => s + Math.min(buWinPow, loadMapB[h] || 0), 0)
+        : DISB_BU_PRI.length * buWinPow;
       const primaryE  = Math.min(availEB, priCap);
       const remainEB  = Math.max(0, availEB - primaryE);
       const othCap    = hasLoad
@@ -2085,14 +2094,14 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       } else if(DISB_HRS.includes(h)){
         let dp = 0;
         if(isBUMode && BU_PRIMARY.has(h)){
-          // 主力：18-20h 全力放電
+          // 主力：18-22h 以 P_discharge 全力放電
           if(soc > socMin + 0.001){
             const avail = (soc - socMin) * battKwh;
-            dp = hasLoad ? Math.min(maxPow, baseLoad, avail) : Math.min(maxPow, avail);
+            dp = hasLoad ? Math.min(buWinPow, baseLoad, avail) : Math.min(buWinPow, avail);
           }
           if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②(主力)'; }
         } else if(isBUMode && h > buMaxPri && BU_DISB_Ptarget_oth < Infinity){
-          // 溢出：20h 之後尖峰（h=20~23），消化剩餘電量，24點前放完
+          // 溢出：22h 之後尖峰（h=22~23），消化剩餘電量，24點前放完
           if(!hasLoad && BU_DISB_Ptarget_oth > 0.001){
             if(soc > socMin + 0.001){
               const avail = (soc - socMin) * battKwh;
@@ -2107,7 +2116,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           dp = applyDischarge(soc, baseLoad, 0);
           if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
         }
-        // isBUMode && h=14~17：待機，電池保留給 18-20h 主力窗口
+        // isBUMode && h=14~17：待機，電池保留給 18-22h 主力窗口
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOff : contractPeak;
@@ -2194,7 +2203,7 @@ function calcYield(yearNum = 1){
     const bu_Pc  = parseFloat(document.getElementById('bu_contract')?.value) || 0;
     const bu_Rd  = parseFloat(document.getElementById('bu_duty_pct')?.value) || 10;
     const bu_Pe  = parseFloat(document.getElementById('bu_ess_kw')?.value)   || 0;
-    const bu_Hd  = 2;  // 固定 2 小時（18:00~20:00）
+    const bu_Hd  = 4;  // 固定 4 小時（18:00~22:00）
     const duty   = bu_Pc * bu_Rd / 100 * 400;           // kWh/年
     const actual = bu_Pe * bu_Hd * 250 * deg;           // kWh/年（含衰退）
     bigUserReward = Math.max(0, actual - duty) * 10 / 10000;  // 萬元
@@ -2451,7 +2460,7 @@ function renderDispatch(){
     const actionClr = r.action.startsWith('放電')
       ? (drSevere ? '#f78166' : drShortfall ? '#ffa657'
           : r.action.includes('半尖') ? '#a8d8a8'
-          : r.action.includes('主力') ? '#f97316'   // BU 18-20 主力全力放電：橙色
+          : r.action.includes('主力') ? '#f97316'   // BU 18-22 主力全力放電：橙色
           : r.action.includes('(DR)') ? '#e879f9'   // DR 申報時段全力放電：紫色
           : '#3fb950')
       : r.action.startsWith('充電') ? '#ffa657' : '#8b949e';
@@ -3200,7 +3209,7 @@ function calcBigUser(){
   const P_contract = parseFloat(document.getElementById('bu_contract')?.value) || 0;
   const R_duty     = parseFloat(document.getElementById('bu_duty_pct')?.value)  || 10;
   const P_ess      = parseFloat(document.getElementById('bu_ess_kw')?.value)    || 0;
-  const H_dis      = 2;  // 固定 2 小時（18:00~20:00）
+  const H_dis      = 4;  // 固定 4 小時（18:00~22:00）
 
   // 固定基礎參數
   const EXEC_DAYS  = 250;
@@ -4100,10 +4109,11 @@ function autoFillLoadInputs() {
 }
 
 // ── 依硬體規格計算 DR 申報容量建議值 ─────────────────────────
-// 公式：min(PCS, 電池容量 × DoD × RTE ÷ 時槽小時數)，取整至 50kW
+// 公式：min(PCS, 變壓器, 電池容量 × DoD × RTE ÷ 時槽小時數)，取整至 50kW
 function calcDRCapSuggestion() {
   const slotH  = parseInt(document.getElementById('drSlot')?.value || '2');
-  const pcs    = v('pcskW')   || 0;
+  const xfmr   = v('xfmrKw') || 0;
+  const pcs    = Math.min(v('pcskW') || 0, xfmr > 0 ? xfmr : Infinity);
   const batt   = v('battKwh') || 0;
   const dod    = (v('dod')    || 90) / 100;
   const rte    = (v('rte')    || 90) / 100;
@@ -4808,7 +4818,7 @@ function onDRSchemeChange(){
 // ══════════════════════════════════════════════════════════════
 const PARAM_IDS = [
   'tariffType','contractPeak','contractOff','offPeakRateSummer','offPeakRateNonSummer','overloadPenalty',
-  'battKwh','pcskW','capex','opex','crate','analysisYears',
+  'battKwh','pcskW','xfmrKw','capex','opex','crate','analysisYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
   'spinEnabled','spinRatio','spinResponseTime','spinCeilingPrice','spinAnnualHrs','spinDispatch','spinDispatchPrice',
@@ -4834,6 +4844,9 @@ function applyParams(data){
     const el=document.getElementById(id); if(!el||p[id]===undefined) return;
     if(el.type==='checkbox') el.checked=p[id]; else el.value=p[id];
   });
+  // 舊版專案存檔為 2 小時窗口，一律以現行固定 4 小時（18:00~22:00）顯示
+  const buHrsEl = document.getElementById('bu_dis_hrs');
+  if(buHrsEl) buHrsEl.value = '4';
   const um = document.getElementById('userMode')?.value || 'general';
   setUserMode(um);
   onSpinEnabledChange();
@@ -4999,8 +5012,21 @@ async function _handleUser(user) {
 }
 
 // ── Auth 初始化 ──────────────────────────────────
+// 開發模式：file:// 與 localhost（本機編輯預覽）自動跳過登入，直接進主畫面（不碰 Firestore）
+// Firebase 登入只支援 http/https 且需授權網域，本機預覽必卡登入畫面
+// ?dev=1 可在任何環境強制開啟；?dev=0 可在本機強制走真登入
+const _devParam = new URLSearchParams(location.search).get('dev');
+const _isLocalEnv = (location.protocol !== 'http:' && location.protocol !== 'https:')
+  || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const DEV_BYPASS = _devParam !== '0' && (_devParam === '1' || _isLocalEnv);
+if (DEV_BYPASS) {
+  _currentUser = { uid:'dev', email:'dev@local', displayName:'開發模式（本機預覽）', photoURL:'' };
+  _isAdmin = true;
+  if (document.readyState !== 'loading') showMainApp();
+  else window.addEventListener('DOMContentLoaded', () => showMainApp());
+}
 _dbg('🚀 init, getRedirectResult...');
-fbAuth.getRedirectResult().then(r => {
+if (!DEV_BYPASS) fbAuth.getRedirectResult().then(r => {
   _dbg(`↩️ getRedirectResult: user=${r && r.user ? r.user.uid : 'null'}`);
 }).catch(e => {
   _dbg(`❌ getRedirectResult err: ${e.code}`);
