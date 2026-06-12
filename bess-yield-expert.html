@@ -388,6 +388,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div id="saveStatus" style="font-size:11px;color:var(--text2);text-align:center;min-height:16px;margin-bottom:6px"></div>
     <button class="btn-primary" onclick="runAll()">▶執行全部計算</button>
     <button class="btn-pdf" onclick="exportPDF()">⬇ 匯出 PDF 報告</button>
+    <button class="btn-pdf" style="background:#7c3aed;margin-top:6px" onclick="exportCustomerHtml()" title="產出客戶可自行調整參數的互動網頁，14 天後過期">🌐 匯出客戶互動版</button>
     <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
       <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">介面主題</div>
       <div style="display:flex;gap:6px">
@@ -4883,6 +4884,243 @@ function exportProject(){
     URL.revokeObjectURL(a.href);
     showSaveStatus('✅ 已匯出：'+fn);
   }catch(e){showSaveStatus('❌ 匯出失敗：'+e.message,false);}
+}
+
+// ══════════════════════════════════════════════════════════════
+// 客戶互動版匯出（單檔 HTML + 軟性過期）
+// 原理：複製本頁計算引擎原始碼 + 當前參數快照 → 產出獨立網頁
+// 客戶僅能調整 電池容量 / PCS / 變壓器，CAPEX·OPEX 依單價自動換算
+// ══════════════════════════════════════════════════════════════
+const CUSTOMER_VALID_DAYS = 14;
+
+function buildCustomerHtml(){
+  const esc = s => s.replace(/</g, '\\u003c');
+  const J   = x => esc(JSON.stringify(x));
+
+  // ── 1. 參數快照：除三個可調欄位外，全部以隱藏欄位嵌入 ──
+  const VISIBLE_IDS = new Set(['battKwh','pcskW','xfmrKw']);
+  const params = [];
+  document.querySelectorAll('input[id],select[id],textarea[id]').forEach(e=>{
+    if(VISIBLE_IDS.has(e.id) || e.type === 'file') return;
+    params.push({ id:e.id, cb:e.type==='checkbox', value:e.type==='checkbox'?'':String(e.value), checked:e.type==='checkbox'?!!e.checked:false });
+  });
+  // 客戶版無逐日資料，dispatchMode 退回平均模式
+  const dm = params.find(p=>p.id==='dispatchMode');
+  if(dm) dm.value = window.LOAD_DATA ? 'avgAll' : 'manual';
+
+  // ── 2. 負載資料（瘦身版：只留平均曲線）──
+  const ld = window.LOAD_DATA ? {
+    offPeakAvg: window.LOAD_DATA.offPeakAvg, hourlyAvg: window.LOAD_DATA.hourlyAvg,
+    summerHourlyAvg: window.LOAD_DATA.summerHourlyAvg, nonSummerHourlyAvg: window.LOAD_DATA.nonSummerHourlyAvg,
+    sortedDays: [], dailyProfiles: {}
+  } : null;
+
+  // ── 3. 計算引擎原始碼（與本工具完全相同，數字保證一致）──
+  const arrowFns = { v, vi, vs, f, f0, fw };
+  const declFns  = [ getSchedFor, getDayType, getRealHourlyLoad, tariffSupports2C2D,
+                     calcContractOverload, calcDailyArb, calcDispatchProfile,
+                     calcYield, calcCashflows, calcIRR, getDRDeductionRatio ];
+  let engine = Object.entries(arrowFns).map(([n,fn])=>`const ${n} = ${fn.toString()};`).join('\n')
+             + '\n' + declFns.map(fn=>fn.toString()).join('\n');
+  engine = engine.replace(/<\/script/gi, '<\\/script');
+
+  // ── 4. 基準值與單價（CAPEX 隨電池容量線性換算）──
+  const B0 = v('battKwh') || 2000, P0 = v('pcskW') || 500, X0 = v('xfmrKw') || 0;
+  const capex0 = v('capex') || 2400, opex0 = v('opex') || 48;
+  const capexPerKwh = capex0 / B0;                 // 萬元/kWh
+  const opexRatio   = capex0 > 0 ? opex0/capex0 : 0.02;
+  const cust = vs('customerName') || '貴公司';
+  const proj = vs('projectName')  || 'ESS 儲能投資評估';
+  const expires = new Date(Date.now() + CUSTOMER_VALID_DAYS*86400000);
+  const expISO  = expires.toISOString().slice(0,10) + 'T23:59:59+08:00';
+  const today   = new Date().toLocaleDateString('zh-TW');
+  const rng = (lo,hi,st) => ({min:Math.max(st, Math.floor(lo/st)*st), max:Math.ceil(hi/st)*st});
+  const bR = rng(B0*0.25, B0*2, 100), pR = rng(P0*0.25, P0*2, 50);
+  const xMax = Math.ceil(Math.max(X0, P0)*2/50)*50;
+
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${cust}｜ESS 儲能投資互動試算 — 綠源科技</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI','Microsoft JhengHei',system-ui,sans-serif;background:linear-gradient(160deg,#f0f7f4,#e8f3ee);min-height:100vh;color:#1a2e25;padding:24px 14px}
+  .wrap{max-width:860px;margin:0 auto}
+  .banner{background:rgba(11,122,79,.1);border:1px solid rgba(11,122,79,.3);color:#0b6a45;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;margin-bottom:18px;text-align:center}
+  .hd{background:linear-gradient(135deg,#064e35,#0d9b63);color:#fff;border-radius:16px;padding:28px 26px;margin-bottom:18px}
+  .hd h1{font-size:21px;margin-bottom:6px}
+  .hd p{font-size:13px;opacity:.85}
+  .card{background:#fff;border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 4px 18px rgba(0,0,0,.06)}
+  .card h2{font-size:15px;margin-bottom:16px;color:#0b6a45}
+  .ctl{margin-bottom:18px}
+  .ctl label{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px}
+  .ctl label b{color:#0b7a4f}
+  .ctl input[type=range]{width:100%;accent-color:#0b7a4f;height:30px}
+  .ctl .hint{font-size:11px;color:#6b7280}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:6px}
+  .stat{background:#f4faf7;border:1px solid #d8eae1;border-radius:12px;padding:14px;text-align:center}
+  .stat .k{font-size:11px;color:#6b7280;font-weight:700;margin-bottom:6px}
+  .stat .v{font-size:22px;font-weight:800;color:#0b6a45}
+  .bd-row{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px dashed #e2ece7;font-size:13px}
+  .note{font-size:11px;color:#6b7280;margin-top:10px;line-height:1.6}
+  .ft{text-align:center;font-size:11px;color:#6b7280;padding:18px 0}
+  #expireOverlay{display:none;position:fixed;inset:0;background:rgba(6,40,26,.97);z-index:999;align-items:center;justify-content:center;text-align:center;color:#fff}
+  #expireOverlay h2{font-size:26px;margin:14px 0 10px}
+  #expireOverlay p{font-size:14px;opacity:.85;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner" id="validBanner"></div>
+  <div class="hd">
+    <h1>🔋 ${cust}｜ESS 儲能投資互動試算</h1>
+    <p>${proj}　·　出具日期 ${today}　·　綠源科技 規劃</p>
+  </div>
+  <div class="card">
+    <h2>⚙️ 調整系統規格，收益即時重算</h2>
+    <div class="ctl">
+      <label><span>電池容量</span><b id="battVal"></b></label>
+      <input type="range" id="battKwh" min="${bR.min}" max="${bR.max}" step="100" value="${B0}">
+      <div class="hint">建置成本依 ${f(capexPerKwh,2)} 萬元/kWh 自動換算（目前估算 <b id="capexShow"></b>）</div>
+    </div>
+    <div class="ctl">
+      <label><span>PCS 額定功率</span><b id="pcsVal"></b></label>
+      <input type="range" id="pcskW" min="${pR.min}" max="${pR.max}" step="50" value="${P0}">
+    </div>
+    <div class="ctl" style="margin-bottom:4px">
+      <label><span>變壓器容量</span><b id="xfmrVal"></b></label>
+      <input type="range" id="xfmrKw" min="0" max="${xMax}" step="50" value="${X0}">
+      <div class="hint">最大充放電功率受變壓器容量限制；拉至 0 = 不限制</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>📈 投資效益（依上方規格即時計算）</h2>
+    <div class="stats">
+      <div class="stat"><div class="k">第一年總收益</div><div class="v" id="rTotal">—</div></div>
+      <div class="stat"><div class="k">IRR 內部報酬率</div><div class="v" id="rIRR">—</div></div>
+      <div class="stat"><div class="k">投資回收年限</div><div class="v" id="rPayback">—</div></div>
+      <div class="stat"><div class="k">NPV 淨現值</div><div class="v" id="rNPV">—</div></div>
+    </div>
+    <div id="breakdown" style="margin-top:14px"></div>
+  </div>
+  <div class="card">
+    <h2>💰 累積現金流（含期初投資）</h2>
+    <div id="chart"></div>
+    <div class="note">綠柱 = 累積現金流轉正（已回本）。本試算為參考性質，實際收益依台電審查、現場條件與正式合約為準。</div>
+  </div>
+  <div class="ft">© ${new Date().getFullYear()} 綠源科技 — 本互動提案專為 ${cust} 製作，請勿轉發</div>
+</div>
+<div id="expireOverlay">
+  <div style="padding:40px">
+    <div style="font-size:56px">⏳</div>
+    <h2>本提案已過期</h2>
+    <p>此互動試算的有效期限已截止<br>請聯絡 <b>綠源科技</b> 取得最新報價與客製方案</p>
+  </div>
+</div>
+<script>
+window.LOAD_DATA = ${J(ld)};
+window._tariffOverride = null;
+const T = ${J(T)};
+const SCHED = ${J(SCHED)};
+const EXPIRES_AT = '${expISO}';
+const CAPEX_PER_KWH = ${capexPerKwh};
+const OPEX_RATIO = ${opexRatio};
+(function(){
+  const ps = ${J(params)};
+  const d = document.createElement('div'); d.style.display='none';
+  ps.forEach(function(p){
+    const i = document.createElement('input');
+    i.type = p.cb ? 'checkbox' : 'hidden'; i.id = p.id;
+    if(p.cb) i.checked = p.checked; else i.value = p.value;
+    d.appendChild(i);
+  });
+  document.body.appendChild(d);
+})();
+${engine}
+function el(id){ return document.getElementById(id); }
+function fmtW(n){ return n.toLocaleString('zh-TW',{maximumFractionDigits:1}) + ' 萬'; }
+function recalc(){
+  var batt = parseFloat(el('battKwh').value)||0;
+  var xf   = parseFloat(el('xfmrKw').value)||0;
+  el('battVal').textContent = batt.toLocaleString('zh-TW') + ' kWh';
+  el('pcsVal').textContent  = (parseFloat(el('pcskW').value)||0).toLocaleString('zh-TW') + ' kW';
+  el('xfmrVal').textContent = xf > 0 ? xf.toLocaleString('zh-TW') + ' kW' : '不限制';
+  var capex = Math.round(CAPEX_PER_KWH * batt);
+  el('capex').value = capex;
+  el('opex').value  = Math.round(capex * OPEX_RATIO * 10) / 10;
+  el('capexShow').textContent = capex.toLocaleString('zh-TW') + ' 萬元';
+  try{
+    var y  = calcYield(1);
+    var cf = calcCashflows();
+    el('rTotal').textContent   = fmtW(y.total);
+    el('rIRR').textContent     = (cf.irr !== null && isFinite(cf.irr)) ? (cf.irr*100).toFixed(1) + ' %' : '—';
+    el('rPayback').textContent = cf.payback ? cf.payback.toFixed(1) + ' 年' : '> ' + cf.rows.length + ' 年';
+    el('rNPV').textContent     = fmtW(cf.npv);
+    var items = [['TOU 時間電價套利', y.tou], ['用電大戶超額獎勵金', y.bigUserReward],
+                 ['即時備轉收益', y.spin], ['補充備轉收益', y.supp], ['需量反應收益', y.dr],
+                 ['聚合商抽成', -y.vppFee], ['契約增購成本', -y.contractCost]];
+    var html = '';
+    items.forEach(function(it){
+      if(Math.abs(it[1]) > 0.05){
+        html += '<div class="bd-row"><span>' + it[0] + '</span><b style="color:' +
+                (it[1] >= 0 ? '#0b7a4f' : '#dc2626') + '">' + fmtW(it[1]) + '/年</b></div>';
+      }
+    });
+    el('breakdown').innerHTML = html || '<div class="bd-row">無收益項目</div>';
+    drawChart(cf.rows, cf.capex);
+  }catch(e){
+    el('rTotal').textContent = '計算錯誤';
+  }
+}
+function drawChart(rows, capex){
+  var w=640, h=230, pad=34;
+  var pts = [{label:'期初', cum:-capex}];
+  rows.forEach(function(r){ pts.push({label:'Y'+r.y, cum:r.cum}); });
+  var min = Math.min.apply(null, pts.map(function(p){return p.cum;}));
+  var max = Math.max.apply(null, pts.map(function(p){return p.cum;}));
+  if(min > 0) min = 0;
+  if(max <= min) max = min + 1;
+  var n = pts.length, bw = (w - pad*2) / n * 0.68;
+  var y0 = pad + (h - pad*2) * (max / (max - min));
+  var svg = '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto">';
+  svg += '<line x1="'+pad+'" y1="'+y0+'" x2="'+(w-pad)+'" y2="'+y0+'" stroke="#cbd5d1"/>';
+  pts.forEach(function(p, i){
+    var x  = pad + (w - pad*2) * (i + 0.16) / n;
+    var bh = Math.abs(p.cum) / (max - min) * (h - pad*2);
+    var yy = p.cum >= 0 ? y0 - bh : y0;
+    svg += '<rect x="'+x+'" y="'+yy+'" width="'+bw+'" height="'+Math.max(bh,1)+'" rx="2" fill="'+(p.cum>=0?'#0b9b63':'#f08c66')+'"/>';
+    if(n <= 13 || i % 2 === 0) svg += '<text x="'+(x+bw/2)+'" y="'+(h-10)+'" font-size="10" fill="#6b7280" text-anchor="middle">'+p.label+'</text>';
+  });
+  svg += '</svg>';
+  el('chart').innerHTML = svg;
+}
+function checkExpiry(){
+  var now = new Date(), exp = new Date(EXPIRES_AT);
+  if(now > exp){ el('expireOverlay').style.display = 'flex'; return true; }
+  var days = Math.max(1, Math.floor((exp - now) / 86400000));
+  el('validBanner').textContent = '⏳ 本互動提案有效期限至 ' + EXPIRES_AT.slice(0,10) + '（剩餘 ' + days + ' 天），到期後請聯絡綠源科技取得最新報價';
+  return false;
+}
+['battKwh','pcskW','xfmrKw'].forEach(function(id){ el(id).addEventListener('input', recalc); });
+if(!checkExpiry()) recalc();
+<\/script>
+</body>
+</html>`;
+}
+
+function exportCustomerHtml(){
+  try{
+    const html = buildCustomerHtml();
+    const cust = vs('customerName') || '客戶';
+    const fn = `綠源科技_互動提案_${cust}_${new Date().toISOString().slice(0,10)}.html`;
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fn; a.click();
+    URL.revokeObjectURL(a.href);
+    showSaveStatus(`✅ 已匯出互動版（${CUSTOMER_VALID_DAYS} 天效期）`);
+  }catch(e){ showSaveStatus('❌ 匯出失敗：'+e.message, false); }
 }
 
 function importProject(event){
