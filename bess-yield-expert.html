@@ -492,6 +492,19 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <span class="hint" id="avgLoadKwHint">無匯入資料時作為調度計算基準；匯入後自動帶入</span>
       </div>
     </div>
+    <!-- 不增加離峰契約容量選項 -->
+    <div style="margin-top:12px;padding:10px 14px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);border-radius:8px;display:flex;align-items:flex-start;gap:10px">
+      <input type="checkbox" id="noContractExpand" onchange="onParamChange()"
+             style="width:17px;height:17px;margin-top:2px;accent-color:var(--accent);flex-shrink:0">
+      <div>
+        <label for="noContractExpand" style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text)">
+          不申請增加離峰契約容量
+        </label>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">
+          勾選後：充電功率受現有離峰契約限制，系統不建議增容，年度收益試算不扣除增容基本費
+        </div>
+      </div>
+    </div>
     <div id="contractCalc" style="margin-top:14px"></div>
   </div>
 </div>
@@ -540,6 +553,28 @@ tr:hover td{background:rgba(28,35,51,.5)}
       </div>
     </div>
   </div>
+  <div class="card">
+    <div class="card-h">融資設定 <span class="cb">選填</span></div>
+    <div class="fg">
+      <div class="fi">
+        <label>貸款成數 (%)</label>
+        <input type="number" id="loanRatio" value="0" min="0" max="90" step="5" oninput="onParamChange();updateLoanHint()">
+        <span class="hint">0 = 全額自備；70 = 七成貸款，IRR 以自備款計算</span>
+      </div>
+      <div class="fi">
+        <label>年利率 (%)</label>
+        <input type="number" id="loanRate" value="2.5" min="0" max="15" step="0.1" oninput="onParamChange();updateLoanHint()">
+        <span class="hint">銀行專案融資約 2～4%</span>
+      </div>
+      <div class="fi">
+        <label>還款年限（年）</label>
+        <input type="number" id="loanYears" value="10" min="1" max="20" step="1" oninput="onParamChange();updateLoanHint()">
+        <span class="hint">建議不超過分析年限</span>
+      </div>
+    </div>
+    <div id="loanHint" style="margin-top:10px;padding:10px 14px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.18);border-radius:8px;font-size:12px;display:none"></div>
+  </div>
+
   <div class="card">
     <div class="card-h">效能參數</div>
     <div class="fg">
@@ -948,19 +983,6 @@ tr:hover td{background:rgba(28,35,51,.5)}
       <span style="color:var(--green);margin-left:6px">✓ 分夏月/非夏月月度基線</span>
       <span style="color:var(--green);margin-left:6px">✓ 更新尖峰/離峰負載數值</span>
       <span style="color:var(--green);margin-left:6px">✓ 重新評估超約風險</span>
-    </div>
-    <!-- 契約增容選項 -->
-    <div style="margin-top:14px;padding:10px 14px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);border-radius:8px;display:flex;align-items:flex-start;gap:10px">
-      <input type="checkbox" id="noContractExpand" onchange="onParamChange()"
-             style="width:17px;height:17px;margin-top:2px;accent-color:var(--accent);flex-shrink:0">
-      <div>
-        <label for="noContractExpand" style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text)">
-          不申請增加契約容量
-        </label>
-        <div style="font-size:11px;color:var(--text2);margin-top:3px">
-          勾選後：充電功率受現有離峰契約限制，系統不建議增容，年度收益試算不扣除增容基本費
-        </div>
-      </div>
     </div>
   </div>
 
@@ -2242,25 +2264,65 @@ function calcCashflows(){
   const capex = v('capex');
   const baseOpex = v('opex');
   const dr = v('discRate')/100;
-  let cumCF = -capex, npv = -capex, payback = null;
+
+  // 融資參數
+  const loanPct    = Math.min((v('loanRatio') || 0) / 100, 0.9);
+  const loanRate   = (v('loanRate')  || 0) / 100;
+  const loanYears  = vi('loanYears') || 10;
+  const loanAmt    = capex * loanPct;
+  const equity     = capex - loanAmt;
+  // 等額年金：P × r / (1 − (1+r)^−n)
+  let annualPayment = 0;
+  if(loanAmt > 0 && loanRate > 0 && loanYears > 0)
+    annualPayment = loanAmt * loanRate / (1 - Math.pow(1 + loanRate, -loanYears));
+  else if(loanAmt > 0 && loanYears > 0)
+    annualPayment = loanAmt / loanYears;
+  const totalInterest = Math.max(0, annualPayment * loanYears - loanAmt);
+
+  let cumCF = -equity, npv = -equity, payback = null;
   const rows = [];
 
   for(let y=1;y<=years;y++){
     const yld = calcYield(y);
     const opex = baseOpex * Math.pow(1.02, y-1);
-    const net = yld.total - opex;
+    const debt = (loanAmt > 0 && y <= loanYears) ? annualPayment : 0;
+    const net = yld.total - opex - debt;
     const prevCum = cumCF;
     cumCF += net;
     const pv = net / Math.pow(1+dr, y);
     npv += pv;
     if(!payback && cumCF >= 0) payback = y - 1 + (-prevCum)/net;
-    rows.push({ y, cap: yld.effectiveCap, deg: yld.degFactor, rev: yld.total, opex, net, cum: cumCF, pv });
+    rows.push({ y, cap: yld.effectiveCap, deg: yld.degFactor, rev: yld.total, opex, debt, net, cum: cumCF, pv });
   }
 
   const cashflows = rows.map(r => r.net);
-  const irr = calcIRR(-capex, cashflows);
+  const irr = equity > 0 ? calcIRR(-equity, cashflows) : calcIRR(-capex, cashflows);
 
-  return { rows, payback, npv, irr, capex };
+  return { rows, payback, npv, irr, capex, equity, loanAmt, annualPayment, loanYears, totalInterest };
+}
+
+function updateLoanHint(){
+  const capex = v('capex') || 0;
+  const pct   = Math.min((v('loanRatio') || 0) / 100, 0.9);
+  const rate  = (v('loanRate')  || 0) / 100;
+  const yrs   = vi('loanYears') || 10;
+  const loanAmt = capex * pct;
+  const equity  = capex - loanAmt;
+  const el = document.getElementById('loanHint');
+  if(!el) return;
+  if(loanAmt <= 0){ el.style.display='none'; return; }
+  let annual = 0;
+  if(rate > 0) annual = loanAmt * rate / (1 - Math.pow(1+rate, -yrs));
+  else         annual = loanAmt / yrs;
+  const totalInt = Math.max(0, annual * yrs - loanAmt);
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;color:var(--text)">
+      <span>💰 自備款 <b>${fw(equity,0)}</b></span>
+      <span>🏦 貸款 <b>${fw(loanAmt,0)}</b></span>
+      <span>📅 年繳 <b>${fw(annual,1)}</b>（等額年金）</span>
+      <span>📈 利息總額 <b style="color:var(--orange)">${fw(totalInt,0)}</b></span>
+    </div>`;
 }
 
 function calcIRR(init, cfs){
@@ -3011,19 +3073,26 @@ function renderRevenue(){
 // CASHFLOW RENDER
 // ═══════════════════════════════════════════════
 function renderCashflow(){
-  const { rows, payback, npv, irr, capex } = calcCashflows();
+  const { rows, payback, npv, irr, capex, equity, loanAmt, annualPayment, loanYears, totalInterest } = calcCashflows();
   const lastRow = rows[rows.length-1];
-  const roi = (lastRow.cum + capex) / capex * 100;
+  const hasLoan = loanAmt > 0;
+  const basis = hasLoan ? equity : capex;
+  const roi = basis > 0 ? (lastRow.cum + basis) / basis * 100 : 0;
+
+  const irrLabel = hasLoan ? 'IRR（自備款）' : 'IRR 內報率';
+  const roiLabel = hasLoan ? 'ROI（自備款）' : 'ROI 投報率';
+  const capexSub = hasLoan ? `自備 ${fw(equity,0)} + 貸款 ${fw(loanAmt,0)}` : '總建置成本';
 
   document.getElementById('cashflowStats').innerHTML =
     stat('回本年限', payback ? f(payback,1)+' 年' : '>'+v('analysisYears')+'年', 'Payback Period', payback && payback <= vi('analysisYears') ? 'green' : 'red') +
     stat('NPV 淨現值', fw(npv,0), '折現率 '+v('discRate')+'%', npv>=0?'green':'red') +
-    stat('IRR 內報率', f(irr*100,1)+'%', 'Internal Rate of Return', irr>=v('discRate')/100?'green':'orange') +
-    stat('ROI 投報率', f(roi,0)+'%', vi('analysisYears')+'年總 ROI', roi>=100?'green':'orange') +
-    stat('CAPEX', fw(capex,0), '總建置成本', '');
+    stat(irrLabel, f(irr*100,1)+'%', 'Internal Rate of Return', irr>=v('discRate')/100?'green':'orange') +
+    stat(roiLabel, f(roi,0)+'%', vi('analysisYears')+'年總 ROI', roi>=100?'green':'orange') +
+    stat('CAPEX', fw(capex,0), capexSub, '') +
+    (hasLoan ? stat('年繳還款', fw(annualPayment,1), `${loanYears} 年等額年金 ／ 利息總額 ${fw(totalInterest,0)}`, 'orange') : '');
 
   const yearLabels = ['Y0', ...rows.map(r=>'Y'+r.y)];
-  const cumData = [-capex, ...rows.map(r=>r.cum)];
+  const cumData = [-basis, ...rows.map(r=>r.cum)];
 
   dc('cashflow');
   charts['cashflow'] = new Chart(document.getElementById('chartCashflow').getContext('2d'), {
@@ -3035,6 +3104,12 @@ function renderCashflow(){
     options:{responsive:true,plugins:{legend:{labels:{color:'#8b949e',font:{size:11}}}},scales:{x:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}}}}
   });
 
+  // 動態表頭（有貸款時多一欄）
+  document.querySelector('#tblCashflow thead tr').innerHTML =
+    `<th>年度</th><th>有效容量(kWh)</th><th>容量留存率</th><th>年度收益(萬元)</th><th>OPEX(萬元)</th>` +
+    (hasLoan ? `<th>貸款還款(萬元)</th>` : '') +
+    `<th>淨現金流(萬元)</th><th>累計現金流(萬元)</th><th>折現值(萬元)</th><th>備註</th>`;
+
   document.querySelector('#tblCashflow tbody').innerHTML = rows.map((r,i) => {
     const isPayback = payback && Math.abs(payback - r.y) < 1 && r.cum >= 0 && (i===0||rows[i-1].cum<0);
     return `<tr style="${isPayback?'background:rgba(255,166,87,.06)':''}">
@@ -3043,6 +3118,7 @@ function renderCashflow(){
       <td style="color:${r.deg>=0.9?'var(--green)':r.deg>=0.8?'var(--orange)':'var(--red)'}">${f(r.deg*100,1)}%</td>
       <td class="green">${f(r.rev,1)}</td>
       <td class="red">-${f(r.opex,1)}</td>
+      ${hasLoan ? `<td style="color:var(--orange)">${r.debt>0?'-'+f(r.debt,1):'—'}</td>` : ''}
       <td style="color:${r.net>=0?'var(--green)':'var(--red)'}">${f(r.net,1)}</td>
       <td style="color:${r.cum>=0?'var(--green)':'var(--red)'};font-weight:700">${f(r.cum,1)}</td>
       <td>${f(r.pv,1)}</td>
@@ -4819,7 +4895,7 @@ function onDRSchemeChange(){
 // ══════════════════════════════════════════════════════════════
 const PARAM_IDS = [
   'tariffType','contractPeak','contractOff','offPeakRateSummer','offPeakRateNonSummer','overloadPenalty',
-  'battKwh','pcskW','xfmrKw','capex','opex','crate','analysisYears',
+  'battKwh','pcskW','xfmrKw','capex','opex','crate','analysisYears','loanRatio','loanRate','loanYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
   'spinEnabled','spinRatio','spinResponseTime','spinCeilingPrice','spinAnnualHrs','spinDispatch','spinDispatchPrice',
