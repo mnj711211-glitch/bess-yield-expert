@@ -389,14 +389,6 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <button class="btn-primary" onclick="runAll()">▶執行全部計算</button>
     <button class="btn-pdf" onclick="exportPDF()">⬇ 匯出 PDF 報告</button>
     <button class="btn-pdf" style="background:#7c3aed;margin-top:6px" onclick="exportCustomerHtml()" title="產出客戶可自行調整參數的互動網頁，14 天後過期">🌐 匯出客戶互動版</button>
-    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">介面主題</div>
-      <div style="display:flex;gap:6px">
-        <button onclick="setTheme('')"     id="theme-btn-default" style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#0b7a4f;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🌿 預設綠</button>
-        <button onclick="setTheme('blue')" id="theme-btn-blue"    style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#1a56db;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🔷 科技藍</button>
-        <button onclick="setTheme('green')"id="theme-btn-green"   style="flex:1;padding:6px 4px;border-radius:7px;border:2px solid var(--border);background:#2e7d32;color:#fff;font-size:11px;font-weight:600;cursor:pointer">🌱 環保綠</button>
-      </div>
-    </div>
   </div>
 </aside>
 
@@ -442,7 +434,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
           <option value="ehv2">特高壓電力 — 二段式時間電價</option>
           <option value="ehv3">特高壓電力 — 三段式時間電價</option>
         </select>
-        <span class="hint">收益分析自動涵蓋夏月（5/16~10/15）與非夏月（10/16~5/15）全年計算</span>
+        <span class="hint">收益分析自動涵蓋夏月（5/1~10/31）與非夏月（11/1~4/30）全年計算</span>
       </div>
       <div class="fi" id="compareTariffRow" style="display:none">
         <label>比較方案 B（對照電價）</label>
@@ -530,13 +522,13 @@ tr:hover td{background:rgba(28,35,51,.5)}
       </div>
       <div class="fi">
         <label>系統總建置成本 CAPEX（萬元）</label>
-        <input type="number" id="capex" value="2400" min="100" step="100">
+        <input type="number" id="capex" value="2400" min="100" step="100" oninput="document.getElementById('opex').value=Math.round(+this.value*0.015); onParamChange()">
         <span class="hint">含電池、PCS、BMS、工程</span>
       </div>
       <div class="fi">
         <label>年度 OPEX（萬元/年）</label>
-        <input type="number" id="opex" value="48" min="0" step="4">
-        <span class="hint">約 CAPEX 的 1.5~2%</span>
+        <input type="number" id="opex" value="36" min="0" step="1" oninput="onParamChange()">
+        <span class="hint">自動帶入 CAPEX × 1.5%，可手動調整</span>
       </div>
       <div class="fi">
         <label>C-rate（充電倍率）</label>
@@ -727,7 +719,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <!-- 夏月：固定一充一放 -->
           <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">🌞 夏月（5/16~10/15）</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">🌞 夏月（5/1~10/31）</div>
             <div style="padding:9px 13px;background:rgba(11,122,79,.07);border:1.5px solid rgba(11,122,79,.22);border-radius:8px">
               <div style="font-size:13px;font-weight:700;color:var(--accent)">🔁 一充一放（固定）</div>
               <div style="font-size:11px;color:var(--text2);margin-top:3px">離峰充電 → 超/尖峰放電</div>
@@ -736,7 +728,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
           </div>
           <!-- 非夏月：一充一放 + 可勾選兩充兩放 -->
           <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">❄ 非夏月（10/16~5/15）</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:2px">❄ 非夏月（11/1~4/30）</div>
             <div style="padding:9px 13px;background:rgba(11,122,79,.07);border:1.5px solid rgba(11,122,79,.22);border-radius:8px">
               <div style="font-size:13px;font-weight:700;color:var(--accent)">🔁 一充一放（基礎）</div>
               <div style="font-size:11px;color:var(--text2);margin-top:3px">離峰充電 → 尖峰放電</div>
@@ -756,14 +748,14 @@ tr:hover td{background:rgba(28,35,51,.5)}
 
       <!-- TOU 天數 -->
       <div class="fi">
-        <label>🌞 夏月 TOU 天數（5/16~10/15）</label>
-        <input type="number" id="touDaysSummer" value="105" min="0" max="184" oninput="onParamChange()">
-        <span class="hint">夏月共約 153 天，扣除備轉/需量反應後</span>
+        <label>🌞 夏月 TOU 天數（5/1~10/31）</label>
+        <input type="number" id="touDaysSummer" value="126" min="0" max="184" oninput="onParamChange()">
+        <span class="hint">夏月共約 184 天，扣除備轉/需量反應後</span>
       </div>
       <div class="fi">
-        <label>❄ 非夏月 TOU 天數（10/16~5/15）</label>
-        <input type="number" id="touDaysNonSummer" value="140" min="0" max="212" oninput="onParamChange()">
-        <span class="hint">非夏月共約 212 天，扣除備轉/需量反應後</span>
+        <label>❄ 非夏月 TOU 天數（11/1~4/30）</label>
+        <input type="number" id="touDaysNonSummer" value="142" min="0" max="181" oninput="onParamChange()">
+        <span class="hint">非夏月共約 181 天，扣除備轉/需量反應後</span>
       </div>
     </div>
     <div id="touStrategyPreview" style="margin-top:12px;padding:12px 16px;background:rgba(109,59,191,.05);border:1px solid rgba(109,59,191,.2);border-radius:10px;font-size:12px;display:none"></div>
@@ -1029,8 +1021,8 @@ tr:hover td{background:rgba(28,35,51,.5)}
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--text2);font-weight:600">季節</span>
         <select id="dispatchSeason" onchange="renderDispatch()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px;outline:none">
-          <option value="nonsummer">非夏月（10/16～5/15）</option>
-          <option value="summer">夏月（5/16～10/15）</option>
+          <option value="nonsummer">非夏月（11/1～4/30）</option>
+          <option value="summer">夏月（5/1～10/31）</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -1157,7 +1149,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
   <div class="tc active" id="th1">
     <div class="card">
       <div class="card-h">高壓電力 — 三段式時間電價 <span class="cb">2025 版（詳細電價表第五章）</span></div>
-      <div class="alert alert-info" style="margin-bottom:12px">夏月定義：<b>5/16～10/15</b>；非夏月：10/16～翌年5/15。尖峰時段依平日/假日不同。</div>
+      <div class="alert alert-info" style="margin-bottom:12px">夏月定義：<b>5/1～10/31</b>；非夏月：11/1～翌年4/30。尖峰時段依平日/假日不同。</div>
       <div class="tw"><table>
         <thead><tr><th>時段別</th><th>時段說明（平日）</th><th>夏月(NT$/kWh)</th><th>非夏月(NT$/kWh)</th><th>最大套利差價</th></tr></thead>
         <tbody>
@@ -1295,7 +1287,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
 // TARIFF DATA
 // ═══════════════════════════════════════════════
 // ── 台電詳細電價表（2025年版）高壓/特高壓 流動電費 NT$/kWh ──
-// 夏月定義：5/16~10/15；非夏月：10/16~翌年5/15
+// 夏月定義：5/1~10/31；非夏月：11/1~翌年4/30
 // hv3 夏月:    peak=超尖峰(16-22h)9.39, semi=半尖峰(09-16/22-24h)5.85, off=離峰2.53
 // hv3 非夏月:  peak=半尖峰(06-11/14-24h)5.47, off=離峰(00-06/11-14h)2.32（無超尖峰，最高為半尖峰）
 // hv2 夏月:    peak=尖峰(09-24h)6.75, semi=週六半尖峰2.77, off=離峰2.71
@@ -1335,7 +1327,7 @@ const SCHED = {
 const PL = ['離峰','半尖峰','尖峰'];
 const PC = ['#58a6ff','#ffa657','#f78166'];
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-// 夏月 5~10月（高壓5/16起，簡化為整月計算）
+// 夏月 5~10月（5/1~10/31）
 const IS_SUMMER = [false,false,false,false,true,true,true,true,true,true,false,false];
 
 let charts = {};
@@ -1423,7 +1415,7 @@ function renderAnnualGrid(){
       const dow2 = d2.getDay();
       if (dow2 === 0 || dow2 === 6) { perDayDRExec[dateStr] = 100; continue; }
       const mo2 = d2.getMonth() + 1, dy2 = d2.getDate();
-      const isSummerDay = (mo2 > 5 || (mo2 === 5 && dy2 >= 16)) && (mo2 < 10 || (mo2 === 10 && dy2 <= 15));
+      const isSummerDay = mo2 >= 5 && mo2 <= 10;
       const season2 = isSummerDay ? 'summer' : 'nonsummer';
       const drHrs2  = isSummerDay ? drHrsS : drHrsNS;
       if (!drHrs2) { perDayDRExec[dateStr] = 100; continue; }
@@ -2380,7 +2372,7 @@ function renderDispatch(){
     if (dp && dp.value) {
       const d = new Date(dp.value);
       const mo = d.getMonth() + 1, dy = d.getDate();
-      const isSummerDate = (mo > 5 || (mo === 5 && dy >= 16)) && (mo < 10 || (mo === 10 && dy <= 15));
+      const isSummerDate = mo >= 5 && mo <= 10;
       const seasonEl = document.getElementById('dispatchSeason');
       if (seasonEl) seasonEl.value = isSummerDate ? 'summer' : 'nonsummer';
       dispDayType = getDayType(dp.value);
@@ -4073,7 +4065,7 @@ function processLoadData(records) {
   const hourlyAvg = hourBuckets.map(b => b.length ? b.reduce((s,v)=>s+v,0)/b.length : 0);
 
   // -- Summer / non-summer split --
-  const SUMMER_MONTHS = new Set([6,7,8,9]);
+  const SUMMER_MONTHS = new Set([5,6,7,8,9,10]);
   const sumBuckets  = Array.from({length:24}, () => []);
   const nsBuckets   = Array.from({length:24}, () => []);
   records.forEach(r => {
@@ -4953,6 +4945,7 @@ function quickLoad(){
 function exportProject(){
   try{
     const data=collectParams();
+    if(window.LOAD_DATA) data.loadData = window.LOAD_DATA;
     const fn='綠源ESS_'+new Date().toISOString().slice(0,10)+'.json';
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const a=document.createElement('a');
@@ -5204,7 +5197,13 @@ function importProject(event){
   const reader=new FileReader();
   reader.onload=ev=>{
     try{
-      applyParams(JSON.parse(ev.target.result));
+      const data=JSON.parse(ev.target.result);
+      applyParams(data);
+      if(data.loadData){
+        window.LOAD_DATA = data.loadData;
+        updateImportStatusBadge();
+        onParamChange();
+      }
       showSaveStatus('✅ 已匯入：'+file.name);
     }catch(e){showSaveStatus('❌ 匯入失敗：格式錯誤',false);}
     event.target.value='';
