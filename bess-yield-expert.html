@@ -3462,8 +3462,9 @@ function renderReport(){
               const suppCap2 = suppEl2?.checked ? v('pcskW')*v('suppRatio')/100 : 0;
               const drTypeR = vs('drScheme');
               const _dSumD = v('touDaysSummer'), _dAllD = _dSumD + v('touDaysNonSummer');
+              const _drSumD = window.DR_SUMMER_DAYS || 125;
               const drDescR = drTypeR==='simple'
-                ?`${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${_dSumD}天（夏月平日每天）`
+                ?`${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${_drSumD}天（夏月平日每天）`
                 :drTypeR==='immediate'
                 ?`${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${_dAllD}天（全年平日每天）`
                 :drTypeR==='capacityService'
