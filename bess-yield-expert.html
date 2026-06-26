@@ -5202,6 +5202,7 @@ function importProject(event){
       if(data.loadData){
         window.LOAD_DATA = data.loadData;
         updateImportStatusBadge();
+        populateDayPicker();
         onParamChange();
       }
       showSaveStatus('✅ 已匯入：'+file.name);
