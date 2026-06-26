@@ -2183,7 +2183,7 @@ function calcYield(yearNum = 1){
   const drType    = vs('drScheme');
   if(drEnabled && drType !== 'none'){
     const drCap     = v('drCap');
-    const sumDays   = v('touDaysSummer');
+    const sumDays   = window.DR_SUMMER_DAYS || 125;
     const nsDays    = v('touDaysNonSummer');
     const execRate  = v('drExecRate') ?? 90;
     const deduct    = getDRDeductionRatio(execRate);
@@ -3024,7 +3024,7 @@ function renderRevenue(){
 
   const drDescMap = {
     none:          '—',
-    simple:        `${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${v('touDaysSummer')}天（夏月平日每天）`,
+    simple:        `${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${window.DR_SUMMER_DAYS||125}天（夏月平日每天）`,
     immediate:     `${v('drCap')}kW × ${({2:2.47,4:1.84,6:1.69})[vi('drSlot')]||2.47}NT$/kWh × ${vi('drSlot')||2}h × ${v('touDaysSummer')+v('touDaysNonSummer')}天（全年平日每天）`,
     capacityService:`${v('drCap')}kW × ${({'0.5':93,'1':96,'2':78})[vs('drNotifTime')]||96}NT$/kWh × ${vi('drEventDuration')||2}h × ${v('touDaysSummer')+v('touDaysNonSummer')}天（全年平日每天）`,
   };
@@ -5268,6 +5268,11 @@ function calcNonSummerWD(yr) {
   ]);
   return countWeekdays(new Date(yr,9,16), new Date(yr+1,4,15), h);
 }
+function calcDRSummerWD(yr) {
+  // DR 簡易型適用期間 5/1~10/31（與 TOU 計算期間 5/16~10/15 不同）
+  const h = new Set((TW_HOLIDAYS[yr]||[]).filter(d=>d>=`${yr}-05-01`&&d<=`${yr}-10-31`));
+  return countWeekdays(new Date(yr,4,1), new Date(yr,9,31), h);
+}
 
 // INIT
 // ═══════════════════════════════════════════════
@@ -5275,6 +5280,7 @@ function calcNonSummerWD(yr) {
   const yr = new Date().getFullYear();
   document.getElementById('touDaysSummer').value    = calcSummerWD(yr);
   document.getElementById('touDaysNonSummer').value = calcNonSummerWD(yr);
+  window.DR_SUMMER_DAYS = calcDRSummerWD(yr);
 })();
 onParamChange();
 renderDegTable();
