@@ -4830,7 +4830,7 @@ function onDRSchemeChange(){
   if(scheme === 'none'){ prevEl.style.display='none'; return; }
   prevEl.style.display='block';
   const cap      = v('drCap');
-  const sumDays  = v('touDaysSummer')    || 105;
+  const sumDays  = (scheme === 'simple') ? (window.DR_SUMMER_DAYS || 125) : (v('touDaysSummer') || 105);
   const nsDays   = v('touDaysNonSummer') || 140;
   let rev = 0, dailyRev = 0, days = 0, descTxt = '';
 
