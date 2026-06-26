@@ -5239,7 +5239,7 @@ function countWeekdays(start, end, hSet) {
   let n = 0, cur = new Date(start);
   while (cur <= end) {
     const d = cur.getDay();
-    const k = cur.toISOString().slice(0,10);
+    const k = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
     if (d !== 0 && d !== 6 && !hSet.has(k)) n++;
     cur.setDate(cur.getDate()+1);
   }
