@@ -5221,15 +5221,41 @@ function importProject(event){
 })();
 
 // ═══════════════════════════════════════════════
-// 夏月 / 非夏月平日天數自動計算（扣除週六日）
+// 夏月 / 非夏月平日天數自動計算（扣除週六日＋政府公告放假日）
+// 每年辦公日曆表公告後更新 TW_HOLIDAYS
 // ═══════════════════════════════════════════════
-function countWeekdays(start, end) {
+const TW_HOLIDAYS = {
+  2026: [
+    '2026-05-01', // 勞動節
+    '2026-06-19', // 端午節
+    '2026-09-25', // 中秋節
+    '2026-09-28', // 孔子誕辰紀念日（教師節）
+    '2026-10-09', // 國慶日補假（10/10逢六）
+    '2026-10-26', // 光復節補假（10/25逢日）
+  ]
+};
+function countWeekdays(start, end, hSet) {
+  hSet = hSet || new Set();
   let n = 0, cur = new Date(start);
-  while (cur <= end) { const d = cur.getDay(); if (d !== 0 && d !== 6) n++; cur.setDate(cur.getDate()+1); }
+  while (cur <= end) {
+    const d = cur.getDay();
+    const k = cur.toISOString().slice(0,10);
+    if (d !== 0 && d !== 6 && !hSet.has(k)) n++;
+    cur.setDate(cur.getDate()+1);
+  }
   return n;
 }
-function calcSummerWD(yr)    { return countWeekdays(new Date(yr,4,1),  new Date(yr,9,31)); }
-function calcNonSummerWD(yr) { return countWeekdays(new Date(yr,10,1), new Date(yr+1,3,30)); }
+function calcSummerWD(yr) {
+  const h = new Set((TW_HOLIDAYS[yr]||[]).filter(d=>d>=`${yr}-05-01`&&d<=`${yr}-10-31`));
+  return countWeekdays(new Date(yr,4,1), new Date(yr,9,31), h);
+}
+function calcNonSummerWD(yr) {
+  const h = new Set([
+    ...(TW_HOLIDAYS[yr]||[]).filter(d=>d>=`${yr}-11-01`),
+    ...(TW_HOLIDAYS[yr+1]||[]).filter(d=>d<=`${yr+1}-04-30`)
+  ]);
+  return countWeekdays(new Date(yr,10,1), new Date(yr+1,3,30), h);
+}
 
 // INIT
 // ═══════════════════════════════════════════════
