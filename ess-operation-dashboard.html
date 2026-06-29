@@ -464,6 +464,68 @@ select option{background:var(--surface2);}
 @keyframes spin{to{transform:rotate(360deg);}}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a3d28;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
 #toast.show{opacity:1;}
+
+/* ── HAMBURGER (hidden on desktop) ── */
+#hamburger{display:none;width:36px;height:36px;border-radius:6px;background:none;border:1px solid var(--border);align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:20px;flex-shrink:0;transition:all .15s;line-height:1;}
+#hamburger:hover{border-color:var(--green);color:var(--green);}
+#sb-overlay{display:none;position:fixed;inset:0;z-index:499;background:rgba(0,0,0,.45);}
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width:768px){
+  /* Login */
+  .lcard{width:92vw;padding:32px 20px;}
+  .role-grid{gap:8px;}
+  /* Hamburger visible */
+  #hamburger{display:flex;}
+  /* Sidebar — slide-in from left as overlay */
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:500;transform:translateX(calc(-1 * var(--sidebar) - 20px));transition:transform .25s ease;}
+  #app.sb-open #sidebar{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.4);}
+  #app.sb-open #sb-overlay{display:block;}
+  /* Tree panel off on mobile */
+  #tree-panel{display:none!important;}
+  /* Topbar */
+  #topbar{padding:0 10px;gap:8px;}
+  #page-title{font-size:14px;}
+  .tsearch{display:none;}
+  /* Content */
+  #content{padding:12px;}
+  /* Stat row → 2 cols */
+  .stat-row{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+  .sc-val{font-size:22px;}
+  /* Site grid → 1 col */
+  .site-grid{grid-template-columns:1fr;}
+  /* Overview stat chips — already has overflow-x:auto */
+  .ov-sc{min-width:130px;padding:10px 12px;gap:8px;}
+  .ov-sc-val{font-size:17px;}
+  /* Kanban → 1 col */
+  .kb-board{grid-template-columns:1fr;}
+  /* Calendar → stack */
+  .cal-layout{grid-template-columns:1fr;}
+  .cal-day{min-height:50px;}
+  /* Two-col → stack */
+  .two-col{grid-template-columns:1fr;}
+  /* Monitor grid → 2×2 */
+  .monitor-grid{grid-template-columns:repeat(2,1fr);}
+  /* Detail grid → 1 col */
+  .detail-grid{grid-template-columns:1fr;}
+  /* Form row → 1 col */
+  .form-row{grid-template-columns:1fr;}
+  /* Modal */
+  .modal{width:98vw;max-height:92vh;}
+  /* Thingnario grid */
+  .tn-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  /* Touch targets */
+  .ticon-btn{width:40px;height:40px;}
+  .nitem{padding:11px 10px;margin-bottom:4px;}
+  /* Alerts */
+  .alert-item{padding:12px 14px;}
+  /* Page header */
+  .ph-actions{flex-wrap:wrap;}
+  /* Site info bar */
+  .site-info-bar{gap:8px;padding:8px 12px;font-size:11px;}
+  /* Site detail photo */
+  .sd-photo{height:200px;}
+}
 </style>
 </head>
 <body>
@@ -508,6 +570,8 @@ select option{background:var(--surface2);}
     </div>
   </div>
 
+  <div id="sb-overlay" onclick="closeSidebar()"></div>
+
   <!-- SITE TREE PANEL -->
   <div id="tree-panel">
     <div class="tp-head">電站總覽</div>
@@ -518,6 +582,7 @@ select option{background:var(--surface2);}
   <!-- MAIN -->
   <div id="main-area">
     <div id="topbar">
+      <button id="hamburger" onclick="toggleSidebar()">&#9776;</button>
       <div id="page-title">概覽</div>
       <div class="tsearch"><span>🔍</span><input type="text" placeholder="搜尋案場、事件…" oninput="handleSearch(this.value)"></div>
       <button class="ticon-btn" id="refresh-btn" onclick="refreshAllSites()" title="立即更新所有案場數據">🔄</button>
@@ -1233,6 +1298,13 @@ function showToast(msg, duration=3000) {
   setTimeout(() => t.classList.remove('show'), duration);
 }
 
+function toggleSidebar() {
+  document.getElementById('app').classList.toggle('sb-open');
+}
+function closeSidebar() {
+  document.getElementById('app').classList.remove('sb-open');
+}
+
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('p-' + page)?.classList.add('active');
@@ -1251,6 +1323,7 @@ function showPage(page) {
   if (page === 'overview') tp.classList.add('show');
   else tp.classList.remove('show');
   if (page === 'alerts') loadBackendAlerts();
+  if (window.innerWidth <= 768) closeSidebar();
 }
 
 // ═══════════════════════════════════════

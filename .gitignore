@@ -1,6 +1,9 @@
 # 機密設定
 ess-backend/.env
 ess-backend/cache.json
+ess-backend/firebase-key.json
+*firebase-key*.json
+firebase-key.json
 
 # Python
 __pycache__/
