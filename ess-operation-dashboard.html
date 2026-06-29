@@ -1511,46 +1511,76 @@ function mockMonitor(s) {
 
 // 嘗試從後端 API 取得真實監控數據，失敗時 fallback 到模擬數據
 async function fetchMonitor(s) {
+  // 1. 嘗試從 Firestore site_realtime 讀取（本機與線上都可用）
   try {
-    const resp = await fetch(
-      `${BACKEND_URL}/api/site/${encodeURIComponent(s.name)}`,
-      {signal: AbortSignal.timeout(3000)}
-    );
-    if (resp.status === 404) {
-      // 後端在線但 plantNO 尚未設定
-      const mock = mockMonitor(s);
-      mock.offlineReason = 'notMapped';
-      return mock;
+    const doc = await db.collection('site_realtime').doc(s.name).get();
+    if (doc.exists) {
+      const d = doc.data();
+      const today = Math.round(d.today_kwh || 0);
+      const days7 = (d.days7 || []).map(v => Math.round(v));
+      const month  = Math.round(d.month_kwh || 0);
+      const total  = Math.round(d.total_kwh || 0);
+      const efficiency = d.efficiency || +(today / s.cap).toFixed(2);
+      const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * 1.5);
+      // 將 Firestore Timestamp 轉為可讀字串
+      const collStr = d.fetched_at?.toDate
+        ? d.fetched_at.toDate().toLocaleString('zh-TW', {hour12:false}).slice(5,16)
+        : (d.collected || d.updated || '');
+      return {
+        today, days7, total, month, revenue, efficiency, isReal: true,
+        updated:    d.updated    || '',
+        ac_kw:      d.ac_kw      || 0,
+        radiation:  d.radiation || d.irradiance || 0,
+        wind_speed: d.wind_speed ?? null,
+        mod_temp:   d.mod_temp   ?? null,
+        amb_temp:   d.amb_temp   ?? null,
+        alert_num:  d.alert_num  ?? null,
+        alert_flag: d.alert_flag || '',
+        collected:  collStr,
+        kw_pr:      d.kw_pr      ?? null,
+      };
     }
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json();
-    if (!json.ok || !json.data) throw new Error('no data');
-    const d = json.data;
-    const today = Math.round(d.today_kwh || 0);
-    const days7 = (d.days7 || []).map(v => Math.round(v));
-    const month  = Math.round(d.month_kwh || 0);
-    const total  = Math.round(d.total_kwh || 0);
-    const efficiency = d.efficiency || +(today / s.cap).toFixed(2);
-    const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * 1.5);
-    return {
-      today, days7, total, month, revenue, efficiency, isReal: true,
-      updated:    d.updated    || '',
-      ac_kw:      d.ac_kw      || 0,
-      radiation:  d.radiation || d.irradiance || 0,
-      wind_speed: d.wind_speed ?? null,
-      mod_temp:   d.mod_temp   ?? null,
-      amb_temp:   d.amb_temp   ?? null,
-      alert_num:  d.alert_num  ?? null,
-      alert_flag: d.alert_flag || '',
-      collected:  d.collected  || '',
-      kw_pr:      d.kw_pr      ?? null,
-    };
-  } catch (_) {
-    // 網路錯誤或 timeout → 後端離線
-    const mock = mockMonitor(s);
-    mock.offlineReason = 'offline';
-    return mock;
+  } catch (_) {}
+
+  // 2. Firestore 無資料 → 嘗試本機後端（開發用）
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    try {
+      const resp = await fetch(
+        `${BACKEND_URL}/api/site/${encodeURIComponent(s.name)}`,
+        {signal: AbortSignal.timeout(3000)}
+      );
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.ok && json.data) {
+          const d = json.data;
+          const today = Math.round(d.today_kwh || 0);
+          const days7 = (d.days7 || []).map(v => Math.round(v));
+          const month  = Math.round(d.month_kwh || 0);
+          const total  = Math.round(d.total_kwh || 0);
+          const efficiency = d.efficiency || +(today / s.cap).toFixed(2);
+          const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * 1.5);
+          return {
+            today, days7, total, month, revenue, efficiency, isReal: true,
+            updated:    d.updated    || '',
+            ac_kw:      d.ac_kw      || 0,
+            radiation:  d.radiation || d.irradiance || 0,
+            wind_speed: d.wind_speed ?? null,
+            mod_temp:   d.mod_temp   ?? null,
+            amb_temp:   d.amb_temp   ?? null,
+            alert_num:  d.alert_num  ?? null,
+            alert_flag: d.alert_flag || '',
+            collected:  d.collected  || '',
+            kw_pr:      d.kw_pr      ?? null,
+          };
+        }
+      }
+    } catch (_) {}
   }
+
+  // 3. 都失敗 → 模擬數據
+  const mock = mockMonitor(s);
+  mock.offlineReason = 'offline';
+  return mock;
 }
 
 function svgBarChart(data, labels) {

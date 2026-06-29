@@ -87,6 +87,25 @@ def push_gms_alert(site_name: str, alert_num: int) -> bool:
         return False
 
 
+def push_site_realtime(site_name: str, data: dict) -> bool:
+    """
+    推送案場即時監控數據到 Firestore site_realtime/{site_name}
+    前端可直接從 Firestore 讀取，無需呼叫後端 API
+    """
+    db = get_firestore()
+    if db is None:
+        return False
+    try:
+        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # type: ignore
+        payload = {k: v for k, v in data.items() if v is not None}
+        payload["fetched_at"] = SERVER_TIMESTAMP
+        db.collection("site_realtime").document(site_name).set(payload)
+        return True
+    except Exception as e:
+        logger.error("push_site_realtime 失敗 (%s): %s", site_name, e)
+        return False
+
+
 def resolve_gms_alert(site_name: str) -> bool:
     """告警消失時刪除今日的 GMS 系統告警。"""
     db = get_firestore()

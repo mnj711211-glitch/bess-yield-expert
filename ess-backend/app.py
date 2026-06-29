@@ -190,6 +190,15 @@ def fetch_all_sites():
     save_cache()
     logger.info("快取更新完成 (%d 案場)", updated)
 
+    # ── 推送即時數據到 Firestore（供前端直接讀取）──────────────
+    try:
+        from firebase_client import push_site_realtime
+        for site_name, data in _cache.items():
+            push_site_realtime(site_name, data)
+        logger.info("✓ Firestore site_realtime 同步完成 (%d 案場)", len(_cache))
+    except Exception as fb_err:
+        logger.warning("Firestore site_realtime 推送跳過: %s", fb_err)
+
     # ── LINE 告警推播（合併成一則訊息）────────────────────────
     new_alerts   = []   # 新增或變化的告警
     resolved     = []   # 已解除的案場
