@@ -1,0 +1,2890 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESS Operation Dashboard · 儲能系統營運戰情面板</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang TC','Microsoft JhengHei',sans-serif;font-size:14px;}
+:root{
+  --bg:#f0f7f2;--surface:#ffffff;--surface2:#e8f4eb;
+  --border:#b8d9c2;--border2:#d4ead9;
+  --text:#1a3d28;--text2:#3d6e50;--text3:#6e9e7a;
+  --green:#27ae60;--green-d:rgba(39,174,96,.13);
+  --amber:#e07820;--amber-d:rgba(224,120,32,.13);
+  --red:#c0392b;--red-d:rgba(192,57,43,.13);
+  --blue:#1e7fc2;--blue-d:rgba(30,127,194,.13);
+  --purple:#7d3c98;--purple-d:rgba(125,60,152,.13);
+  --grey-d:rgba(80,120,90,.12);
+  --sidebar:240px;--topbar:60px;--r:8px;
+  --shadow:0 4px 20px rgba(39,174,96,.14);
+  /* sidebar-specific */
+  --sb-bg:#15402a;--sb-border:#0d2d1a;
+  --sb-text:rgba(255,255,255,.8);--sb-text2:rgba(255,255,255,.5);
+}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ── LOGIN ── */
+#login{position:fixed;inset:0;background:radial-gradient(ellipse at 35% 45%,#b8e8cc 0%,#e6f5ea 60%,#f0f7f2 100%);display:flex;align-items:center;justify-content:center;z-index:999;}
+.lcard{background:#fff;border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:460px;text-align:center;box-shadow:0 8px 40px rgba(39,174,96,.18);}
+.llogo{width:180px;height:auto;margin:0 auto 24px;display:block;}
+.lcard h1{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.lcard>p{color:var(--text2);font-size:13px;margin-bottom:32px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.role-btn{background:#f6fbf7;border:1px solid var(--border);border-radius:10px;padding:22px 16px;cursor:pointer;transition:all .2s;color:var(--text);text-align:center;}
+.role-btn:hover{border-color:var(--green);background:var(--green-d);transform:translateY(-2px);}
+.role-btn .ri{font-size:30px;margin-bottom:10px;}
+.role-btn .rt{font-size:15px;font-weight:700;margin-bottom:4px;}
+.role-btn .rd{font-size:11px;color:var(--text2);}
+
+/* ── APP SHELL ── */
+#app{display:none;height:100vh;}
+#app.on{display:flex;}
+
+/* ── SIDEBAR ── */
+#sidebar{width:var(--sidebar);background:var(--sb-bg);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;flex-shrink:0;}
+.slogo{height:var(--topbar);display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--sb-border);gap:10px;}
+.slogo-icon{width:32px;height:32px;background:linear-gradient(135deg,#27ae60,#1abc9c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.slogo-text{font-size:13px;font-weight:700;color:#fff;line-height:1.2;}
+.slogo-sub{font-size:10px;color:var(--sb-text2);}
+.snav{flex:1;padding:10px 8px;overflow-y:auto;}
+.snav-section{margin-bottom:18px;}
+.snav-label{font-size:10px;font-weight:600;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:4px;}
+.nitem{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:6px;cursor:pointer;transition:all .15s;color:var(--sb-text);font-size:13px;margin-bottom:2px;border:1px solid transparent;}
+.nitem:hover{background:rgba(255,255,255,.1);color:#fff;}
+.nitem.active{background:rgba(39,174,96,.28);color:#7fe8a8;border-color:rgba(39,174,96,.35);}
+.nitem .ni{font-size:16px;flex-shrink:0;}
+.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;}
+.sfooter{padding:10px;border-top:1px solid var(--sb-border);}
+.ucard{display:flex;align-items:center;gap:9px;padding:8px;border-radius:6px;cursor:default;}
+.uavatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.ua-admin{background:linear-gradient(135deg,#27ae60,#1abc9c);color:#fff;}
+.ua-client{background:linear-gradient(135deg,#f39c12,#e74c3c);color:#fff;}
+.uname{font-size:12px;font-weight:600;color:#fff;}
+.urole{font-size:10px;color:var(--sb-text2);}
+.switch-btn{width:100%;margin-top:8px;background:none;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px;color:var(--sb-text);font-size:12px;cursor:pointer;transition:all .15s;}
+.switch-btn:hover{border-color:#7fe8a8;color:#7fe8a8;}
+
+/* ── MAIN AREA ── */
+#main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#topbar{height:var(--topbar);background:#fff;border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;}
+#page-title{font-size:16px;font-weight:700;color:var(--text);flex:1;}
+.tsearch{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;}
+.tsearch input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:180px;}
+.tsearch input::placeholder{color:var(--text3);}
+.ticon-btn{width:36px;height:36px;border-radius:6px;background:none;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:15px;position:relative;transition:all .15s;}
+.ticon-btn:hover{border-color:var(--green);color:var(--green);}
+.ndot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid #fff;}
+#content{flex:1;overflow-y:auto;padding:24px;background:var(--bg);}
+
+/* ── PAGES ── */
+.page{display:none;}
+.page.active{display:block;}
+.ph{margin-bottom:20px;}
+.ph h2{font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.ph p{font-size:13px;color:var(--text2);}
+.ph-actions{display:flex;gap:8px;margin-top:12px;}
+
+/* ── STATS ROW ── */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;}
+.sc-label{font-size:11px;color:var(--text2);margin-bottom:2px;}
+.sc-val{font-size:28px;font-weight:700;color:var(--text);}
+.sc-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.sc-bar{height:3px;background:var(--border);border-radius:2px;margin-top:12px;overflow:hidden;}
+.sc-fill{height:100%;border-radius:2px;}
+
+/* ── SITE CARDS ── */
+.site-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;margin-bottom:22px;}
+.site-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;box-shadow:0 1px 6px rgba(39,174,96,.07);}
+.site-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.site-card.normal::before{background:var(--green);}
+.site-card.warning::before{background:var(--amber);}
+.site-card.critical::before{background:var(--red);}
+.site-card.maintenance::before{background:var(--text3);}
+.site-card:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(39,174,96,.18);border-color:var(--green);}
+.sc-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+.sc-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.sc-client{font-size:11px;color:var(--text2);}
+.sbadge{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;flex-shrink:0;}
+.sbadge.normal{background:var(--green-d);color:var(--green);}
+.sbadge.warning{background:var(--amber-d);color:var(--amber);}
+.sbadge.critical{background:var(--red-d);color:var(--red);}
+.sbadge.maintenance{background:var(--grey-d);color:var(--text2);}
+.sdot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.sdot.pulse{animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.sc-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0;}
+.sm-item{background:var(--surface2);border-radius:5px;padding:7px 9px;}
+.sm-label{font-size:10px;color:var(--text3);margin-bottom:2px;}
+.sm-val{font-size:14px;font-weight:600;color:var(--text);}
+.sm-unit{font-size:10px;color:var(--text2);}
+.soc-wrap{margin-top:10px;}
+.soc-hd{display:flex;justify-content:space-between;margin-bottom:4px;}
+.soc-lbl{font-size:10px;color:var(--text2);}
+.soc-num{font-size:11px;font-weight:700;color:var(--text);}
+.soc-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.soc-fill{height:100%;border-radius:3px;transition:width .5s;}
+.sc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.sc-loc{font-size:10px;color:var(--text3);}
+.sc-btns{display:flex;gap:5px;}
+.ib{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.ib:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-d);}
+
+/* ── ALERTS ── */
+.alerts-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.aw-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.aw-title{font-size:13px;font-weight:600;color:var(--text);}
+.alert-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border2);align-items:flex-start;}
+.alert-item:last-child{border-bottom:none;}
+.alert-item.critical{border-left:3px solid var(--red);}
+.alert-item.warning{border-left:3px solid var(--amber);}
+.ai-icon{font-size:15px;flex-shrink:0;margin-top:1px;}
+.ai-body{flex:1;}
+.ai-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.ai-detail{font-size:11px;color:var(--text2);}
+.ai-time{font-size:10px;color:var(--text3);white-space:nowrap;}
+.alert-item.info{border-left:3px solid var(--blue);}
+.ai-actions{display:flex;gap:4px;align-items:center;opacity:0;transition:opacity .15s;margin-left:4px;}
+.alert-item:hover .ai-actions{opacity:1;}
+.ai-act-btn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--text3);font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
+.ai-act-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-d);}
+.ai-act-btn.del:hover{border-color:var(--red);color:var(--red);background:var(--red-d);}
+.aw-add-btn{font-size:11px;padding:4px 11px;border-radius:5px;border:1px solid var(--border);background:none;cursor:pointer;color:var(--text2);transition:all .15s;}
+.aw-add-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-d);}
+
+/* ── SCHEDULE TABS ── */
+.sched-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;}
+.sched-tab{padding:8px 22px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text3);transition:color .15s;}
+.sched-tab:hover{color:var(--text);}
+.sched-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.sched-pane{display:none;}
+.sched-pane.active{display:block;}
+
+/* ── KANBAN BOARD ── */
+.kb-board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
+.kb-col{background:var(--bg);border-radius:var(--r);padding:10px;}
+.kb-col-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;}
+.kb-col-title{font-size:12px;font-weight:700;}
+.kb-col-count{background:#fff;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;}
+.kb-card{background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border);transition:box-shadow .15s,border-color .15s;}
+.kb-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.09);border-color:var(--green);}
+.kb-card-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.kb-card-site{font-size:11px;color:var(--text2);margin-bottom:7px;}
+.kb-card-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.kb-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap;}
+.kb-tag.pm {background:var(--green-d);color:var(--green);}
+.kb-tag.ir {background:var(--blue-d);color:var(--blue);}
+.kb-tag.soh{background:var(--purple-d);color:var(--purple);}
+.kb-tag.em {background:var(--red-d);color:var(--red);}
+.kb-tag.urgent{background:var(--red);color:#fff;}
+.kb-date{font-size:10px;color:var(--text3);}
+.kb-person{font-size:10px;color:var(--text3);margin-left:auto;}
+.kb-desc{font-size:10px;color:var(--text3);margin-top:6px;line-height:1.5;padding-top:6px;border-top:1px solid var(--border2);}
+/* wo detail modal */
+.wo-info-row{display:flex;gap:8px;margin-bottom:8px;}
+.wo-info-label{font-size:11px;color:var(--text3);width:70px;flex-shrink:0;}
+.wo-info-val{font-size:12px;color:var(--text);font-weight:500;}
+.wo-status-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.wo-status-btn{font-size:11px;font-weight:600;padding:5px 14px;border-radius:99px;border:1.5px solid var(--border);cursor:pointer;background:#fff;color:var(--text2);transition:all .15s;}
+.wo-status-btn:hover{border-color:var(--green);color:var(--green);}
+.wo-status-btn.s-pending   {border-color:var(--amber);color:var(--amber);}
+.wo-status-btn.s-dispatched{border-color:var(--blue);color:var(--blue);}
+.wo-status-btn.s-in_progress{border-color:var(--purple);color:var(--purple);}
+.wo-status-btn.s-done      {border-color:var(--green);color:var(--green);}
+.wo-status-btn.current     {color:#fff!important;}
+.wo-status-btn.current.s-pending   {background:var(--amber);}
+.wo-status-btn.current.s-dispatched{background:var(--blue);}
+.wo-status-btn.current.s-in_progress{background:var(--purple);}
+.wo-status-btn.current.s-done      {background:var(--green);}
+
+/* ── CALENDAR ── */
+.cal-layout{display:grid;grid-template-columns:1fr 310px;gap:14px;}
+.cal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.cal-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.cal-mon{font-size:15px;font-weight:700;color:var(--text);}
+.cal-navs{display:flex;gap:6px;}
+.cal-nb{width:30px;height:30px;border-radius:6px;background:none;border:1px solid var(--border);cursor:pointer;color:var(--text2);display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.cal-nb:hover{border-color:var(--blue);color:var(--blue);}
+.cal-wds{display:grid;grid-template-columns:repeat(7,1fr);background:var(--surface2);}
+.cal-wd{padding:8px;text-align:center;font-size:10px;font-weight:600;color:var(--text2);}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-day{min-height:80px;padding:5px;border-right:1px solid var(--border2);border-bottom:1px solid var(--border2);}
+.cal-day:nth-child(7n){border-right:none;}
+.cdn{font-size:11px;color:var(--text2);width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-bottom:3px;border-radius:50%;}
+.cal-day.other-m .cdn{color:var(--text3);}
+.cal-day.today .cdn{background:var(--blue);color:#fff;}
+.cev{font-size:9px;padding:2px 4px;border-radius:2px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+.cev.pm{background:var(--green-d);color:var(--green);}
+.cev.ir{background:var(--blue-d);color:var(--blue);}
+.cev.soh{background:var(--purple-d);color:var(--purple);}
+.cev.em{background:var(--red-d);color:var(--red);}
+
+/* ── IMPORT PANEL ── */
+.imp-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.imp-hd{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);}
+.imp-body{padding:14px;}
+.dropzone{border:2px dashed var(--border);border-radius:var(--r);padding:24px 12px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;}
+.dropzone:hover,.dropzone.dg{border-color:var(--blue);background:var(--blue-d);}
+.dz-ic{font-size:28px;margin-bottom:7px;}
+.dz-txt{font-size:12px;color:var(--text2);margin-bottom:3px;}
+.dz-hint{font-size:10px;color:var(--text3);}
+.imp-legend{margin-bottom:12px;}
+.leg-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--text2);}
+.leg-dot{width:8px;height:8px;border-radius:2px;}
+.prev-wrap{overflow-x:auto;margin-top:10px;}
+.prev-table{width:100%;border-collapse:collapse;font-size:10px;}
+.prev-table th{background:var(--surface2);color:var(--text2);font-weight:600;padding:5px 7px;text-align:left;border-bottom:1px solid var(--border);}
+.prev-table td{padding:4px 7px;color:var(--text);border-bottom:1px solid var(--border2);}
+.prev-table tr:hover td{background:var(--surface2);}
+.imp-acts{display:flex;gap:7px;margin-top:10px;}
+
+/* ── BUTTONS ── */
+.btn-p{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.btn-p:hover{opacity:.85;}
+.btn-s{background:none;color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;transition:all .15s;}
+.btn-s:hover{border-color:var(--blue);color:var(--blue);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+
+/* ── TIMELINE ── */
+.timeline{padding:4px 0;}
+.tl-item{display:flex;gap:0;padding-bottom:20px;position:relative;}
+.tl-connector{width:36px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;}
+.tl-dot{width:10px;height:10px;border-radius:50%;border:2px solid;margin-top:14px;flex-shrink:0;}
+.tl-dot.pm{border-color:var(--green);background:var(--green-d);}
+.tl-dot.ir{border-color:var(--blue);background:var(--blue-d);}
+.tl-dot.soh{border-color:var(--purple);background:var(--purple-d);}
+.tl-line{flex:1;width:1px;background:var(--border);margin-top:4px;}
+.tl-item:last-child .tl-line{display:none;}
+.tl-card{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.tc-hd{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.tc-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;}
+.tc-tag.pm{background:var(--green-d);color:var(--green);}
+.tc-tag.ir{background:var(--blue-d);color:var(--blue);}
+.tc-tag.soh{background:var(--purple-d);color:var(--purple);}
+.tc-date{font-size:10px;color:var(--text3);margin-left:auto;}
+.tc-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.tc-detail{font-size:11px;color:var(--text2);}
+
+/* ── REPORTS ── */
+.rpt-filter{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;}
+.fchip{padding:4px 12px;border-radius:99px;border:1px solid var(--border);font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;background:none;}
+.fchip:hover,.fchip.active{border-color:var(--blue);color:var(--blue);background:var(--blue-d);}
+.rpt-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.rpt-table{width:100%;border-collapse:collapse;}
+.rpt-table th{background:var(--surface2);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);}
+.rpt-table td{padding:10px 14px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border2);}
+.rpt-table tr:last-child td{border-bottom:none;}
+.rpt-table tr:hover td{background:var(--surface2);}
+.rtype{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:600;}
+.rtype.pm{background:var(--green-d);color:var(--green);}
+.rtype.ir{background:var(--blue-d);color:var(--blue);}
+.rtype.soh{background:var(--purple-d);color:var(--purple);}
+.dl-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:10px;color:var(--text2);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:3px;}
+.dl-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+/* ── MODAL ── */
+.m-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center;}
+.m-overlay.open{display:flex;}
+.modal{background:#fff;border:1px solid var(--border);border-radius:12px;width:660px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 12px 48px rgba(39,174,96,.22);}
+.mhd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.mhd-title{font-size:15px;font-weight:700;color:var(--text);}
+.mhd-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--green-d);color:var(--green);margin-left:8px;}
+.mclose{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:5px;}
+.mclose:hover{background:var(--surface2);color:var(--text);}
+/* site photo zone */
+.site-photo-zone{position:relative;width:100%;height:190px;overflow:hidden;cursor:pointer;background:var(--surface2);border-bottom:1px solid var(--border);}
+.site-photo-zone img{width:100%;height:100%;object-fit:cover;display:block;}
+.site-photo-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(21,64,42,.55);color:#fff;opacity:0;transition:opacity .2s;}
+.site-photo-zone:hover .site-photo-overlay{opacity:1;}
+.site-photo-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);font-size:13px;gap:8px;}
+.site-photo-placeholder .ph-icon{font-size:36px;}
+/* info bar under photo */
+.site-info-bar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--sb-bg);color:rgba(255,255,255,.85);font-size:12px;flex-wrap:wrap;}
+.sib-item{display:flex;align-items:center;gap:5px;}
+.sib-val{font-weight:700;color:#fff;}
+/* monitor stats */
+.mbody{padding:18px 20px;}
+.ms-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:14px;}
+.monitor-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.mg-card{background:var(--surface2);border-radius:8px;padding:10px 12px;text-align:center;border:1px solid var(--border);}
+.mg-label{font-size:10px;color:var(--text2);margin-bottom:4px;}
+.mg-val{font-size:18px;font-weight:700;color:var(--text);line-height:1;}
+.mg-unit{font-size:10px;color:var(--text3);margin-top:2px;}
+/* chart */
+.chart-wrap{background:var(--surface2);border-radius:8px;padding:14px 14px 6px;border:1px solid var(--border);margin-bottom:14px;}
+.chart-title{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:10px;}
+/* detail grid */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.di{background:var(--surface2);border-radius:6px;padding:8px 10px;border:1px solid var(--border);}
+.di-label{font-size:10px;color:var(--text3);margin-bottom:2px;}
+/* real-time monitoring panel */
+.alert-banner{background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.35);border-radius:7px;padding:7px 12px;display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:var(--red);font-weight:600;}
+.rt-env-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;}
+.rt-env-item{text-align:center;}
+.rt-env-icon{font-size:16px;line-height:1;}
+.rt-env-val{font-size:14px;font-weight:700;color:var(--text);margin:2px 0;}
+.rt-env-label{font-size:9px;color:var(--text3);}
+.ac-bar-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;}
+.ac-bar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.ac-bar-title{font-size:11px;font-weight:600;color:var(--text2);}
+.ac-bar-val{font-size:15px;font-weight:700;color:var(--green);}
+.ac-bar-bg{height:10px;background:var(--border2);border-radius:5px;overflow:hidden;}
+.ac-bar-fill{height:10px;background:linear-gradient(90deg,var(--green),#52d68a);border-radius:5px;transition:width .4s;}
+.ac-bar-sub{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:4px;}
+.inv-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;}
+.inv-table th{background:var(--surface2);color:var(--text3);font-weight:600;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.inv-table td{padding:5px 8px;border-bottom:1px solid var(--border2);color:var(--text);}
+.inv-table tr:last-child td{border-bottom:none;}
+.inv-ok{color:var(--green);font-weight:700;}
+.inv-err{color:var(--red);font-weight:700;}
+.inv-status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+.collected-time{font-size:9px;color:var(--text3);text-align:right;margin-top:6px;}
+.di-val{font-size:13px;font-weight:600;color:var(--text);}
+.mfooter{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:7px;}
+.mfooter-left{font-size:11px;color:var(--text3);}
+.mfooter-right{display:flex;gap:7px;}
+
+/* ── MISC ── */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sh-title{font-size:13px;font-weight:600;color:var(--text);}
+.sh-link{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:none;}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600;}
+.chip.blue{background:var(--blue-d);color:var(--blue);}
+.chip.green{background:var(--green-d);color:var(--green);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-group{margin-bottom:12px;}
+.form-group label{font-size:11px;color:var(--text2);display:block;margin-bottom:4px;}
+.form-group input,.form-group select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue);}
+select option{background:var(--surface2);}
+.two-col{display:grid;grid-template-columns:1fr 300px;gap:14px;}
+.success-msg{background:var(--green-d);border:1px solid var(--green);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--green);margin-top:10px;display:none;}
+
+/* ── SITE TREE PANEL ── */
+#tree-panel{width:200px;background:#fff;border-right:1px solid var(--border);display:none;flex-direction:column;flex-shrink:0;}
+#tree-panel.show{display:flex;}
+.tp-head{padding:11px 12px 8px;border-bottom:1px solid var(--border2);font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.05em;}
+.tp-search{padding:8px 10px;border-bottom:1px solid var(--border2);}
+.tp-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;color:var(--text);outline:none;}
+.tp-search input:focus{border-color:var(--blue);}
+.tp-body{flex:1;overflow-y:auto;padding:4px 0 10px;}
+.tp-node{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);border-radius:5px;margin:1px 6px;transition:all .12s;user-select:none;line-height:1.3;}
+.tp-node:hover{background:var(--surface2);color:var(--text);}
+.tp-node.tp-active{background:var(--blue-d);color:var(--blue);font-weight:600;}
+.tp-all{padding:7px 10px;font-weight:700;color:var(--text);}
+.tp-region{padding:6px 10px;font-weight:700;color:var(--text);font-size:11px;}
+.tp-city{padding:5px 10px 5px 22px;font-size:11px;}
+.tp-site{padding:4px 10px 4px 36px;font-size:11px;color:var(--text3);}
+.tp-site:hover,.tp-site.tp-active{color:var(--blue);}
+.tp-arrow{font-size:8px;margin-right:1px;transition:transform .15s;display:inline-block;}
+.tp-arrow.open{transform:rotate(90deg);}
+.tp-children{overflow:hidden;}
+.tp-children.collapsed{display:none;}
+.tp-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;margin-left:auto;margin-right:2px;}
+
+/* ── OVERVIEW 5-STAT ROW ── */
+.ov-stats{display:flex;gap:12px;margin-bottom:20px;overflow-x:auto;padding-bottom:2px;}
+.ov-sc{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;flex:1;min-width:120px;display:flex;align-items:center;gap:11px;box-shadow:0 1px 4px rgba(39,174,96,.06);}
+.ov-sc-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.ov-sc-val{font-size:20px;font-weight:700;color:var(--text);line-height:1.1;}
+.ov-sc-lbl{font-size:10px;color:var(--text2);margin-top:1px;}
+
+/* ── THINGNARIO SITE CARDS ── */
+.tn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:22px;}
+.tn-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .18s;overflow:hidden;box-shadow:0 1px 6px rgba(39,174,96,.06);}
+.tn-card:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(39,174,96,.18);border-color:var(--green);}
+.tn-img{height:120px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.tn-img svg{opacity:.25;width:64px;height:64px;}
+.tn-cap{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.48);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;backdrop-filter:blur(3px);}
+.tn-sbadge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;}
+.tn-sbadge.normal{background:rgba(39,174,96,.85);color:#fff;}
+.tn-sbadge.warning{background:rgba(224,120,32,.85);color:#fff;}
+.tn-sbadge.critical{background:rgba(192,57,43,.85);color:#fff;}
+.tn-mock{position:absolute;top:28px;left:8px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:99px;background:rgba(100,100,100,.72);color:#fff;letter-spacing:.3px;}
+.tn-body{padding:11px 13px 9px;}
+.tn-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;}
+.tn-loc{font-size:10px;color:var(--text3);margin-bottom:9px;}
+.tn-stats-row{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;margin-bottom:9px;}
+.tn-stat{flex:1;padding:5px 3px;text-align:center;border-right:1px solid var(--border2);}
+.tn-stat:last-child{border-right:none;}
+.tn-sv{font-size:12px;font-weight:700;color:var(--text);line-height:1.3;}
+.tn-sl{font-size:9px;color:var(--text3);}
+.tn-si{font-size:10px;line-height:1;}
+.tn-bar{display:flex;align-items:center;gap:6px;}
+.tn-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.tn-fill{height:100%;border-radius:3px;}
+.tn-pct{font-size:10px;font-weight:700;color:var(--text2);min-width:26px;text-align:right;}
+/* 篩選 chips */
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.fchip2{padding:4px 12px;border-radius:99px;border:1px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;transition:all .15s;background:#fff;}
+.fchip2:hover{border-color:var(--blue);color:var(--blue);}
+.fchip2.active{border-color:var(--blue);color:var(--blue);background:var(--blue-d);font-weight:600;}
+
+/* ── SITE DETAIL PAGE ── */
+.sd-topbar{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid var(--border);}
+.sd-back{background:none;border:1px solid var(--border);border-radius:7px;padding:7px 14px;font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;flex-shrink:0;display:flex;align-items:center;gap:5px;}
+.sd-back:hover{border-color:var(--green);color:var(--green);}
+.sd-action-btn{background:none;border:1px solid var(--border);border-radius:7px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;flex-shrink:0;}
+.sd-action-btn.edit{color:var(--blue);border-color:var(--blue-d);}
+.sd-action-btn.edit:hover{background:var(--blue-d);border-color:var(--blue);}
+.sd-action-btn.del{color:var(--red);border-color:var(--red-d);}
+.sd-action-btn.del:hover{background:var(--red-d);border-color:var(--red);}
+.sd-titlewrap{flex:1;}
+.sd-h2{font-size:22px;font-weight:700;color:var(--text);}
+.sd-ts{font-size:12px;color:var(--text3);margin-top:1px;}
+.sd-layout{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start;}
+.sd-left{display:flex;flex-direction:column;gap:12px;}
+.sd-weather-box{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;align-items:center;}
+.sd-w-half{flex:1;text-align:center;}
+.sd-w-div{width:1px;height:40px;background:var(--border);flex-shrink:0;margin:0 8px;}
+.sd-w-big{font-size:26px;font-weight:700;color:var(--blue);line-height:1.2;}
+.sd-w-big.cloudy{color:var(--green);}
+.sd-w-lbl{font-size:10px;color:var(--text3);margin-top:4px;}
+.sd-photo{height:300px;border-radius:var(--r);overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);position:relative;cursor:pointer;}
+.sd-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+.sd-photo-ph{text-align:center;color:rgba(255,255,255,.6);font-size:12px;}
+.sd-photo-ph em{font-size:46px;display:block;margin-bottom:8px;font-style:normal;}
+.sd-photo-overlay{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:13px;opacity:0;transition:opacity .2s;gap:6px;}
+.sd-photo:hover .sd-photo-overlay{opacity:1;}
+.sd-photo-overlay span{font-size:28px;}
+.sd-real-badge{position:absolute;bottom:8px;right:8px;background:rgba(39,174,96,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;backdrop-filter:blur(3px);}
+.sd-right{display:flex;flex-direction:column;gap:12px;}
+.sd-chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;}
+.sd-chart-lbl{font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;}
+.sd-footer{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:16px;}
+.sd-fc{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.sd-fc-val{font-size:20px;font-weight:700;line-height:1.2;}
+.sd-fc-val-sm{font-size:13px;font-weight:700;line-height:1.4;}
+.sd-fc-unit{font-size:11px;font-weight:400;color:var(--text3);}
+.sd-fc-lbl{font-size:10px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:4px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a3d28;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+#toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login">
+  <div class="lcard">
+    <img class="llogo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHYAAABnCAYAAADVLbYvAAAw+UlEQVR4nO2dB7zlVXXvv/tfTrn93hmmAAMydBEDCKioDzWWAPZYsAZFYyERotGYoMRnzcPyEjVq8hKTqMlTNKKgWEAcGEEcRgSkSxUGpt659ZR/2++z1t7/c8693BkYRJyZN5vPcO895V/22qv91m/tv7HWWvaM3W4Ev+8L2DN+N2OPYHfTsUewu+nYI9jddOwR7G469gh2Nx17BLubjj2C3U3HHsHudEPwol7M6JHhR3sE+/seKres87u1GdbmXr7yvwxbpECOtQXIP+Tn9g+7R7C/7zFPOW1HcBYMFIWhsIZCXu4M85CHNXuw4p1AsEY0MoLCPGqqtkewu+nYY4p307FHsLvpCHb5pGB+drDQS3bOjwW/s61z7KojYlcbEjAGLkGQVRlYqzFijqQIhoAAG8jPedEmVmOTsCe61EhT4xUXtGgc488hf+dA+LBi0J1v7HLBUymXwF91RoGhIDRz1+hU1iTNUkITUq/WqKqIusewRU5gAjAGY11A6uXshG+8oHdFqe6KgtWr9ZPeq5U3br2fb63+EauuupK7H7iXicYMzTTBRCEDfX0sHxzlhMcfzUue8Rye94TjO9/LbEEkWs5cQYqwH3SSnXR0LM2uJtjyEo3MuqqbhdDdyuW3XsvZnz2Xn956LQQ5VKsQe+0s71a+l2WQFNBOWDywiHe+6o184NV/6t7PHRhQOu0idIIOF5qxXWTsUoKVYUSwoWF91uDV55zJqtUXw17DEMZOMoE4y7kSCQor7ld9s0YVeQ7js4zFw3zxg+fyiuOe5YQr/wKDDQ25xwp2AYXdDQQrihUYVt16LSe95820TAvqfRgRlAnc53o0LPC+UsxqLk5ZNLe0t/LZvICpSd7wwtfzH+/8oPtSblWw+jH/lV1x7LyCLWWpeKkERyIhwzeuXc0r//ItMNBPUI0orAuCTFpQRM6EdkZpXstQt7NADEEQ6HE1pto8wwuf8hwu+Mjn/Pv+Oz46fmSj90q2szoE8DfdwG63FqwENIEIrIhIIqOmNAoM5139E171rjfCXmMQ+RnXXMeb4DIEss4fS+Sr1ZBS/Tr5q1sk+i8IXYi9ZZJnPPlEfvzRf0WMOu2coiqJkPy38LBe8k6/u6KU1Aor+K9E3SGBlU/I+VxMPycZk+mX1SvxQU/kvlsKVm5WqhwmD9y9Boav//xSTj377bC43wmxACOL3Wu1Fe0LjAZHtFNoJVCts/feezMyMEB/XNe0R77QbLdotFtsHt/Cho0bIU9gIIKkzQlHP5sr/u5LKqV2UVAJNcvdbuplyDFalSmvXy/a/z5PYefb9zn5m9m9BSvgQ4GlklqIA86/ZjUve+/pMNxPEIRYKyCEv+w0g2ZTfw70j/L8pz2LP3zqMzjusCNZuXg5I0F1m9a0BcymTe4av59Va37Gldeu5fzvf5fjjzqWSz7/NfqsuIBtfVshD9Wyjj/uhba6f/iXeo4TLLg6HtUIfKcRbCelEcEaQ2oL6ibgW1dfxh+/6zRYPqxmM8gCBRNIU1E9li1azmv/8AW86SWv5PGL9l3gwHR/lj73Ifzmd69bw8yGDZz6vBcunCSWB1T/GKhsZCGKwbWk+jMkdqJXBQ0xhF1Zmx13xbu0YOWfCQKM+MzQ8PU1l3Lq+8+AkboLMERL0wK2zPDEI5/EOW/+c17yxBO6nqlMV/AK49Ne8V7qUr3Fm6NMqilO99yv/oMa1xR6PduccDlwUFCYtk+vYyiiDgwpyp6JePWQDvh07z36wdJOLVj/i07mBb9YzYvf8yZYNOBmSGZufIqDVhzM/3n/uTzz4Cf4z7vvtE1BZAPRC3pH4TFfhQr1hQXkNAcnFiELriwrINw+VlwunkLoKxlhGDmTK0GSFs9r+oEOqqX/zzAuPPt9CHahl0qsrXzXmR53I4/gzKqhLi+VkecFYeBTmrU/4ZXvfRPsNaoBkm2lhGGFT/zpe/mLU17VPYRolEScRhaDcb7ZuJhTBdKdUR+Rzr0v94ohLMRn94D+kssq2GEc2rXwDVDIGW3sz9OkMXMzJLcyNXMfQbCE0cFhKsP7Q/g4YPgxhTu2I9j5zt97d6O3rGmEUfRcTOSOS7aQ72tlxvkoLbAYw9eu/jGvfv/bYGjApSKbJ3naEU/m/E/8E3tV++f6vHkmtdeNmod5HfMPp78v5Asf8tu9o0Vr8mKy+y+gef9qTL1KuOgI+oZPJBo8nLB/H3IO7IAosuYEQNGF/diaYlmdiQpB/YMs79JyBok3LTt2UaIduS2oFJAGhtgYLlx7OS8S8zs6AFEEm7dw5hv+jL8/7d36ncznszv7sFYCQCf0iLto/OYLtG/7IlU7jQkj0vgo7NjR1JY9mdrocRAcqZ+VQOvRur15gt021JKSObGKhmo4L4l/SBHkWgPdUcHKSXNrCb1PPf8Xl/OyM/8Elo+4D2xp8B8f+QxvOOH5+meeCf3SEoWPzEI8tkGgURciQ6qJLnhaz9SvzqQYP49KCGEOiYFGOkxl9BnUV5xEbdHzIThQxVAE1gEb6u1caLftjPohBTsX/ZCcX82tilwqJBBGLYcMFAIUFBRerA//pq36LS3UZJYgChyi9IG3Q78LNmi2uODcL/HCJzxVgxlJf+Q6Qs1zdgFk3oqLkutMyWmSmBoVrQjP0Lrr0zTv/SDDWBKJC0Kr5jhvRRTxUuySY+jf/w1E9VMw1F1SL0okK2EHgq5tCrb7aobRuF0CjAmsKbDFEGEQ6QntDqyjUrCC07rIyfDfay/j5e97G4zU0KW8fisXfeornHT0CaRiejW8CTS61UBVr5qde1hnhqVCJEQAidQDTy0NmGHq5jOobvgysa2RxW2i3JKbCu1KgmkbmsViwkWHMHjg3xD1n9wFbHbgxre59l0BRLIwEbYla17PzOT1BMWQ1r4yk2jk6OHPh3m/TlsV/jOG71y3mpe/63UwUqUikts8xT9/6LMqVLJC1hK5N7tlpaYMznfmYY2hJZE6GdUiUEaGwI4KltkBhla+hYQ6WdyiHVl/j7KEXWa32E4zuvEKptecwviv30nERuIdXM1zBCtmVb2feHF9MyIwEc3xS3hgw3kMjh6PLSIIS8ZRrhq8PdqXGoQO+uP4SeJTv/nzH/OSd58OS/dS7DeZmeDs15zBW55+suIMNgyoKwjck2l5C7dzDNtZ9J0korxVC7VCtFScpeNiZQZyUQb5QPVAEjtKKq/Zmp+XBpUkpGIss/UWjVpMNYJgw2fZeuXLMK3r3Fn9XIoT1N/172L7gs3nQXCCa7dnfsbEL17JioPeBEUN4pSADEndFU3ZXkwtF6zFFauBki5MYzjvF5fxig/8GSzqd8hOI+UJhzyJj5x2pkRJutI1fTQQeX9cYqm/e8zm4Q83r11gRSZMMSxxUYFVUp0sWvm9MKIMobuX1u0UZkI1uFq0fIWwSh4WDjwrDDZINZOsBVBLr2D8mneAvceJsJDzlGln/lCCFXwz1dUlpgSbYaLNbLnxbEYH5WMH+FA2pqAmuqpRsVZgtmUmjNHoTm9JY/mQb193Ba9652kwOKDfFbMchxUu+Yd/06/IJas9etCx2MmG0RmTGKN7bRIIefckdXyZUWFMWks1iwg1PG4yfttn6AsbhHlAIJUgK6wrqSu7IEJAFyNz65UrCA0mvZKpez7vGEH+lPr5bfA85rwS2JjciMZIuB1RtG+iPvtL8ik5wGaXvkolTYI0RZwseeQ7xbYxxMjEWtAO+MbVl/LSvzwd9hlzpVC50YlZPnHW2SwN+7GeCaF47S4wTO9660xyWbIzREVATEYuC1XAFpMwffeHMVsvpKKfFNZHQS5a7b+lsrchQRESGYFIZVjFrdoPXC78SwrrMxHlahWyJB50bT2vSP5hKIzootMy8aemyAnDSZrr/lmF0QaSYMZBfYWlPU+VxKcKM6ETAYuPCUP+e+0qXvnXZ8CwAPpiahxAcfjKwznzWS9zrl1YDUFPFWQnH4EqmFxsSm5SsiAhC1r6ExIK03S+UNWrydZb3kB2z8cZCNr6WiYmO7SkYabIU+kzBSIVLXfBhi9gaP1ZTaZHx1zw0XEF86+t+6tUVHJiNcUQy5/1w8iG9yXvh+SWT2I3fYeqOHz6dAGYPKK+naRSV3QY8e1rr+Dl7/tTGK1Ty0OXkiklZZwv/e0n9bMSSAjO2/3mzj6s6JCPTAQvroKtYooaxlZomwrGyOzkhJv+la1XHkm0/psMeLVMZRGHwhRxeapysryr1KDLRTz6/8zGTAdQWf4kYMCpnVqB8loeIniS5EZB7bK2aMcYefzHmGksoj+eYPyG15Dc/T7qbCYIQwqRfgkalENxfJGSW2rnXbOKl551moMJw5DUMwBpJhzzhON4yt4H6Wejwi2myNcVdoVhhUDnS0M2SaA5SWhmCM0stWKCdNMFTKz5H8xe/2aGsjuoRhJEiV8OVVslSIqzyOHFPidRQXsAWTJAK5+3llZ8JEMHnkmuiU/aKWCIdQskNtoeQCHmVyZW1TzIyfKQSASx6auM3/h26tGMxFQU9WfSd+BfEC9+MrDUlSVLaq6G7o6D9O21q3np2Wdg6hVMaClizxATk7Bxkh9//hs8+/Cjtage+yqRXrBEvwtZGL2uharUZQF1O1IwvaWzuYtcotdt1buF8uLwhp4gSQsgAtREuggdj2IGyx2k917E7KarCNObKFq3U1Paa0Ux9biAShaQRAVJKL+HxFmFNG4631o4IEaiXi10hdBIJLZ6PCPHfp6ieqLqS0iiWKX42lCjcJFcZduCnTNfc5CHANu8lE3Xf5ja7CoNwRs2oN13LEMrXkJ97xcBh2qSnSvsCBfesJYXnfFKWLxE/YWNM6wEZnmEzSz7DS/nnn//nkbXgUxU76nlfCWZqeShKd6qkEjP7M+rrmxHsMZ7IxGIk6vHYSXI6Um1S1qLQJguBw/1ukWCxjgQobO2FDbcCsm1tDdcwdS6y4mTa6mwyQf2EgjKgvDAsZoiQeoy1QQRpARK6qNlgUiAledEcq8pNCSW3Pd1DB7yUQz77RCUup3qjr+xEoXSi5wlXf9PTN/+BWrJ7UoUzGzEdDBK/9CxxPs8k+rSZ3LpLQ3+8HVvgJUjLl4vYgJTodBVH8DEFH/9pjP42KlvQ2I6t0LV7viubskD1Q5so2+sXHSlmN3/na1whTsxbU5cLucTv9e7CHoLk8G8NVKCDHrfmm70fMtuJE/uwk7ewszET0k2raHauoU6KXEMTQkKY6ikc6ud+ruqdwVpKiFs6DWKcEPRfJM4rrvw8IqQbPg5DB/8DsKhFzlDaxNiU3mkgl2IWeXuOPPzLHmU4V5a635Aa/3nsZPXMiCvBTArCEu8hAe2NrjugSqX/LrCjVsCrp9IabdGwAgcCaY1xXVf/x5HLjrQb5jhCtpzOcF2G8V9RzHp+eAcEXU0Gv9b56DdY5VM1F5ln2/g3VFTiuQmWs1bMdPX0564lnDmDmzzAQwzRGEuWZxfJQ70U2BBXEle8bRSEYusjnJ6Q7JAgia/x4TcUVEhoE1hYtjrJVSWnkY48jRXnLeC7rl9KJRb/cgEW06Yy4I72K4vRRVazRGCVqi+AxoUjdXMrDuPYv2F9JtxYuXpJq4NMRgjyetsIeCezQk3bYS1D1SZ3TrKVz9xEbC4k2BL6FBq0bZbK1zRoRTWnILA/Jq3XUBinYXbC4Mq54asuY727F0UjZuJmzdSTN2KbW3AJIIlTZNFDaTuIWY7KozGAKkGj6VX8KQ2pWAIV0rQxIBQeFAyfyS6CNSGSKCYi0kPSBWVUkFQmIhk5NkMHPA3xH0nOnFI5Ue0WUAKEfwjE2zPvHTMsC+1Se1VAgRBUMQkmMD7hW4x6ZrrvsT5F/wVLzh6gEP2ShnubxA0phxeWs6pBFBRha0TbaR2E1VHCSpLsPEybLSEMF6ErS3CVpdQrQ4SxmPAkILnhDXn4AJZ57KAfOTiuUSSbrhNV1pYMwnFVmw2TZpOY9NpsvYERbKFINtM0F5P0dpA0tqqILtocal9yj33vTsiIBGmo5eGCjYkUar3XW+LeynIIgfqyGeiLCZQqo0EOFK1ca5Vgp40l9rGIGF1jHqxjkBqzEFEGjnEL0xjwiBhIoP22JNYdPC7qPX/MbaougDt0fCxSthWocpKCWhPraFIatQHj8DGCXkQEygUlkIWq3Sf/p7Xc8VNq9VPHjac8fgVsxx7YIsTli/hkMURiwYzKsk4yex0J1dWJoWPhjWVc+CT06WyHuFXepfCJMUJCWZCBUm6gLzkd76h2QfQLh3oWgD1Y3rn3c4KyS7k3CoAMXueruP4TiX+K8cKMIXMh4Ze3he7AEnw8zLzk8UlMVq7gCTsh/oybP+h9I8cSzR6FDEtNl7zDobNhJrhPErcwspryngUnxsUKVNyL8vfyNjB78cGB2ynJ+EhBKuTqx3jLuBQHFMAiU3fZNPk9Sw76P3kWUwRiUGUG2oT6OxE3N2a4IAXPwUGahDVhO/iZjdJoZhktG+SvUea/MFQxj+++U9UwM2p20iydcTxZg3EBJ0UYasilizQkjjvU2M3c04y+kPVy4HuJU87cLc2p0uPHuUujyuCV9PYUw5UNmM3NvNRqzD9u10HJYgaeUMkOFPL1MjsMGFlCdWhlTByOAMDB0PfHxDE+0KwRP2plh+DB1h32VEsCsVSSF3bRd0aNEt7iw8j5JYU6YuOZfTYL2Crxzr6jPhdXaGaP5QtiHMEOy/k7AlYPB82mfwuW9eezrKTboa8QhiJWS6BCJktMYnw7ct+qEeLpFYrya4EcHkI/SKRUbbaRWydsNx461b+89Nf1DP0MQlMYGfvoTn7G0z7ftLGJpLZeynSuyFtEjNJUExi8km9CRWGntsLTaI63/rSS2ZDgqeuO3bxS08zXkly0HmROSm6f3fSfTUGMsOCEg2TmTGSYBQTD1Pt34uib39MZRm12j4M9K+A6gpgVO+sHLkXvKQ4mpvbiGL2Ruq26ZgTUeYWiLxOQlRIeiX3KCZeIwqq6Vq2XP1GFj39fDAHeRUsV2PxUIKVg6RY4RQJCC3LJ5hg4oYPMbZYvrSkm95qLU7ysa4zX331VUi8X4iT11Rpzux401UwumKpn2jBS/uhGMbU9qev3pt3ND1c14R8hjyZxBYzFFkDm04RJhPkyQx5NkmebXXv5Q3Imxib+nP7Wmhnep3ai/lWrFosjgLzoilDBEE/YTSICYeI4xGojEA0QKF+vo84HoJwCIzA8XKxIoju/bupzrQ8qUV1QnKddCmCSM4qmin2dpwtt/8jfeG0LlLRfi0SqCY6nNhtn+CqQspJiAxhfgMTd36WkZX/u5MblKmeIFnzjfQ8ja2gsL6S1KSx5Vbi5FaSRk6FFjbs0xQgyIWhJd9OtYAcEXPz3bcrs1CJ1i7M68rVl6JsWrB0n2X+9RgjiXuQujKhsvRcyTCwfQR5H9aMOjqJzKNfk2UdUi7c3V4Z4RqvG6Wh7E2Jyt9Lb1uWGstVLualzFu6BG9xSEpr6c1tdVu87tE6/D9llLi5kG3yxBNV1LbKIq36mZ5k812fIJj6EZWeFCCXexbymhbjHSjiqt2pL81ZhgoYX/9zWDmFZUTNsUo9kkzFdR9sQ7ClzLs3KJNe2DYmajP9m3MZ3O9DNIiJwxnidIgiD7Wtv4FlvDE7F/np9YfqDtwLQ/UBfzrpwZGUyn+kswCcoAuhn0p1SJ1893iafvm7KHke3QUkZLgdGHNSIncBvkGkU201hfg/KZqX+bRz/lqPFs0Mqg5NyivO9MumJYGEd4n6/dwHekG+mYlfnU5l8gJqukJdzTWwmVJVBdh3Lq4nDfO5bpm+OsPsrWHpD7cx5phi134gJkO0RizOwQTDh5O3r6W4/VzSykrqy/6EhCGsVCaKQNd6K09o52U/qM/FO0J2LQ8q2CJlbHCwcz7XMNdLLZGZib37KDo9NZobek0NZTIkjPYuxmlwmUy6OqVdMKUtEame18tu95751I5YvRZnRVLdj0LiCpe7ltiWTpzmqO5aCq9tJpRIXaaw5j83SXvdl5m585MMZPcSS70nLJR5KZW0MA/JIymyezKi7VoYdWBqjgNaQUFl2VPVh4sWS3FAuygkdnAR2bYE61AQt1+DK90ZljJ46LnMrHkVA/FWJm98B32TN9B36HuxwRLNY/Vmg5BQNCxx/kHTFl/p79D81efJmvMhpxecm09Ps9G/nQcRqK2rR3I8t1LdXhLlL657QE2q3//JE2V7RpkkPNicKOxozDxD5q/JS1qi9N7+Ar1Cx/dx5xXMV3xrOkEgIESlDoFYjglaD1xE487PU0l+yaCELrH0lIV6L2lUEKUFoeCP4o2t+GKxRlJ0cAtVyRWZcJQLisoxjK48y1t+R/t1xtD59PlFgHmmWP4s5gSE8cBzGTr6K0z86jX0x1Ow7lNMP/AD+g5/G+HSF4LZn34iqtJU3JzASGFVCcgKPampkSPGmSGNI7bMznbPV3in39Nc2nE9cyjEwikua5QyMcIdcrfYa70cvr9AL1FPKdB91u9BsY0tAtT3d8y0FDO9X5bUpPzdMQ1UczJxT5VF2PavaN5xIXbLZbSa11Kxm1FWURSQCKiinC2pR4vipN5IZQqAiLCTIHL35VO8MIW2tWSVpzN6/BewSNQtly5BXxniL4xazNFYV5BwPGFdzaEDKMLRUxg7/qeM3/qXRFt+xAA3Mn3zmbTu+hwj+/wxtRVv4tDhCvffl2AHYjJBlwR2Kwy5lHq09dwFSlONaXeyIiALxPQL0OBFpIm+0w7nk33sp+bDOTlXAy39Tan9TpgKqs8xxKbzw5lXNxnqwxV/9TFgT6znjiLX7N4TQWSFgwiVi9DZIcGledY+ALPX0Nz4E7KNP4XmDVTDWfqkFGhiZfuLljukUQu3anHUBUi1SHxtkfmc2uVcutxblpmwSrDfGYyu/CvNSjqRsN5umej3BoEPu7rjl7vP6iVKS8a/xdRtHyZq3qL8brEaYTzELc0lfG3tDBf8OuLm+2sQii9tCw0D5VGqz8oZiwfZ8l8/1ohOiG5zRODNbyfpLElWHQ30NBN/fd291PyLYgFKhN/445TMMrGD3aJsJ8p1Gpr445bHcs2TPUurZ2wib97E7NTNmE0XkE3dTLX5AJGVe62Q1FKSwFITUrROsEOqxA1KO4u4qFTmzS9OY2OiPMLQUkshVnImD8iW/hFjB72TqPY8cp9lPKpFgM4HOyvE5ZfJlh/SvO+T2PFrJMBHLHFUEd8SsSmr8LM7K6y+pc4lmyy3b5ymlQ6QpTUYb2Gvurs79z2RqQZcpZL1vO5+FZMoVZEQ46KpB42y6E25n3Mn0p7rYcv56Wz/0PNZNyQQFL5SRtBYR3P6VySNq8gFVp36NVE2RcVmVDxWLjhMh/XhCzlxLprvoumiB+HSVFbKdN4M69r17BEpgRbLXkF9xV8Q1o7rbBip3Rd6T8GjWbbzrRmZwcYtbTSQE5STUTR+QXvzV2htXE2Y3sFQNVPESDUukKhxiCSocO2mJrdN9HPdnQ3e++q/ZXTZEwnCvQniKhhJVOVf3FODffBNzDctCxZwem+O+Z/2JTT9KTlvE7KELJ+G9mayxt1kzdvIZm4ibt5J1txIkIwTSAbgCYglvCkTLeGE5rl5pH5T3gi07SWjEDfWjbm89ZO6qzS3Of8pYEkW5hqEKpRb1MhHTqC6z5upjD0PWKS6phzlcjPPRybYuRPhynbuL/FeuZ2RWhWxhPTKNBT0xdNpDHzr+x/g4lUf4cXH78uTDxigv7qZSmMLyCYhvkmPSkQ+kdEqApJ4DBMPkkUjECyGyiIqlRGF7IL6KGFlCBMOYky/J4bF2iGg2xmYSPNF55z8QxA0vio097b5LGkxi7EtRamC9iw2aZAk42TtTZBtIcjHMeksNe6mUOprCZV2SymSmmhYKWRLMfWFpGOiSplvTGtjw24BQBe7eGDlBFuheal5FYKhAGFNqqTxIIPhZmpZlcRWySszWrar5BFFkWrDaqPvSYwc8lYqI68nF6KcmOJHS7CFJtvO3zQmL8Amh9E/cog2EslpIoHJCqFOCkIMswEMv/hp5K0HGIs288T94SmPq/Hkg5dw1L4B+9otROE45G3aLb8Nnt/FR2MTufkeGLSUVWmOnQaIv67OK857OEjySP2ZYoTw7hu5egNl1byeY+obIlNJ0wQ00Ui3w8Vz+aJ1Wua+EJELMK0U0bK6I1BG2jX7/rrlGG2zmCw6gOroUVTHjqA+dgRECfdf8VpGgwkFNooo0YUQZlXSIFWqkJD7pgUbWfpiRp7wdxhz2MMW6oME60pn7sqUCipRagDpus8xPTPJ2KHvoU1MKNvkKPwzhTFSK6wSCEARxXzvpmt4wZmnwugoZBFkbcimqGXjPG4ZLN835DlLl3Dmc08kn7qRILuPzIrPzajpBPvOQe/SNWJWErmLTEsqVie/9WW/MqXpmD/mGnMHrHchwW7Q5nJ2Fx+6PF6CnPL7pSZqzVu5wOIL3ZvVxJtkjduk/eUA8mAlcf/+xCMHEA/sT2XgcAhWYBlwkbRmbBvYsOooBuP1+v2qImtGTbt0IgpxXvdSkYgmk/OtZOTYf8QO/JHOjexH4zYzkSOWAWK0LcEqEUSTZDej7sOt8a8xvvYs9n7ujYJYuoKvRphyLVL/9LixJ5vJ/8/8l3P5zP/9J1g86mcxljKGM1/5LOHkBHdecAn7DSyCbIYsmcCm66FxB43mfaSte6k37lFTmWWbna8TP1S6/t4c1wup3Jit3P5JRxmI+a7NkpBdBsC+lNsNxv1nPPbhival9tJPGC/BxHtRVBaDEAQGjqZSW4qp7YepLSWMBduWbCDuTnRZLTLTCoQY20fW+C6NNa+hGs+QhJZ+qbPbCq040aCrhF8lRhREU6reUxzIXs84n4wjtBVHI2rFASSNVKTA38QCglU8o9O7I6ZuAxuuPJHBynpqx04o40VB6zDRTjxBh/JQmrQi5acrvup2DOGVHz2Lb1x2IYxKNcTBKJLKVnJDuz3Ln59+Bp95+dsd8cFz3DoFYY/EOkKamP1ZyMZJ21uxyVZIJ0mSaa3sBNkEMA3ZLGE+QZjJ5x16o2QB71LcCQKtH8v96d5LAghI83EkHX99FJGr4ITBKHF1lDgewMZ7Y+pDmEBKcbVOZccFDUrYddNXZlWapomXrOh55E6kZ0eJitr9sYnN172WwYlLMJFVGmpN2fIxSZy45m5XmNVoWESRW0NeWNKlpzN26BeVmiSpkdaKJYXSHdXNtpGnIBdCd0osjVeyymdupdK4l7wpUfAmiPbSLdpzvUqj8UUJ3ouPkCqF/pkWnHf233MyBd+//IcEgg8LAToKaEdiY/o4/wc/coKVVSnoCka7DITJp2WsjnJKFD4E0XKJu0AqfdJ3+ltsOmt7QEL5N7904GTkF7poWbm/pjdmJbbsIGu5cuNw246JF4qO1IMlmm6QCTYXyWK6n823fRgzeSlVQZqU9eY69iOvpepW5KwKl1oVqFR+6jlMjP9KK0TYRX5jF82dlGI0f8ydGdm5hJ7IMO5TAQfhDLO3f0o/Lcm3Gl1t4JIgRdobHHCuYGLpHIGLzv4ML3j6CygmZrQlxCFQbU3a7rv9elbd9gufc+bqtx2PV1air6z4iKnTB6qPBnO1TasrzwtqbosqvbhKb42hl8LW+Zy3D7pgna67c2g91CMwysxXEo/GAkKDCYwrnAed4MnVeBXJDaAdtZX8FxQDunEK3MDkL99AZf0XGQgFG3bfk0PLOUVZgl50VZAx1/bk96GQ5GIBOu42Qt+5vTsm1R1HJa9Sikn1YPKRY9R85+v+F+0HPkedkEpWc1ZFyGPlc9Ycx8wFHILRebzuwg98ipOf+lzYOuOS91yiyQyG+nnPp/9Bzyy+QjbfcnWBcoMg0YS880+m3vkex8VSPFdx3MTvjCY5tnxnvohLyXquccfZOjNdktA96OcCKLmGMiZxvA0HfZYL2K8S5XwpDOoWYileWaQ16SUWIQQbad/7aSYueRkDk5fS56s4TjMtQe52T1XwxQNuDl6VWqvbUlkyE3E49RXP0d4dWVhWhKLBg5y/t/a8gI8tIwmZQDmxuOascQXNNS+lHmyikVYJ9n01AwefjQkO6syZCFUCBC0eZ9Ja6TfS0nqqCCHgBR98J9/7+cXaFyuAvtBuuX8zP/vKD3nKCgnlywUivANXq+wKpzQhPfBQRy27YbDLueflep7t32MnyxpNp4xnFdwv8cXu6y7umJ89dhNWJbu7pdCpIXXeze4kXf9VGnd/CZPdQ0XuVxeFoE6uhUaa05T5qOR4cYWxIx54HFwateTYeVqQ9T2bkeP+E2uW6cbbur294PEaPD24ujMvj+225qn519cKiunVTF9zKjEbNNTPaiup7/t26vu8Bmv29tMktUXP0JPeFN89EGn64A528sfP4vurLoLRflfaayYcv9/h/Pxz39RarQbkwgL0ufOcBad/ykr1qNR8uHMOPhw8qEonVqgX+y0F5+TYizkL8FJ+uaDw+HMgOK7PmdRa6EEr2Mj1pzojPEV75lKa934Hu/lHhPn91EXrxIhrPBQQ5dIVm5Mp86G8PkOUO9ZnFgrmnOtuEPIVKZmY+v9g5Oh/hvBQdw9SWtUpKMlsPv96+NsBpc5JmwiT3cT4DedgJs5XcyJATSteQbTvSQzu8xZMRUhWw6ptUqjTOo0A39KEInG7R3JecM5ZfO+Ki2BMAqIqbNjCF97/Kd727FO0nptq1G6JfIDmS99d09DBEXsAfv/AP9dz26u0Xc8aKcfVtx76WrG+64M+J9LcY+Fyzoqa2UKCICWAiyeUDLI7pGAnwUy29SraG75DsulH1LPfqEkuQvmscdCiZ35rhOvz6UgasqS1xZMG5RqkbiBWrpZUdF+rySincsAHGXzcX1NoEPnwx3YFq1Mj/lAiOIUhqmQT59G89eOY5o3KfRViyLR8bfhI7NKTGVjyXOL6YZ6tJ+/qBgh+3woZEad84F1cJGZ51Jc5CsP6/1rF0niYlgRPQUBVBKVm/MGIr0uGesMfBy1FvegEPe+Xeek8Q13iVpI++I/5HNcHbN040H+7Ael68tZtTI/fQLT1YpoTV9JvpW0SgqimpYMiFuTC14j87vTSMtnFyUScbqMjbTQPMl1zmkC1YCZYQrz8OEZWfhATH6tKpJDiDmxc9jAE68xgJvbcLxkxJcnE+bTv/zdmN13DYL5ea5ryzaaY2Or+JIPHUh85hnjwSCoDyzGxbBQpu645fPklf/dXXHjpBa5vNkl48oo/4KrPfNlhGELsCvKeoMZNh3o8ZUf2+Nmee3UdCz1EZJWaF2wvUbz8bk+lZ+4QTdwK+ThpYyPZzC00Z9ZgZ64jmrmdMNnqUjPRdK3seApPWSDoEao3li7dK6FS3aahfN83SmRVbLgMs/fzqT7udYSVE/TeA4XhWn4Dr/5HKtjtPN1AHbZgU1WXcPtJKrK1ZBu/w8S9lxPOrqUvaGgXh1yGbC3s9h4ZJI0OwtQOojp0ILWh/YiWrOTNH/sUX//x5cyEfTDd4n2nnc3H33r2nKtYKD3pfa9XLvP7uk0PNa/3NRfq6f7iUp6C5q9pNjdSNLcQzv6GduM28tZdmHSztn9ozdmzR7WR3AtQYpZMC/+O1anLULMB8ckO7C53UXX7FrtVFWYudBNcfNYOU1n8fPqXn0Jl7BlgDnBgXfl8IflusOPPq3vY+xXLmjRS5pJ2RNd55GJHrX4oVxXy22luWEO6cRXZ7FWE+T1Uctn+wE1wGrkpjRLPJRpeRtrXx5Z2wD2zGePrGjz14GMZGFxCuzpAvTJCFI9hbR9GOKgmxkYxNqhhxHxod3gp4gIjkZ1g1rYBhaRX06R5gySdxrQnCZIGSP9ONkna3kKajEORUIuFr+TbOHzBoFwU5Rb+kndq5Kk5q3QeCAc7064BqfzoJtRKMsu0PivFcZcCdcvc8kynPBggrR5GPHIc8bJnUR07DthHiQD6McmPtcDrYoZCzLTCuMJ2/K0F26sf5UuOGSexnLYZaEoiYIJbRyV7pUsce4B09g7yqetpjF9DZWYNtG7FSEAmzUv+87oLjX8qVVLVbZ60t7TlA1+3/5VjA7rNwjz3SFoi7Nz+Glc0EHPs8mCpjZYP65hTkitNsHfJAuO5LNQ3PJfapSbVV27KAoN81jMTpWfHWQ3Xj6HX6+M1wVLEYgXV5WR9hxIOHkN97FiigZUEtZXeLcmeMj4nlutW5NOS6gIRBqiQ33Pd18Kp+qMi2IVe63kGnL4k4IEPgNSHdR8/0s0wXSca0qmXr6do/prG1E0ks7dTm/4VdvwerN1AXrHE/QH9ksup4FJ9gINsY1A2D6uh8BTNUjCSwPc2F3dqfvheHv+SkMXcNoKm63q1S13SF0cyV583h/9UbhTanQKNun2GFOd9ZKZBWxA5WZz1fanUjqCoH0E0fAL1kX0xlX0wwdicto/uDHdCfDdf/nq7e4GWbMgO0eq3FeyjNPyD5K1/UqRrDynPXO6cKrO1EYr7+bd//yBX3/1TDjow4NCxlJVDQxy0ZIjZ6S3keUKcCpieYgPZgVWURJ6yIVlkt5+o01xleqattCSlRpWxVwmwCKxXxlrSOyMggjIYjT70UBqgxGrYoI+4spw4XA715cwM70e9th99tcOhejBIy4o7imNoaMOVCxa74vmtntK0kwi2p/tCm6ZV0EJJLYuj0qXmWmbLDWiec85b+MmlF0PfoDZQv/+00/nwqW+F4h7S9jikDWzWpEilojNJWExi8xms0HGKCaxtUiiLQsIVt8Ocw6Ajr52Ogah5dhgShBE2kieE9EE8iJX+nGgMEw0SRH0Q7qW9PCZa5Ld/73YCdYvvPXscevBC22DKQk1HA0ui3Q6o3iMcv2ON7S5QqzesGw51GPsiSeno1owukyikqsjwSf/zTC6+QvLcfpjewgmPfzqXnftlt+eFT5hK6vlcdtYOWSu6hnDh18v3fLbr4wz5u+wikkexlCJ2+VSZq5ZPw9L41z/FowTGHov9ln/HT/Fw1RDd4KqsZs9BjppYrW86GFunxxcuT3r/W/nBmtUwNgLTbcLU8Ml3/w1nPf9l7vtCOZK0Qh4wqNi24wQ99HZ9do4o5bv+uR1aonM7vXSvsxBOk26OF3U2fykl1NkVzXfHuQN67rJuMeRqy06oro1sNxGsf9KFmt8SrC2bjcoyl1vjLqSXGoC333HIyR96K9+/8gcEYyMU8uzX8VmOPuQYPv3uc3jmwU/0pyg1qWxLWSj0k4l/cN+Ou8Ju70MHzu95U7jPnbCx5zFnqpE9O411z+m31uqBq7ta3dnXaNd/7k530hxe6syYCNpHqLqfhGznKk/1CMj8Q/403ArglHP+jIt+9kP3oEJ9uG8CrRZHH/hEzn3He3nOEbKJWHeUWmTmC7js25oHWrmNszpln3k4s9W6r/ucA9vdf65jQQj05ZfcXXSPKxtkzhn6p9tvfEdopLvAA5UW8Gi9FRldzF0oXnfllvdDOOkD7+AHa34MI4NukpUanMBsg5GRpZx+8it4x8tfy8rBvRY8cy6F+/KRsYop91zHvDmWc99416857ICDdfOPSBgfc651/j11a0YPRrgW+vxjoK6PrWAf/vC64qJnn8eccs7buOiqn8Ai2UFGok5X2NcMtNXSB0Tsv/cBPO0Jx/Dcp53IMQcdztLhEZb0jW5zKgVU3NyYYPPEZn76y7VcfP3VrP7ZFZx/7hc58dCjsEmBEbr/YyOL3V+wpZYJx6siQlSTbXjeOW/l4p+vgiHhUJWK4plwusOYPMSnDUmuz3+tD42waGhEHy/aX60z0u+armemZ/QplBOzM0zOTNNoTjldTQKu+cp3OXrFIbo1byIU08fEcP7/IlhljUs3nieliNAEgyTg5L95K99fs8pprhS/hLGX5kqUE+6FisF6fkTZIaD225OWyycYagguiL6QiXJM0/Lzr36H4xY9rlMRSoxUYHdkE56dZ+ycgu1xXeX2O4EPO2S87tNn85/f/QYsHlY2gYL0ym4RZKqLI3ZuTOBEt12DviWUT3W6soBmmoyFQ6z96gUcMLQEK5tqReEu/Xx2GTvnzsA92KzDTz3E74Har77ro3z2fR+DTVOKOKlQ3QYQnW4A21OMV6qyFrXd1n562/JU6I2TPPOIp3Dn+atUqGTCGHHBmzD+3Tbr7JJj59TYcnQ20pJeWlcmlIRB2jblsTEbmpO8/mPv4eKf/cRtUVrvA4liTdlHWZLYys0mpCtKSkdtRkYW88X3fphXHf9sfwqhhAquHRBp9dwxaXZVzd25BSujF7TvLbb3IDh3TGziX77xX5x3xQ+4c8s6kB1slJjucxyp0wYxo6NLeOqhR/LmF5/KS58ku4s+uHe6cyIZu6BAdx3Bzhslqud2ORO42e917N+7a2oz961fx9333ctMs0E1ilmy12IOXLof+++zL4M9RU1h6+uDFbb5HPZdd+xygp1/sQ6hlIJ6uWnEQ6iZ33lTfbDf6mePYHeGUZbJPJ4uGLBLcdzrUuU1nSZYv6GHBETl5/1ua249l5vXlUyM3WfschrbW7Uug9YOP2kbQazp/V7nhW675M70WLVHa+wI8W3nGD2BTrkrVYeU0dPQzPzHx/cGRD0B2e6lp7uwxs6hmSzEN50nqcK/pPTcDnOry0DsvLCbjV1OsAuOHUxP7G6sqbuuKV5o7KCUDLv/2A2N0J4hM/D/AF8v6cAJCpuFAAAAAElFTkSuQmCC" alt="Green Source">
+    <h1>ESS 營運戰情面板</h1>
+    <p>Energy Storage System Operation Dashboard</p>
+    <div class="role-grid">
+      <div class="role-btn" onclick="enterApp('admin')">
+        <div class="ri">🛡️</div>
+        <div class="rt">管理員 / 運營商</div>
+        <div class="rd">完整調度與監控權限</div>
+      </div>
+      <div class="role-btn" onclick="enterApp('client')">
+        <div class="ri">👤</div>
+        <div class="rt">業主 / 客戶</div>
+        <div class="rd">案場狀態與報告查閱</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="slogo">
+      <div class="slogo-icon"><img src="data:image/png;base64,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" style="width:36px;height:36px;object-fit:contain;border-radius:8px;"></div>
+      <div><div class="slogo-text">綠源科技</div><div class="slogo-sub">儲能系統戰情面板</div></div>
+    </div>
+    <div class="snav" id="snav"></div>
+    <div class="sfooter">
+      <div class="ucard">
+        <div class="uavatar" id="uavatar"></div>
+        <div><div class="uname" id="uname"></div><div class="urole" id="urole"></div></div>
+      </div>
+      <button class="switch-btn" onclick="switchRole()">⇄ 切換角色</button>
+    </div>
+  </div>
+
+  <!-- SITE TREE PANEL -->
+  <div id="tree-panel">
+    <div class="tp-head">電站總覽</div>
+    <div class="tp-search"><input type="text" placeholder="🔍 搜尋電站…" oninput="treeSearch(this.value)" id="tp-input"></div>
+    <div class="tp-body" id="tp-body"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main-area">
+    <div id="topbar">
+      <div id="page-title">概覽</div>
+      <div class="tsearch"><span>🔍</span><input type="text" placeholder="搜尋案場、事件…" oninput="handleSearch(this.value)"></div>
+      <button class="ticon-btn" id="refresh-btn" onclick="refreshAllSites()" title="立即更新所有案場數據">🔄</button>
+      <button class="ticon-btn" onclick="showPage('alerts')" title="警報">🔔<div class="ndot" id="notif-dot"></div></button>
+      <button class="ticon-btn" title="設定">⚙️</button>
+    </div>
+    <div id="content">
+
+      <!-- ── ADMIN: OVERVIEW ── -->
+      <div class="page" id="p-overview">
+        <div class="ph">
+          <h2>電站總覽</h2>
+          <p>即時掌握所有案場運行狀態</p>
+          <div class="ph-actions">
+            <button class="btn-p" onclick="openAddSite()">＋ 新增案場</button>
+            <button class="btn-s">↓ 匯出報告</button>
+          </div>
+        </div>
+        <div class="ov-stats" id="ov-stats"></div>
+        <div class="filter-chips" id="filter-chips"></div>
+        <div class="tn-grid" id="site-grid"></div>
+        <div class="sh"><div class="sh-title">🚨 即時告警</div><button class="sh-link" onclick="showPage('alerts')">查看全部</button></div>
+        <div class="alerts-wrap" id="alert-wrap"></div>
+      </div>
+
+      <!-- ── ADMIN: SITE DETAIL ── -->
+      <div class="page" id="p-site-detail">
+        <div class="sd-topbar">
+          <button class="sd-back" onclick="backToOverview()">← 返回電站總覽</button>
+          <div class="sd-titlewrap">
+            <div class="sd-h2" id="sd-name"></div>
+            <div class="sd-ts" id="sd-ts"></div>
+          </div>
+          <div id="sd-badge"></div>
+          <button class="sd-action-btn edit" onclick="openEditSite()">✏️ 編輯資訊</button>
+          <button class="sd-action-btn del" onclick="confirmDeleteSite()">🗑 移除案場</button>
+        </div>
+        <div class="sd-layout">
+          <div class="sd-left">
+            <div class="sd-weather-box">
+              <div class="sd-w-half">
+                <div class="sd-w-big" id="sd-temp">—</div>
+                <div class="sd-w-lbl">即時溫度</div>
+              </div>
+              <div class="sd-w-div"></div>
+              <div class="sd-w-half">
+                <div class="sd-w-big cloudy" id="sd-weather">—</div>
+                <div class="sd-w-lbl">天氣型態</div>
+              </div>
+            </div>
+            <div class="sd-photo" id="sd-photo">
+              <div class="sd-photo-ph"><em>🏭</em>尚未上傳案場照片</div>
+            </div>
+          </div>
+          <div class="sd-right">
+            <div class="sd-chart-card">
+              <div class="sd-chart-lbl" id="sd-hourly-lbl">今日發電量</div>
+              <div id="sd-hourly"></div>
+            </div>
+            <div class="sd-chart-card">
+              <div class="sd-chart-lbl">累計發電量 (kWh)</div>
+              <div id="sd-daily"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sd-footer" id="sd-footer"></div>
+      </div>
+
+      <!-- ── ADMIN: SCHEDULE ── -->
+      <div class="page" id="p-schedule">
+        <div class="ph">
+          <h2>維運排程管理</h2>
+          <p>智慧化排程編排、Excel 匯入與行事曆管理</p>
+          <div class="ph-actions">
+            <button class="btn-p" onclick="openAddEvent()">＋ 新增工單</button>
+            <button class="btn-s" onclick="document.getElementById('excel-input').click()">📊 匯入 Excel</button>
+          </div>
+        </div>
+        <div class="sched-tabs">
+          <div class="sched-tab active" onclick="switchSchedTab('cal',this)">行事曆</div>
+          <div class="sched-tab" onclick="switchSchedTab('kanban',this)">派工追蹤看板</div>
+        </div>
+
+        <div class="sched-pane active" id="sched-pane-cal">
+        <div class="cal-layout">
+          <div>
+            <div class="cal-box">
+              <div class="cal-hd">
+                <div class="cal-mon" id="cal-title"></div>
+                <div class="cal-navs">
+                  <button class="cal-nb" onclick="changeMonth(-1)">‹</button>
+                  <button class="cal-nb" onclick="changeMonth(1)">›</button>
+                </div>
+              </div>
+              <div class="cal-wds">
+                <div class="cal-wd">日</div><div class="cal-wd">一</div><div class="cal-wd">二</div>
+                <div class="cal-wd">三</div><div class="cal-wd">四</div><div class="cal-wd">五</div><div class="cal-wd">六</div>
+              </div>
+              <div class="cal-days" id="cal-days"></div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--green-d);border:1px solid var(--green);"></div>定期保養 PM</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--blue-d);border:1px solid var(--blue);"></div>熱顯像檢測 IR</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--purple-d);border:1px solid var(--purple);"></div>SOH 健康度檢測</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--red-d);border:1px solid var(--red);"></div>緊急維修</div>
+            </div>
+          </div>
+          <div>
+            <div class="imp-panel">
+              <div class="imp-hd">📊 Excel 智能匯入排程</div>
+              <div class="imp-body">
+                <div class="dropzone" id="dropzone" onclick="document.getElementById('excel-input').click()" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
+                  <div class="dz-ic">📑</div>
+                  <div class="dz-txt">拖放 Excel 檔案至此，或點擊上傳</div>
+                  <div class="dz-hint">支援 .xlsx · .xls 格式</div>
+                </div>
+                <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(this)">
+                <div style="margin-bottom:10px;">
+                  <div style="font-size:11px;color:var(--text2);margin-bottom:5px;">📋 標準欄位範本：</div>
+                  <div style="font-size:10px;color:var(--text3);line-height:1.7;">案場名稱 / 工作類型 / 預計執行日 / 負責人 / 備註</div>
+                  <button class="btn-s btn-sm" style="margin-top:6px;" onclick="downloadTemplate()">⬇ 下載範本</button>
+                </div>
+                <div id="preview-section" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;">✅ 解析預覽（共 <span id="row-count">0</span> 筆）</div>
+                  <div class="prev-wrap">
+                    <table class="prev-table">
+                      <thead><tr><th>案場</th><th>類型</th><th>日期</th><th>負責人</th></tr></thead>
+                      <tbody id="preview-body"></tbody>
+                    </table>
+                  </div>
+                  <div class="imp-acts">
+                    <button class="btn-p btn-sm" onclick="importConfirm()">✓ 確認匯入</button>
+                    <button class="btn-s btn-sm" onclick="cancelImport()">取消</button>
+                  </div>
+                  <div class="success-msg" id="import-success">✅ 已成功匯入 <span id="import-count">0</span> 筆排程！行事曆已自動更新。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /sched-pane-cal -->
+
+        <div class="sched-pane" id="sched-pane-kanban">
+          <div class="kb-board" id="kb-board"></div>
+        </div>
+
+      </div>
+
+      <!-- ── ADMIN: ALERTS ── -->
+      <div class="page" id="p-alerts">
+        <div class="ph">
+          <h2>🚨 即時告警中心</h2>
+          <p>所有案場異常事件匯整，請及時處理</p>
+        </div>
+        <div id="alerts-full"></div>
+      </div>
+
+      <!-- ── CLIENT: MY SITES ── -->
+      <div class="page" id="p-client-overview">
+        <div class="ph">
+          <h2>我的案場</h2>
+          <p>查看您旗下儲能案場的即時狀態</p>
+        </div>
+        <div class="stat-row" id="client-stat-row"></div>
+        <div class="site-grid" id="client-site-grid"></div>
+      </div>
+
+      <!-- ── CLIENT: SCHEDULE ── -->
+      <div class="page" id="p-client-schedule">
+        <div class="ph">
+          <h2>維運排程時間軸</h2>
+          <p>查看您案場未來預計執行的維運計畫</p>
+        </div>
+        <div class="two-col">
+          <div>
+            <div class="sh"><div class="sh-title">近期排程（未來 90 天）</div></div>
+            <div class="timeline" id="client-timeline"></div>
+          </div>
+          <div>
+            <div class="alerts-wrap">
+              <div class="aw-header"><div class="aw-title">本月摘要</div></div>
+              <div style="padding:14px;">
+                <div class="detail-grid">
+                  <div class="di"><div class="di-label">本月排程工單</div><div class="di-val" style="color:var(--blue);">3</div></div>
+                  <div class="di"><div class="di-label">已完成工單</div><div class="di-val" style="color:var(--green);">1</div></div>
+                  <div class="di"><div class="di-label">待執行工單</div><div class="di-val" style="color:var(--amber);">2</div></div>
+                  <div class="di"><div class="di-label">下次保養</div><div class="di-val" style="font-size:12px;">6/20</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CLIENT: REPORTS ── -->
+      <div class="page" id="p-client-reports">
+        <div class="ph">
+          <h2>歷史報告庫</h2>
+          <p>查閱及下載過去所有維運報告與檢測文件</p>
+        </div>
+        <div class="rpt-filter" id="rpt-filter">
+          <button class="fchip active" onclick="filterReports('all',this)">全部</button>
+          <button class="fchip" onclick="filterReports('pm',this)">定期保養</button>
+          <button class="fchip" onclick="filterReports('ir',this)">熱顯像</button>
+          <button class="fchip" onclick="filterReports('soh',this)">SOH 檢測</button>
+        </div>
+        <div class="rpt-table-wrap">
+          <table class="rpt-table">
+            <thead><tr><th>報告名稱</th><th>類型</th><th>案場</th><th>日期</th><th>操作</th></tr></thead>
+            <tbody id="rpt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main-area -->
+</div><!-- /app -->
+
+<!-- ═══ SITE DETAIL MODAL ═══ -->
+<div class="m-overlay" id="modal-site">
+  <div class="modal">
+    <div class="mhd">
+      <div style="display:flex;align-items:center;">
+        <div class="mhd-title" id="modal-site-title">案場詳情</div>
+        <span class="mhd-badge">● 健康正常</span>
+      </div>
+      <button class="mclose" onclick="closeModal('modal-site')">✕</button>
+    </div>
+    <!-- 現場照片區 -->
+    <div class="site-photo-zone" id="modal-photo-zone" onclick="triggerPhotoUpload()">
+      <img id="modal-photo-img" src="" style="display:none;">
+      <div class="site-photo-placeholder" id="modal-photo-placeholder">
+        <div class="ph-icon">📷</div>
+        <div>點擊上傳現場照片</div>
+        <div style="font-size:11px;opacity:.6;">支援 JPG / PNG，建議 1200×600px</div>
+      </div>
+      <div class="site-photo-overlay">
+        <div style="font-size:24px;margin-bottom:6px;">📷</div>
+        <div style="font-size:12px;">更換照片</div>
+      </div>
+    </div>
+    <input type="file" id="photo-upload-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
+    <!-- 資訊條 -->
+    <div class="site-info-bar" id="modal-info-bar"></div>
+    <!-- 主體 -->
+    <div class="mbody" id="modal-site-body"></div>
+    <div class="mfooter">
+      <div class="mfooter-left" id="modal-api-hint"></div>
+      <div class="mfooter-right">
+        <button class="btn-s" onclick="closeModal('modal-site')">關閉</button>
+        <button class="btn-p" onclick="openAddEventForSite()">＋ 新增工單</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD EVENT MODAL ═══ -->
+<div class="m-overlay" id="modal-event">
+  <div class="modal" style="max-width:520px">
+    <div class="mhd">
+      <div class="mhd-title">新增維運工單</div>
+      <button class="mclose" onclick="closeModal('modal-event')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>案場名稱</label>
+          <select id="ev-site" onchange="onSiteChange(this.value)"></select>
+          <input type="text" id="ev-site-custom" placeholder="輸入案場名稱…" style="display:none;margin-top:6px;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+        </div>
+        <div class="form-group"><label>工作類型</label>
+          <select id="ev-type" onchange="onTypeChange(this.value)">
+            <option value="pm">定期保養 PM</option>
+            <option value="ir">熱顯像檢測 IR</option>
+            <option value="soh">SOH 健康度檢測</option>
+            <option value="em">緊急維修</option>
+            <option value="incident">突發狀況</option>
+            <option value="__custom__">＋ 自訂類型…</option>
+          </select>
+          <input type="text" id="ev-type-custom" placeholder="輸入工作類型…" style="display:none;margin-top:6px;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>預計執行日</label><input type="date" id="ev-date"></div>
+        <div class="form-group"><label>負責技師</label>
+          <select id="ev-person" onchange="onPersonChange(this.value)">
+            <option value="">— 待指定 —</option>
+          </select>
+          <input type="text" id="ev-person-custom" placeholder="輸入技師姓名" style="display:none;margin-top:4px;">
+        </div>
+        <div class="form-group"><label>緊急程度</label>
+          <select id="ev-priority">
+            <option value="normal">一般</option>
+            <option value="urgent">緊急</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>回報人</label><input type="text" id="ev-reporter" placeholder="業務/客戶姓名"></div>
+        <div class="form-group" style="flex:2"><label>備註說明</label><input type="text" id="ev-note" placeholder="選填"></div>
+      </div>
+      <div class="form-group"><label>故障描述</label><textarea id="ev-desc" rows="2" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;" placeholder="詳述故障情況或客戶反映問題（選填）"></textarea></div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-event')">取消</button>
+      <button class="btn-p" onclick="addEvent()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WORK ORDER DETAIL MODAL ═══ -->
+<div class="m-overlay" id="modal-wo">
+  <div class="modal" style="max-width:460px">
+    <div class="mhd">
+      <div class="mhd-title" id="wo-modal-title">工單詳情</div>
+      <button class="mclose" onclick="closeModal('modal-wo')">✕</button>
+    </div>
+    <div class="mbody" id="wo-modal-body"></div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-wo')">關閉</button>
+      <button class="btn-p btn-red" id="wo-delete-btn" onclick="deleteWo()" style="background:var(--red);border-color:var(--red);">刪除工單</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ALERT FORM MODAL ═══ -->
+<div id="toast"></div>
+<div class="m-overlay" id="modal-alert">
+  <div class="modal" style="max-width:480px">
+    <div class="mhd">
+      <div class="mhd-title" id="alert-form-title">新增告警</div>
+      <button class="mclose" onclick="closeModal('modal-alert')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="form-row">
+        <div class="form-group"><label>案場名稱</label><select id="af-site"></select></div>
+        <div class="form-group">
+          <label>嚴重性</label>
+          <select id="af-level">
+            <option value="critical">🔴 緊急 Critical</option>
+            <option value="warning">🟡 警告 Warning</option>
+            <option value="info">🔵 資訊 Info</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>標題</label><input type="text" id="af-title" placeholder="例：請款逾期確認"></div>
+      <div class="form-group"><label>說明</label><textarea id="af-detail" rows="3" placeholder="詳細描述告警內容…" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;resize:vertical;font-family:inherit;"></textarea></div>
+      <div class="form-group"><label>時間</label><input type="time" id="af-time"></div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-alert')">取消</button>
+      <button class="btn-p" onclick="saveAlertForm()">確認儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EDIT SITE MODAL ═══ -->
+<div class="m-overlay" id="modal-edit-site">
+  <div class="modal" style="max-width:580px">
+    <div class="mhd">
+      <div class="mhd-title">✏️ 編輯案場基本資訊</div>
+      <button class="mclose" onclick="closeModal('modal-edit-site')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>案場名稱</label><input type="text" id="es-name"></div>
+        <div class="form-group"><label>所屬集團</label>
+          <select id="es-group">
+            <option>綠源科技</option><option>綠拓</option><option>綠頌</option><option>東元</option><option>開陽</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>地點描述</label><input type="text" id="es-loc" placeholder="例：桃園龍潭"></div>
+        <div class="form-group"><label>所屬分區</label>
+          <select id="es-region"><option value="南區">南區</option><option value="北區">北區</option></select>
+        </div>
+        <div class="form-group"><label>裝置容量 (kWp)</label>
+          <input type="number" id="es-cap" min="0.1" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>契約起日</label><input type="date" id="es-cstart"></div>
+        <div class="form-group"><label>契約迄日</label><input type="date" id="es-cend"></div>
+        <div class="form-group"><label>狀態</label>
+          <select id="es-status"><option value="normal">正常</option><option value="warning">告警</option><option value="offline">故障</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>月費 (TWD)</label><input type="number" id="es-fee" min="0" step="1"></div>
+        <div class="form-group"><label>躉售電價 (TWD/kWh)</label><input type="number" id="es-tariff" min="0" step="0.01"></div>
+        <div class="form-group"><label>目標PR (%)</label><input type="number" id="es-pr" min="0" max="100" step="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>模組規格</label><input type="text" id="es-spec" placeholder="例：345W"></div>
+        <div class="form-group"><label>模組片數</label><input type="number" id="es-count" min="0" step="1"></div>
+        <div class="form-group"><label>清洗頻率 (次/年)</label><input type="number" id="es-clean" min="1" step="1"></div>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-edit-site')">取消</button>
+      <button class="btn-p" onclick="saveEditSite()">儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DELETE SITE CONFIRM ═══ -->
+<div class="m-overlay" id="modal-delete-site">
+  <div class="modal" style="max-width:400px">
+    <div class="mhd">
+      <div class="mhd-title" style="color:var(--red)">🗑 移除案場</div>
+      <button class="mclose" onclick="closeModal('modal-delete-site')">✕</button>
+    </div>
+    <div class="mbody">
+      <p style="font-size:14px;color:var(--text);line-height:1.7">確定要移除案場 <strong id="del-site-name"></strong> 嗎？</p>
+      <p style="font-size:12px;color:var(--text3);margin-top:8px">此操作無法復原，若為預設案場將從畫面移除，自訂案場將永久刪除。</p>
+    </div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-delete-site')">取消</button>
+      <button class="btn-p" style="background:var(--red)" onclick="executeDeleteSite()">確認移除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ALERT DETAIL MODAL ═══ -->
+<div class="m-overlay" id="modal-alert-detail">
+  <div class="modal" style="max-width:680px">
+    <div class="mhd">
+      <div class="mhd-title">🚨 <span id="ad-site-name">—</span> 告警明細</div>
+      <button class="mclose" onclick="closeModal('modal-alert-detail')">✕</button>
+    </div>
+    <div class="mbody" id="ad-body" style="min-height:120px">
+      <div style="text-align:center;padding:40px;color:var(--text3)">載入中…</div>
+    </div>
+    <div class="mfooter">
+      <a id="ad-gms-link" href="#" target="_blank" class="btn-s" style="text-decoration:none;display:none">→ 前往 GMS 平台</a>
+      <button class="btn-p" onclick="closeModal('modal-alert-detail')">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD SITE MODAL ═══ -->
+<div class="m-overlay" id="modal-add-site">
+  <div class="modal" style="max-width:540px">
+    <div class="mhd">
+      <div class="mhd-title">新增案場</div>
+      <button class="mclose" onclick="closeModal('modal-add-site')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>案場名稱 *</label><input type="text" id="as-name" placeholder="例：善化大欣廠"></div>
+        <div class="form-group"><label>所屬集團 *</label>
+          <select id="as-group">
+            <option>綠源科技</option><option>綠拓</option><option>綠頌</option><option>東元</option><option>開陽</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>所在縣市 *</label>
+          <select id="as-county" onchange="asCountyChange(this.value)">
+            <option value="">請選擇</option>
+            <option>台南市</option><option>高雄市</option><option>台東縣</option><option>屏東縣</option>
+            <option>嘉義縣</option><option>嘉義市</option><option>雲林縣</option><option>彰化縣</option>
+            <option>台中市</option><option>南投縣</option><option>台北市</option><option>新北市</option>
+            <option>桃園市</option><option>新竹縣</option><option>新竹市</option><option>苗栗縣</option>
+            <option>花蓮縣</option><option>宜蘭縣</option><option>澎湖縣</option>
+          </select>
+        </div>
+        <div class="form-group"><label>所屬分區</label>
+          <select id="as-region"><option value="南區">南區</option><option value="北區">北區</option></select>
+        </div>
+        <div class="form-group"><label>裝置容量 (kWp) *</label>
+          <input type="number" id="as-cap" placeholder="例：300" min="0.1" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>契約起日 *</label><input type="date" id="as-cstart"></div>
+        <div class="form-group"><label>契約迄日 *</label><input type="date" id="as-cend"></div>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-s" onclick="closeModal('modal-add-site')">取消</button>
+      <button class="btn-p" onclick="addSite()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const SITES = [
+  {id:1, name:'天賜良園',        group:'綠源科技', region:'南區', loc:'天賜良園',    cap:24,      cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2026-06-24', status:'normal', moduleSpec:'240W',     moduleCount:100,  cleanFreq:2, pr:75, tariff:7.54},
+  {id:2, name:'善化/大欣雞舍',   group:'綠拓',    region:'南區', loc:'善化',        cap:84,      cStart:'2013-12-17', cEnd:'2033-12-17', fee:0,      nextBilling:'2026-06-17', status:'normal', moduleSpec:'235W',     moduleCount:360,  cleanFreq:2, pr:75, tariff:0},
+  {id:3, name:'蘆竹/億流',       group:'綠拓',    region:'北區', loc:'蘆竹',        cap:64.5,    cStart:'2024-02-07', cEnd:'2044-02-07', fee:0,      nextBilling:'2024-08-07', status:'normal', moduleSpec:'250W',     moduleCount:258,  cleanFreq:2, pr:75, tariff:4.93},
+  {id:4, name:'花蓮-聖若瑟',     group:'綠頌',    region:'北區', loc:'花蓮',        cap:99.02,   cStart:'2021-12-31', cEnd:'2041-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'345W',     moduleCount:287,  cleanFreq:2, pr:75, tariff:5.57},
+  {id:5, name:'柳營-黃燕良牛舍', group:'綠拓',    region:'南區', loc:'柳營',        cap:300,     cStart:'2014-08-20', cEnd:'2034-08-20', fee:0,      nextBilling:'2015-02-20', status:'normal', moduleSpec:'250W',     moduleCount:1200, cleanFreq:2, pr:75, tariff:5.44},
+  {id:6, name:'西螺尚營',        group:'綠源科技', region:'北區', loc:'西螺',        cap:5.17,    cStart:'2020-01-01', cEnd:'2040-01-01', fee:0,      nextBilling:'2020-07-01', status:'normal', moduleSpec:'—',        moduleCount:0,    cleanFreq:2, pr:75, tariff:0},
+  {id:7, name:'台東-東職二期',   group:'綠頌',    region:'南區', loc:'台東',        cap:576.5,   cStart:'2021-12-31', cEnd:'2041-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'345W',     moduleCount:1671, cleanFreq:2, pr:75, tariff:4.28},
+  {id:8, name:'花蓮-保祿',       group:'綠頌',    region:'北區', loc:'花蓮',        cap:93.39,   cStart:'2021-12-31', cEnd:'2040-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'330W',     moduleCount:283,  cleanFreq:2, pr:75, tariff:5.57},
+  {id:9, name:'西螺民宅',        group:'綠拓',    region:'北區', loc:'西螺',        cap:5.17,    cStart:'2020-01-01', cEnd:'2040-01-01', fee:0,      nextBilling:'2020-07-01', status:'normal', moduleSpec:'—',        moduleCount:0,    cleanFreq:2, pr:75, tariff:0},
+  {id:10,name:'台東海端-廣源幼兒園',group:'綠頌', region:'南區', loc:'台東海端',    cap:60.06,   cStart:'2021-12-31', cEnd:'2041-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'330W',     moduleCount:182,  cleanFreq:2, pr:75, tariff:5.29},
+  {id:11,name:'新營/心德教養院',  group:'綠拓',    region:'南區', loc:'新營',        cap:48.96,   cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2016-06-24', status:'normal', moduleSpec:'255W',     moduleCount:192,  cleanFreq:2, pr:75, tariff:0},
+  {id:12,name:'東培龍潭',        group:'東元',    region:'北區', loc:'桃園龍潭',    cap:1279.46, cStart:'2024-04-01', cEnd:'2029-04-01', fee:383000, nextBilling:'2026-10-01', status:'normal', moduleSpec:'345W',     moduleCount:4346, cleanFreq:2, pr:75, tariff:0},
+  {id:13,name:'大量科技',        group:'東元',    region:'北區', loc:'大量科技廠',  cap:667.23,  cStart:'2024-04-01', cEnd:'2029-04-01', fee:249000, nextBilling:'2026-10-01', status:'normal', moduleSpec:'345W',     moduleCount:1934, cleanFreq:2, pr:75, tariff:0},
+  {id:14,name:'台南/楠西一',     group:'綠拓',    region:'南區', loc:'台南楠西',    cap:310.2,   cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2016-06-24', status:'normal', moduleSpec:'235W',     moduleCount:1320, cleanFreq:2, pr:75, tariff:0},
+  {id:15,name:'台東海端-廣源國小',group:'綠頌',   region:'南區', loc:'台東海端',    cap:99.66,   cStart:'2021-12-31', cEnd:'2041-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'330W',     moduleCount:302,  cleanFreq:2, pr:75, tariff:5.29},
+  {id:16,name:'台東-東職一期',   group:'綠頌',    region:'南區', loc:'台東',        cap:489.21,  cStart:'2020-12-31', cEnd:'2040-12-31', fee:0,      nextBilling:'2021-06-30', status:'normal', moduleSpec:'330W',     moduleCount:1482, cleanFreq:2, pr:75, tariff:4.34},
+  {id:17,name:'西螺-洪慶堂雞舍', group:'綠拓',    region:'北區', loc:'西螺',        cap:225,     cStart:'2013-12-27', cEnd:'2033-12-27', fee:0,      nextBilling:'2014-06-27', status:'normal', moduleSpec:'250W',     moduleCount:900,  cleanFreq:2, pr:75, tariff:4.78},
+  {id:18,name:'大林薯光',        group:'開陽',    region:'北區', loc:'大林',        cap:1142,    cStart:'2024-12-11', cEnd:'2044-12-11', fee:686751, nextBilling:'2025-06-11', status:'normal', moduleSpec:'330/400W', moduleCount:3388, cleanFreq:2, pr:75, tariff:0},
+  {id:19,name:'屏東客運',        group:'東元',    region:'南區', loc:'屏東',        cap:1571.39, cStart:'2024-04-01', cEnd:'2029-04-01', fee:505500, nextBilling:'2026-10-01', status:'normal', moduleSpec:'370W',     moduleCount:4247, cleanFreq:2, pr:75, tariff:0},
+  // ── Thingnario (GST) 案場 ──
+  {id:20,name:'恩智浦廠一期',       group:'綠源科技', region:'南區', loc:'高雄楠梓',    cap:701.96,  cStart:'2023-12-19', cEnd:'2043-12-19', fee:0, nextBilling:'2024-06-19', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:21,name:'東元觀音二廠(高壓)', group:'東元',    region:'北區', loc:'桃園觀音',    cap:808.665, cStart:'2025-09-04', cEnd:'2045-09-04', fee:0, nextBilling:'2026-03-04', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:22,name:'東元觀音二廠(低壓)', group:'東元',    region:'北區', loc:'桃園觀音',    cap:203.145, cStart:'2025-09-04', cEnd:'2045-09-04', fee:0, nextBilling:'2026-03-04', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:23,name:'東元湖口廠',         group:'東元',    region:'北區', loc:'新竹湖口',    cap:1811.34, cStart:'2025-10-23', cEnd:'2045-10-23', fee:0, nextBilling:'2026-04-23', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:24,name:'台以八翁一期',       group:'綠源科技', region:'南區', loc:'台南柳營',    cap:62.37,   cStart:'2026-01-27', cEnd:'2046-01-27', fee:0, nextBilling:'2026-07-27', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:25,name:'板橋果菜市場',       group:'綠源科技', region:'北區', loc:'新北板橋',    cap:207.76,  cStart:'2026-02-04', cEnd:'2046-02-04', fee:0, nextBilling:'2026-08-04', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  // ── SolarEdge 案場 ──
+  {id:26,name:'苗栗揚展',   group:'綠源科技', region:'北區', loc:'苗栗',     cap:359.7,   cStart:'2023-03-03', cEnd:'2043-03-03', fee:0, nextBilling:'2026-09-03', status:'normal', moduleSpec:'—', moduleCount:548, cleanFreq:2, pr:75, tariff:0},
+  {id:27,name:'盛餘太陽能', group:'綠源科技', region:'北區', loc:'桃園',     cap:1499.37, cStart:'2021-12-28', cEnd:'2041-12-28', fee:0, nextBilling:'2026-12-28', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
+  {id:28,name:'東山1342',   group:'綠源科技', region:'南區', loc:'台南東山', cap:38.35,   cStart:'2021-01-01', cEnd:'2041-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
+  {id:29,name:'通霄套房',   group:'綠源科技', region:'北區', loc:'苗栗通霄', cap:17.08,   cStart:'2021-01-01', cEnd:'2041-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
+  {id:30,name:'大林薯光案', group:'開陽',     region:'南區', loc:'嘉義大林', cap:140.8,   cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
+];
+
+// 載入使用者自行新增的案場
+(function loadCustomSites() {
+  const custom = JSON.parse(localStorage.getItem('ess_custom_sites') || '[]');
+  custom.forEach(s => { if (!SITES.find(x => x.id === s.id)) SITES.push(s); });
+})();
+
+// 案場群組色彩
+const GROUP_COLOR = {
+  '綠源科技':{c:'#3fb950',bg:'rgba(63,185,80,.18)'},
+  '綠拓':    {c:'#58a6ff',bg:'rgba(88,166,255,.18)'},
+  '綠頌':    {c:'#bc8cff',bg:'rgba(188,140,255,.18)'},
+  '東元':    {c:'#f0883e',bg:'rgba(240,136,62,.18)'},
+  '開陽':    {c:'#39d353',bg:'rgba(57,211,83,.18)'},
+};
+
+// 東元 為業主端示範群組
+const CLIENT_GROUP = '東元';
+const CLIENT_SITE_IDS = SITES.filter(s=>s.group===CLIENT_GROUP).map(s=>s.id);
+
+const STATUS_TW = {normal:'健康正常'};
+const ALERTS_DEFAULT = [
+  {id:1,level:'critical',icon:'🔴',site:'大林薯光',        title:'請款逾期確認',  detail:'下次請款日期 2025-06-11 已逾期，請確認是否已完成請款作業',time:'09:15'},
+  {id:2,level:'warning', icon:'🟡',site:'東培龍潭',        title:'請款提醒',      detail:'東元帳務 (383,000 元) 預計 2026-10-01 到期，距今約 107 天',time:'08:30'},
+  {id:3,level:'warning', icon:'🟡',site:'善化/大欣雞舍',   title:'清洗排程提醒',  detail:'上次清洗距今已超過 180 天，建議安排下半年度清洗作業',time:'08:00'},
+  {id:4,level:'warning', icon:'🟡',site:'柳營-黃燕良牛舍', title:'清洗排程提醒',  detail:'案場容量 300 kWp，依年度計畫應於本月完成清洗，請確認排程',time:'07:45'},
+];
+let ALERTS = JSON.parse(localStorage.getItem('ess_alerts') || 'null') || ALERTS_DEFAULT.map(a=>({...a}));
+
+function saveAlerts() {
+  localStorage.setItem('ess_alerts', JSON.stringify(ALERTS));
+}
+
+const now = new Date(2026, 5, 16); // 2026-06-16
+let calYear = 2026, calMonth = 5; // 0-indexed
+
+const EVENTS = [
+  {id:'wo001',date:'2026-06-18',type:'pm',  status:'dispatched',  priority:'normal', site:'東培龍潭',         person:'王技師',   note:'季度例保',   reporter:'',description:''},
+  {id:'wo002',date:'2026-06-20',type:'pm',  status:'dispatched',  priority:'normal', site:'屏東客運',         person:'陳工程師', note:'',           reporter:'',description:''},
+  {id:'wo003',date:'2026-06-23',type:'ir',  status:'dispatched',  priority:'normal', site:'台東-東職二期',    person:'李工程師', note:'紅外線年度檢測',reporter:'',description:''},
+  {id:'wo004',date:'2026-06-25',type:'pm',  status:'pending',     priority:'normal', site:'大量科技',         person:'王技師',   note:'',           reporter:'',description:''},
+  {id:'wo005',date:'2026-06-28',type:'pm',  status:'pending',     priority:'normal', site:'天賜良園',         person:'陳工程師', note:'',           reporter:'',description:''},
+  {id:'wo006',date:'2026-07-03',type:'ir',  status:'pending',     priority:'normal', site:'屏東客運',         person:'李工程師', note:'紅外線巡檢', reporter:'',description:''},
+  {id:'wo007',date:'2026-07-08',type:'pm',  status:'pending',     priority:'normal', site:'台東-東職一期',    person:'陳工程師', note:'',           reporter:'',description:''},
+  {id:'wo008',date:'2026-07-12',type:'pm',  status:'pending',     priority:'normal', site:'大林薯光',         person:'王技師',   note:'',           reporter:'',description:''},
+  {id:'wo009',date:'2026-07-15',type:'ir',  status:'pending',     priority:'normal', site:'東培龍潭',         person:'李工程師', note:'',           reporter:'',description:''},
+  {id:'wo010',date:'2026-07-22',type:'pm',  status:'pending',     priority:'normal', site:'柳營-黃燕良牛舍', person:'陳工程師', note:'含清洗作業', reporter:'',description:''},
+  {id:'wo011',date:'2026-07-28',type:'pm',  status:'pending',     priority:'normal', site:'善化/大欣雞舍',   person:'王技師',   note:'含清洗作業', reporter:'',description:''},
+  {id:'wo012',date:'2026-08-05',type:'ir',  status:'pending',     priority:'normal', site:'大量科技',         person:'李工程師', note:'',           reporter:'',description:''},
+  {id:'wo013',date:'2026-08-12',type:'pm',  status:'pending',     priority:'normal', site:'花蓮-聖若瑟',     person:'陳工程師', note:'',           reporter:'',description:''},
+  {id:'wo014',date:'2026-06-10',type:'pm',  status:'done',        priority:'normal', site:'西螺-洪慶堂雞舍', person:'王技師',   note:'已完成',     reporter:'',description:''},
+  {id:'wo015',date:'2026-06-12',type:'ir',  status:'done',        priority:'normal', site:'台東海端-廣源國小',person:'李工程師',note:'已完成',     reporter:'',description:''},
+  {id:'wo016',date:'2026-06-17',type:'em',  status:'in_progress', priority:'urgent', site:'大量科技',         person:'王技師',   note:'',           reporter:'林業務', description:'客戶反應逆變器報警，顯示 Grid Fault，發電量異常下降'},
+];
+
+const REPORTS = [
+  {name:'東培龍潭 2026 Q1 季度保養報告',          type:'pm',  site:'東培龍潭',    date:'2026-03-20',size:'2.1 MB'},
+  {name:'屏東客運 太陽能紅外線熱顯像檢測報告',    type:'ir',  site:'屏東客運',    date:'2026-02-15',size:'9.4 MB'},
+  {name:'大量科技 2026 Q1 季度保養報告',           type:'pm',  site:'大量科技',    date:'2026-03-22',size:'1.8 MB'},
+  {name:'台東-東職二期 2025 Q4 保養報告',          type:'pm',  site:'台東-東職二期',date:'2025-12-28',size:'2.0 MB'},
+  {name:'台東-東職一期 紅外線熱顯像年度檢測',     type:'ir',  site:'台東-東職一期',date:'2025-11-10',size:'7.6 MB'},
+  {name:'大林薯光 竣工後首次保養報告',             type:'pm',  site:'大林薯光',    date:'2025-06-20',size:'3.2 MB'},
+  {name:'柳營-黃燕良牛舍 2025 Q3 保養報告',        type:'pm',  site:'柳營-黃燕良牛舍',date:'2025-09-05',size:'1.5 MB'},
+  {name:'花蓮-聖若瑟 系統效能評估報告',            type:'ir',  site:'花蓮-聖若瑟', date:'2025-08-18',size:'5.3 MB'},
+  {name:'善化/大欣雞舍 2025 年度保養報告',         type:'pm',  site:'善化/大欣雞舍',date:'2025-07-30',size:'1.6 MB'},
+];
+
+const TYPE_LABEL = {pm:'定期保養',ir:'熱顯像檢測',soh:'SOH 檢測',em:'緊急維修',incident:'突發狀況'};
+function getTypeLabel(t) { return TYPE_LABEL[t] || t; }
+
+// ── 技師名單（可動態新增，存 localStorage）──────────────
+const TECHNICIANS_DEFAULT = ['王技師','陳工程師','李工程師','張技師'];
+function getTechnicians() {
+  const custom = JSON.parse(localStorage.getItem('ess_technicians') || '[]');
+  return [...new Set([...TECHNICIANS_DEFAULT, ...custom])];
+}
+function addTechnician(name) {
+  if (!name) return;
+  const custom = JSON.parse(localStorage.getItem('ess_technicians') || '[]');
+  if (!custom.includes(name)) {
+    custom.push(name);
+    localStorage.setItem('ess_technicians', JSON.stringify(custom));
+  }
+}
+function buildTechOptions(current) {
+  const list = getTechnicians();
+  const opts = list.map(t => `<option value="${t}"${t===current?' selected':''}>${t}</option>`).join('');
+  return opts + `<option value="__new__">＋ 新增技師…</option>`;
+}
+
+// ═══════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════
+let role = 'admin';
+let currentPage = '';
+let siteFilter = 'all';
+let reportFilter = 'all';
+let searchVal = '';
+let treeFilter = {type:'all'};
+let collapsedNodes = new Set();
+
+const CITY_MAP = {
+  '天賜良園':'台南市','善化':'台南市','柳營':'台南市','新營':'台南市',
+  '台南楠西':'台南市','台南柳營':'台南市',
+  '台東':'台東縣','台東海端':'台東縣',
+  '屏東':'屏東縣','高雄楠梓':'高雄市',
+  '蘆竹':'桃園市','桃園龍潭':'桃園市','大量科技廠':'桃園市','桃園觀音':'桃園市',
+  '新竹湖口':'新竹縣','花蓮':'花蓮縣','西螺':'雲林縣','大林':'嘉義縣','新北板橋':'新北市',
+};
+
+const CARD_GRAD = {
+  '綠源科技':'linear-gradient(135deg,#0d4a2a 0%,#1a7a4a 100%)',
+  '綠拓':    'linear-gradient(135deg,#0d2d6b 0%,#1a5eb0 100%)',
+  '綠頌':    'linear-gradient(135deg,#2d0d6b 0%,#5a2db0 100%)',
+  '東元':    'linear-gradient(135deg,#6b2d0d 0%,#c45a2a 100%)',
+  '開陽':    'linear-gradient(135deg,#0d4a1a 0%,#1a8c3a 100%)',
+};
+
+// ═══════════════════════════════════════
+// ENTRY
+// ═══════════════════════════════════════
+function enterApp(r) {
+  role = r;
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').classList.add('on');
+  setupUser();
+  setupNav();
+  showPage(r === 'admin' ? 'overview' : 'client-overview');
+  renderStats();
+  renderSiteGrid();
+  renderFilterChips();
+  renderSiteTree();
+  renderCalendar();
+  renderAlerts();
+  renderTimeline();
+  renderReports();
+  updateNotifDot();
+  try { startAlertsListener(); } catch(e) { console.warn('[Firebase] 監聽啟動失敗，使用本機資料', e); }
+  try { startWorkordersListener(); } catch(e) { console.warn('[Firebase] 工單監聽啟動失敗', e); }
+  initRealSites();
+}
+
+function switchRole() {
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('login').style.display = 'flex';
+}
+
+function setupUser() {
+  const isAdmin = role === 'admin';
+  document.getElementById('uavatar').className = 'uavatar ' + (isAdmin ? 'ua-admin' : 'ua-client');
+  document.getElementById('uavatar').textContent = isAdmin ? '管' : '業';
+  document.getElementById('uname').textContent = isAdmin ? '張 O&M 經理' : '東元電機 業主帳戶';
+  document.getElementById('urole').textContent = isAdmin ? '系統管理員' : '業主帳戶';
+}
+
+function setupNav() {
+  const isAdmin = role === 'admin';
+  const nav = document.getElementById('snav');
+  if (isAdmin) {
+    nav.innerHTML = `
+      <div class="snav-section">
+        <div class="snav-label">監控</div>
+        <div class="nitem active" onclick="showPage('overview')"><span class="ni">📊</span>案場概覽</div>
+        <div class="nitem" onclick="showPage('alerts')"><span class="ni">🚨</span>告警中心<span class="nbadge" id="alert-badge" style="display:none">0</span></div>
+      </div>
+      <div class="snav-section">
+        <div class="snav-label">維運管理</div>
+        <div class="nitem" onclick="showPage('schedule')"><span class="ni">📅</span>排程管理</div>
+      </div>`;
+  } else {
+    nav.innerHTML = `
+      <div class="snav-section">
+        <div class="snav-label">我的資產</div>
+        <div class="nitem active" onclick="showPage('client-overview')"><span class="ni">🏭</span>我的案場</div>
+        <div class="nitem" onclick="showPage('client-schedule')"><span class="ni">📅</span>維運排程</div>
+        <div class="nitem" onclick="showPage('client-reports')"><span class="ni">📁</span>歷史報告</div>
+      </div>`;
+  }
+}
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function showToast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('p-' + page)?.classList.add('active');
+  currentPage = page;
+  const titles = {
+    'overview':'電站總覽','alerts':'告警中心','schedule':'維運排程管理',
+    'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
+    'site-detail':'電站詳情'
+  };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  document.querySelectorAll('.nitem').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nitem').forEach(n => {
+    if (n.textContent.includes(titles[page]?.slice(0,3) || '')) n.classList.add('active');
+  });
+  const tp = document.getElementById('tree-panel');
+  if (page === 'overview') tp.classList.add('show');
+  else tp.classList.remove('show');
+  if (page === 'alerts') loadBackendAlerts();
+}
+
+// ═══════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════
+function contractPct(cStart, cEnd) {
+  const s=new Date(cStart), e=new Date(cEnd), t=new Date(2026,5,16);
+  return Math.max(0,Math.min(100,Math.round((t-s)/(e-s)*100)));
+}
+
+function renderStats() {
+  const sites = SITES;
+  const total = sites.length;
+  const totalCapKwp = sites.reduce((a,s)=>a+s.cap,0);
+  const allMock = sites.map(s => mockMonitor(s));
+  const todayKwh = allMock.reduce((a,m)=>a+m.today,0);
+  const todayRev = allMock.reduce((a,m)=>a+m.revenue,0);
+  const avgYield = (todayKwh / totalCapKwp).toFixed(2);
+
+  const ovEl = document.getElementById('ov-stats');
+  if (ovEl) ovEl.innerHTML = `
+    ${ovSc('🏭','電站','var(--blue)',total,'個','rgba(30,127,194,.15)')}
+    ${ovSc('⚡','裝置容量','var(--green)',(totalCapKwp/1000).toFixed(2),'MWp','rgba(39,174,96,.15)')}
+    ${ovSc('☀️','今日發電量','var(--amber)',Math.round(todayKwh).toLocaleString(),'kWh','rgba(224,120,32,.15)')}
+    ${ovSc('📊','今日發電小時','var(--purple)',avgYield,'kWh/kWp','rgba(125,60,152,.15)')}
+    ${ovSc('💰','今日收益','#c0392b',Math.round(todayRev).toLocaleString(),'TWD','rgba(192,57,43,.12)')}`;
+
+  const cs = CLIENT_SITE_IDS.map(id=>SITES.find(s=>s.id===id));
+  const cCap = cs.reduce((a,s)=>a+s.cap,0);
+  const cFee = cs.reduce((a,s)=>a+s.fee,0);
+  document.getElementById('client-stat-row').innerHTML = `
+    ${sc('我的案場（'+CLIENT_GROUP+'）',cs.length,'個案場','var(--amber)',100)}
+    ${sc('總裝置容量',(cCap/1000).toFixed(2),'MWp','var(--green)',75)}
+    ${sc('年度維運費用',(cFee/10000).toFixed(1),'萬元/年','var(--blue)',60)}
+    ${sc('合約到期','2029/04','距今約 34 個月','var(--purple)',44)}`;
+}
+
+function ovSc(icon, label, color, val, unit, bgColor) {
+  return `<div class="ov-sc">
+    <div class="ov-sc-icon" style="background:${bgColor};color:${color}">${icon}</div>
+    <div>
+      <div class="ov-sc-val" style="color:${color}">${val} <span style="font-size:11px;font-weight:400;color:var(--text2)">${unit}</span></div>
+      <div class="ov-sc-lbl">${label}</div>
+    </div>
+  </div>`;
+}
+
+function sc(label,val,sub,color,pct) {
+  return `<div class="stat-card">
+    <div class="sc-label">${label}</div>
+    <div class="sc-val" style="color:${color}">${val}</div>
+    <div class="sc-sub">${sub}</div>
+    <div class="sc-bar"><div class="sc-fill" style="width:${pct}%;background:${color};"></div></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// SITE CARDS
+// ═══════════════════════════════════════
+async function initRealSites() {
+  try {
+    const resp = await fetch(`${BACKEND_URL}/api/sites`, {signal: AbortSignal.timeout(4000)});
+    if (!resp.ok) return;
+    const data = await resp.json();
+    Object.keys(data.data || {}).forEach(name => _realSites.add(name));
+    renderSiteGrid();
+  } catch(_) {}
+}
+
+function renderSiteGrid() {
+  let sites = SITES;
+  if (treeFilter.type === 'region') sites = sites.filter(s => s.region === treeFilter.val);
+  else if (treeFilter.type === 'city') sites = sites.filter(s => (CITY_MAP[s.loc]||s.loc) === treeFilter.val);
+  else if (treeFilter.type === 'site') sites = sites.filter(s => s.id === treeFilter.id);
+  if (siteFilter !== 'all') sites = sites.filter(s => s.group === siteFilter);
+  if (searchVal) sites = sites.filter(s => s.name.includes(searchVal) || s.group.includes(searchVal) || s.loc.includes(searchVal));
+  document.getElementById('site-grid').innerHTML = sites.map(s=>siteCard(s)).join('');
+  const clientSites = SITES.filter(s => CLIENT_SITE_IDS.includes(s.id));
+  document.getElementById('client-site-grid').innerHTML = clientSites.map(s=>siteCard(s,true)).join('');
+}
+
+function siteCard(s, readOnly=false) {
+  const m = mockMonitor(s);
+  const pct = contractPct(s.cStart, s.cEnd);
+  const barColor = pct>80?'var(--amber)':pct>50?'var(--blue)':'var(--green)';
+  const grad = CARD_GRAD[s.group] || 'linear-gradient(135deg,#1a3a2a 0%,#2d6b4a 100%)';
+  const spYield = (m.today / s.cap).toFixed(2);
+  const statusCls = s.status==='normal'?'normal':s.status==='warning'?'warning':'critical';
+  const statusTw  = s.status==='normal'?'正常':s.status==='warning'?'告警':'故障';
+  const capLabel  = s.cap>=1000 ? (s.cap/1000).toFixed(2)+' MWp' : s.cap+' kWp';
+  const savedPhoto = localStorage.getItem(`site_photo_${s.id}`);
+  const imgStyle = savedPhoto
+    ? `background:url('${savedPhoto}') center/cover no-repeat`
+    : `background:${grad}`;
+  const svgHtml = savedPhoto ? '' : `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="14" width="56" height="30" rx="3" fill="none" stroke="white" stroke-width="2" opacity=".7"/>
+        <line x1="24" y1="14" x2="24" y2="44" stroke="white" stroke-width="1.5" opacity=".7"/>
+        <line x1="44" y1="14" x2="44" y2="44" stroke="white" stroke-width="1.5" opacity=".7"/>
+        <line x1="4" y1="29" x2="60" y2="29" stroke="white" stroke-width="1.5" opacity=".7"/>
+        <line x1="32" y1="44" x2="32" y2="54" stroke="white" stroke-width="1.5" opacity=".7"/>
+        <line x1="20" y1="54" x2="44" y2="54" stroke="white" stroke-width="2" opacity=".7"/>
+        <circle cx="50" cy="9" r="5" fill="rgba(255,220,50,.7)" stroke="rgba(255,200,0,.5)" stroke-width="1"/>
+      </svg>`;
+  const isMocked = _realSites.size > 0 && !_realSites.has(s.name);
+  const mockBadge = isMocked ? `<div class="tn-mock">模擬數據</div>` : '';
+  return `<div class="tn-card" data-id="${s.id}" onclick="showSiteDetail(${s.id})">
+    <div class="tn-img" style="${imgStyle}">
+      ${svgHtml}
+      <div class="tn-cap">${capLabel}</div>
+      <div class="tn-sbadge ${statusCls}">${statusTw}</div>
+      ${mockBadge}
+    </div>
+    <div class="tn-body">
+      <div class="tn-name">${s.name}</div>
+      <div class="tn-loc">📍 ${s.loc} · ${s.region}</div>
+      <div class="tn-stats-row">
+        <div class="tn-stat"><div class="tn-si">📊</div><div class="tn-sv">${spYield}</div><div class="tn-sl">kWh/kWp</div></div>
+        <div class="tn-stat"><div class="tn-si">⚡</div><div class="tn-sv">${m.today>=1000?(m.today/1000).toFixed(1)+'k':m.today}</div><div class="tn-sl">kWh</div></div>
+        <div class="tn-stat"><div class="tn-si">💰</div><div class="tn-sv">${(m.revenue/1000).toFixed(1)}K</div><div class="tn-sl">TWD</div></div>
+      </div>
+      <div class="tn-bar">
+        <div class="tn-track"><div class="tn-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <div class="tn-pct">${pct}%</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFilterChips() {
+  const groups = ['全部', ...new Set(SITES.map(s=>s.group))];
+  const el = document.getElementById('filter-chips');
+  if (el) el.innerHTML = groups.map(g => {
+    const v = g==='全部'?'all':g;
+    return `<div class="fchip2 ${siteFilter===v?'active':''}" onclick="filterSites('${v}')">${g}</div>`;
+  }).join('');
+}
+
+function renderSiteTree(keyword='') {
+  const kw = keyword.toLowerCase();
+  const filtered = kw ? SITES.filter(s=>s.name.includes(kw)||s.loc.includes(kw)||(CITY_MAP[s.loc]||'').includes(kw)) : SITES;
+  const regionMap = {};
+  filtered.forEach(s => {
+    const r = s.region, c = CITY_MAP[s.loc] || s.loc;
+    if (!regionMap[r]) regionMap[r] = {};
+    if (!regionMap[r][c]) regionMap[r][c] = [];
+    regionMap[r][c].push(s);
+  });
+  const isAll = treeFilter.type==='all';
+  let html = `<div class="tp-node tp-all ${isAll?'tp-active':''}" onclick="setTreeFilter('all')">
+    <span style="font-size:10px;margin-right:3px">🌐</span>全區
+    <span style="color:var(--text3);font-size:10px;margin-left:auto">${SITES.length}</span>
+  </div>`;
+  ['南區','北區'].forEach(region => {
+    if (!regionMap[region]) return;
+    const cities = regionMap[region];
+    const cnt = Object.values(cities).flat().length;
+    const isReg = treeFilter.type==='region' && treeFilter.val===region;
+    const regKey = 'r:' + region;
+    const regOpen = !collapsedNodes.has(regKey);
+    html += `<div class="tp-node tp-region ${isReg?'tp-active':''}">
+      <span class="tp-arrow ${regOpen?'open':''}" onclick="event.stopPropagation();toggleNode('${regKey}')">▶</span>
+      <span style="flex:1" onclick="setTreeFilter('region','${region}')">${region}</span>
+      <span style="color:var(--text3);font-size:10px">${cnt}</span>
+    </div>
+    <div class="tp-children ${regOpen?'':'collapsed'}">`;
+    Object.entries(cities).forEach(([city, sites]) => {
+      const isCity = treeFilter.type==='city' && treeFilter.val===city;
+      const cityKey = 'c:' + city;
+      const cityOpen = !collapsedNodes.has(cityKey);
+      html += `<div class="tp-node tp-city ${isCity?'tp-active':''}">
+        <span class="tp-arrow ${cityOpen?'open':''}" onclick="event.stopPropagation();toggleNode('${cityKey}')">▶</span>
+        <span style="flex:1" onclick="setTreeFilter('city','${city}')">${city}</span>
+        <span style="color:var(--text3);font-size:10px">${sites.length}</span>
+      </div>
+      <div class="tp-children ${cityOpen?'':'collapsed'}">`;
+      sites.forEach(s => {
+        const isSite = treeFilter.type==='site' && treeFilter.id===s.id;
+        html += `<div class="tp-node tp-site ${isSite?'tp-active':''}" onclick="setTreeFilter('site',null,${s.id})">
+          <span class="tp-dot" style="flex-shrink:0;margin-right:4px"></span>${s.name}
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('tp-body').innerHTML = html;
+}
+
+function toggleNode(key) {
+  if (collapsedNodes.has(key)) collapsedNodes.delete(key);
+  else collapsedNodes.add(key);
+  renderSiteTree(document.getElementById('tp-input').value);
+}
+
+function setTreeFilter(type, val=null, id=null) {
+  treeFilter = {type, val, id};
+  renderSiteGrid();
+  renderSiteTree(document.getElementById('tp-input').value);
+}
+
+function treeSearch(val) {
+  renderSiteTree(val);
+}
+
+function filterSites(val) { siteFilter=val; renderSiteGrid(); renderFilterChips(); }
+function handleSearch(val) { searchVal=val; renderSiteGrid(); }
+
+// ═══════════════════════════════════════
+// SITE MODAL
+// ═══════════════════════════════════════
+let currentModalSiteId = null;
+const BACKEND_URL = 'http://localhost:5050';
+// 後端有真實數據的案場名稱集合（啟動時非同步填入）
+const _realSites = new Set();
+// 前端用的 plantNo 對照（用於 GMS 連結）
+const PLANT_MAP_FE = {
+  '東培龍潭': 'BDL222060124',
+  '屏東客運': 'BDL222060166',
+};
+
+// 各案場對應監控平台告警頁 URL
+function getAlertPlatformUrl(siteName) {
+  const plantNo = PLANT_MAP_FE[siteName];
+  if (plantNo) return `https://gms.auo.com/MvcWebPortal/DeviceInfo/index?plantNo=${plantNo}`;
+  const seNames = ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期',
+    '台東海端-廣源國小','台東海端-廣源幼兒園','苗栗揚展',
+    '盛餘太陽能','東山1342','通霄套房','大林薯光案'];
+  if (seNames.includes(siteName)) return 'https://monitoring.solaredge.com/';
+  const tnNames = ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)',
+    '東元湖口廠','台以八翁一期','板橋果菜市場'];
+  if (tnNames.includes(siteName)) return 'https://www.thingnario.com/';
+  if (siteName === '大量科技') return 'https://pvita.cht.com.tw/';
+  return null;
+}
+
+// ── deterministic pseudo-random from site id ──
+function siteRng(id, n) { return ((id * 1234567 + n * 98765) % 1000) / 1000; }
+
+function mockMonitor(s) {
+  // realistic daily yield: cap × (1.1~1.9) kWh/kWp
+  const baseYield = s.cap * (1.1 + siteRng(s.id, 1) * 0.8);
+  const today = Math.round(baseYield);
+  const days7 = Array.from({length:7}, (_,i) => Math.round(baseYield * (0.75 + siteRng(s.id, i+5) * 0.55)));
+  const contractYears = (new Date(2026,5,16) - new Date(s.cStart)) / (365.25*24*3600*1000);
+  const total = Math.round(s.cap * 365 * 1.35 * contractYears * (0.9 + siteRng(s.id,20)*0.2));
+  const month = Math.round(baseYield * (14 + siteRng(s.id,30)*4));
+  const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * (1.2 + siteRng(s.id,40)*0.6));
+  const efficiency = +(today / s.cap).toFixed(2);
+  return {today, days7, total, month, revenue, efficiency, isReal: false};
+}
+
+// 嘗試從後端 API 取得真實監控數據，失敗時 fallback 到模擬數據
+async function fetchMonitor(s) {
+  try {
+    const resp = await fetch(
+      `${BACKEND_URL}/api/site/${encodeURIComponent(s.name)}`,
+      {signal: AbortSignal.timeout(3000)}
+    );
+    if (resp.status === 404) {
+      // 後端在線但 plantNO 尚未設定
+      const mock = mockMonitor(s);
+      mock.offlineReason = 'notMapped';
+      return mock;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    if (!json.ok || !json.data) throw new Error('no data');
+    const d = json.data;
+    const today = Math.round(d.today_kwh || 0);
+    const days7 = (d.days7 || []).map(v => Math.round(v));
+    const month  = Math.round(d.month_kwh || 0);
+    const total  = Math.round(d.total_kwh || 0);
+    const efficiency = d.efficiency || +(today / s.cap).toFixed(2);
+    const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * 1.5);
+    return {
+      today, days7, total, month, revenue, efficiency, isReal: true,
+      updated:    d.updated    || '',
+      ac_kw:      d.ac_kw      || 0,
+      radiation:  d.radiation || d.irradiance || 0,
+      wind_speed: d.wind_speed ?? null,
+      mod_temp:   d.mod_temp   ?? null,
+      amb_temp:   d.amb_temp   ?? null,
+      alert_num:  d.alert_num  ?? null,
+      alert_flag: d.alert_flag || '',
+      collected:  d.collected  || '',
+      kw_pr:      d.kw_pr      ?? null,
+    };
+  } catch (_) {
+    // 網路錯誤或 timeout → 後端離線
+    const mock = mockMonitor(s);
+    mock.offlineReason = 'offline';
+    return mock;
+  }
+}
+
+function svgBarChart(data, labels) {
+  const W=580, H=70, n=data.length;
+  const max = Math.max(...data) || 1;
+  const bw = Math.floor(W/n) - 6;
+  const bars = data.map((v,i) => {
+    const h = Math.max(4, Math.round((v/max)*H));
+    const x = i*(bw+6) + 3;
+    const y = H - h;
+    const isToday = i === n-1;
+    return `<g>
+      <rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3"
+            fill="${isToday?'var(--green)':'var(--green-d)'}"
+            stroke="${isToday?'var(--green)':'var(--border)'}" stroke-width="1"/>
+      <text x="${x+bw/2}" y="${H+14}" text-anchor="middle"
+            font-size="9" fill="var(--text3)">${labels[i]}</text>
+      <text x="${x+bw/2}" y="${y-3}" text-anchor="middle"
+            font-size="8" fill="${isToday?'var(--green)':'var(--text3)'}">${v>=1000?(v/1000).toFixed(1)+'k':v}</text>
+    </g>`;
+  }).join('');
+  return `<svg width="${W}" height="${H+20}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${bars}</svg>`;
+}
+
+// ═══════════════════════════════════════
+// SITE DETAIL PAGE
+// ═══════════════════════════════════════
+const WEATHERS = ['晴天 ☀️','多雲 ⛅','晴時多雲 🌤','陰天 ☁️'];
+const TEMPS    = [28,30,31,32,33,34,35,36];
+
+async function showSiteDetail(id) {
+  const s = SITES.find(x=>x.id===id);
+  if (!s) return;
+  currentModalSiteId = id;
+  _currentDetailSiteId = id;
+  showPage('site-detail');
+
+  // header
+  document.getElementById('sd-name').textContent = s.name;
+  const n = new Date();
+  document.getElementById('sd-ts').textContent =
+    `${n.getFullYear()}/${n.getMonth()+1}/${n.getDate()} ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  const statusCls = s.status==='normal'?'normal':'warning';
+  const statusTw  = s.status==='normal'?'正常':'告警';
+  document.getElementById('sd-badge').innerHTML =
+    `<div class="sbadge ${statusCls}"><div class="sdot"></div>${statusTw}</div>`;
+
+  // weather — 先顯示 mock，背景換成真實氣象
+  document.getElementById('sd-temp').textContent =
+    TEMPS[Math.floor(siteRng(s.id,99)*TEMPS.length)] + '°C';
+  document.getElementById('sd-weather').textContent =
+    WEATHERS[Math.floor(siteRng(s.id,88)*WEATHERS.length)];
+  const county = CITY_MAP[s.loc] || s.loc;
+  fetch(`${BACKEND_URL}/api/weather/${encodeURIComponent(county)}`, {signal: AbortSignal.timeout(5000)})
+    .then(r=>r.ok?r.json():null).then(j=>{
+      if(j?.ok && j.data){
+        document.getElementById('sd-temp').textContent = j.data.temp + '°C';
+        document.getElementById('sd-weather').textContent = j.data.wx + ' ' + j.data.emoji;
+      }
+    }).catch(()=>{});
+
+  // photo from localStorage or gradient placeholder
+  const photoEl = document.getElementById('sd-photo');
+  sdSetPhoto(photoEl, id, s);
+
+  // photo click → upload
+  photoEl.onclick = () => {
+    const inp = document.createElement('input');
+    inp.type='file'; inp.accept='image/*';
+    inp.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        localStorage.setItem(`site_photo_${id}`, ev.target.result);
+        sdSetPhoto(photoEl, id, s);
+        // 同步更新案場總覽卡牌縮圖
+        const cardImg = document.querySelector(`.tn-card[data-id="${id}"] .tn-img`);
+        if (cardImg) {
+          cardImg.style.background = `url('${ev.target.result}') center/cover no-repeat`;
+          const svg = cardImg.querySelector('svg');
+          if (svg) svg.remove();
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    inp.click();
+  };
+
+  // show mock first, then fetch real data
+  let m = mockMonitor(s);
+  sdRenderCharts(s, m);
+  sdRenderFooter(s, m, statusTw);
+
+  // try real data from backend
+  try {
+    const real = await fetchMonitor(s);
+    if (real && real.isReal) {
+      m = real;
+      sdRenderCharts(s, m, true);
+      sdRenderFooter(s, m, statusTw, true);
+    }
+  } catch(e) { /* backend unavailable, keep mock */ }
+}
+
+function sdSetPhoto(photoEl, id, s) {
+  const saved = localStorage.getItem(`site_photo_${id}`);
+  const overlay = `<div class="sd-photo-overlay"><span>📷</span>點擊更換照片</div>`;
+  if (saved) {
+    photoEl.innerHTML = `<img src="${saved}" alt="${s.name}">${overlay}`;
+    photoEl.style.background = '';
+  } else {
+    const grad = CARD_GRAD[s.group] || 'linear-gradient(135deg,#1a3a2a,#2d6b4a)';
+    photoEl.style.background = grad;
+    photoEl.innerHTML = `<div class="sd-photo-ph"><em>📷</em>點擊上傳案場照片</div>${overlay}`;
+  }
+}
+
+function sdRenderCharts(s, m, isReal=false) {
+  const badge = isReal ? ' <span style="font-size:9px;font-weight:700;background:rgba(39,174,96,.2);color:var(--green);padding:1px 6px;border-radius:99px;margin-left:4px">即時</span>' : '';
+  document.getElementById('sd-hourly-lbl').innerHTML =
+    `今日發電量${badge}  <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">今日發電效率 ${(m.today/s.cap).toFixed(2)} kWh/kWp</span>`;
+  document.getElementById('sd-hourly').innerHTML = hourlyChartSvg(s, m);
+  document.getElementById('sd-daily').innerHTML  = dailyChartSvg(s, m);
+}
+
+function sdRenderFooter(s, m, statusTw, isReal=false) {
+  const capLabel = s.cap>=1000 ? (s.cap/1000).toFixed(2)+' MWp' : s.cap+' kWp';
+  const src = isReal ? '真實數據' : '模擬數據';
+
+  // PR值
+  const pr = isReal && m.kw_pr != null && m.kw_pr > 0 ? m.kw_pr : null;
+  const prColor = pr==null ? 'var(--text2)' : pr>=90?'var(--green)':pr>=75?'var(--blue)':pr>=60?'var(--amber)':'var(--red)';
+  const prVal = pr!=null ? pr.toFixed(1) : (isReal ? '—' : String(s.pr||75));
+  const prUnit = pr!=null ? '%' : (isReal ? '' : '% (目標)');
+
+  // 告警
+  const alertNum = isReal ? (parseInt(m.alert_num)||0) : null;
+  const alertVal = alertNum===null ? '—' : alertNum>0 ? alertNum+' 筆' : '正常';
+  const alertColor = alertNum===null?'var(--text3)':alertNum>0?'var(--red)':'var(--green)';
+
+  // 即時功率
+  const acKw   = isReal && m.ac_kw>0  ? m.ac_kw.toFixed(1)  : '—';
+  const acUnit  = isReal && m.ac_kw>0  ? 'kW' : '';
+
+  // 日照強度
+  const rad    = isReal && m.radiation>0 ? Math.round(m.radiation) : '—';
+  const radUnit = isReal && m.radiation>0 ? 'W/m²' : '';
+
+  // 模組溫度
+  const modT    = isReal && m.mod_temp!=null ? m.mod_temp.toFixed(1) : '—';
+  const modTUnit = isReal && m.mod_temp!=null ? '°C' : '';
+
+  // 環境溫度
+  const ambT    = isReal && m.amb_temp!=null ? m.amb_temp.toFixed(1) : '—';
+  const ambTUnit = isReal && m.amb_temp!=null ? '°C' : '';
+
+  // 風速
+  const wind    = isReal && m.wind_speed!=null ? m.wind_speed.toFixed(1) : '—';
+  const windUnit = isReal && m.wind_speed!=null ? 'm/s' : '';
+
+  // 資料更新時間（datetime → "MM-DD HH:mm"）
+  const collStr = (() => {
+    const raw = isReal ? (m.collected || m.updated || '') : '';
+    if (!raw) return '—';
+    const parts = raw.split(' ');
+    if (parts.length >= 2) return parts[0].slice(5) + '<br>' + parts[1].slice(0,5);
+    return raw.length > 10 ? raw.slice(0,10) : raw;
+  })();
+
+  document.getElementById('sd-footer').innerHTML = `
+    ${sdfc('⚡','今日發電量', m.today.toLocaleString(), 'kWh', 'var(--green)')}
+    ${sdfc('📅','本月發電量', m.month.toLocaleString(), 'kWh', 'var(--blue)')}
+    ${sdfc('📦','總發電量', m.total>0?(m.total/1000).toFixed(1):'—', m.total>0?'MWh':'', 'var(--purple)')}
+    ${sdfc('🔌','裝置容量', capLabel, '', 'var(--amber)')}
+    ${sdfc('✅','狀態', statusTw, '', 'var(--green)')}
+    ${sdfc('💡','即時功率', acKw, acUnit, 'var(--blue)')}
+    ${sdfc('📈','今日PR值', prVal, prUnit, prColor)}
+    ${sdfc('☀️','日照強度', rad, radUnit, 'var(--amber)')}
+    ${sdfc('🌡','模組溫度', modT, modTUnit, 'var(--red)')}
+    ${sdfc('🌤','環境溫度', ambT, ambTUnit, 'var(--blue)')}
+    ${sdfc('💨','風速', wind, windUnit, 'var(--text2)')}
+    ${sdfc('🚨','告警狀態', alertVal, '', alertColor, false, alertNum > 0 ? `openAlertDetail('${s.name}', ${alertNum})` : null)}
+    ${sdfc('🕐','資料更新', collStr, '', 'var(--text3)', true)}
+    <div style="grid-column:1/-1;text-align:right;font-size:10px;color:var(--text3);margin-top:-4px">資料來源：${src}</div>`;
+}
+
+function sdfc(icon, label, val, unit, color, small=false, onclick=null) {
+  const cls = small ? 'sd-fc-val-sm' : 'sd-fc-val';
+  const clickStyle = onclick ? 'cursor:pointer;' : '';
+  const clickAttr  = onclick ? ` onclick="${onclick}"` : '';
+  return `<div class="sd-fc" style="${clickStyle}"${clickAttr}>
+    <div class="${cls}" style="color:${color}">${val}<span class="sd-fc-unit"> ${unit}</span></div>
+    <div class="sd-fc-lbl">${icon} ${label}${onclick ? ' <span style="font-size:8px;color:var(--blue)">詳情</span>' : ''}</div>
+  </div>`;
+}
+
+function backToOverview() { showPage('overview'); }
+
+async function openAlertDetail(siteName, alertNum) {
+  document.getElementById('ad-site-name').textContent = siteName;
+  document.getElementById('ad-body').innerHTML =
+    `<div style="text-align:center;padding:40px;color:var(--text3)">載入中…</div>`;
+  const plantNo = PLANT_MAP_FE[siteName] || '';
+  const platformUrl = getAlertPlatformUrl(siteName);
+  const gmsLink = document.getElementById('ad-gms-link');
+  if (platformUrl) {
+    gmsLink.href = platformUrl;
+    gmsLink.textContent = '→ 前往監控平台 ↗';
+    gmsLink.style.display = '';
+  } else {
+    gmsLink.style.display = 'none';
+  }
+  openModal('modal-alert-detail');
+
+  // GMS 案場 → 嘗試從後端拉明細
+  if (plantNo) {
+    try {
+      const resp = await fetch(
+        `${BACKEND_URL}/api/gms/alerts/${encodeURIComponent(siteName)}`,
+        {signal: AbortSignal.timeout(10000)}
+      );
+      const json = await resp.json();
+      if (json.ok && json.alerts && json.alerts.length > 0) {
+        renderAlertTable(json.alerts, alertNum);
+        return;
+      }
+    } catch(_) {}
+  }
+
+  // Fallback：顯示告警數 + 各平台連結
+  const s = SITES.find(x => x.name === siteName);
+  const platformName = PLANT_MAP_FE[siteName] ? 'GMS' :
+    ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期','台東海端-廣源國小',
+     '台東海端-廣源幼兒園','苗栗揚展','盛餘太陽能','東山1342','通霄套房','大林薯光案'].includes(siteName)
+    ? 'SolarEdge' :
+    ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)','東元湖口廠','台以八翁一期','板橋果菜市場'].includes(siteName)
+    ? 'Thingnario' : siteName === '大量科技' ? 'iPVita' : '監控平台';
+  document.getElementById('ad-body').innerHTML = `
+    <div style="background:var(--amber-d,#fff8e1);border:1px solid var(--amber);border-radius:8px;padding:16px 18px;margin-bottom:16px;font-size:13px;line-height:1.7">
+      ⚠️ <strong>${siteName}</strong> 目前有 <strong style="color:var(--red)">${alertNum} 筆</strong> 異常告警。<br>
+      ${platformName === 'GMS'
+        ? '後端連接 GMS 告警明細失敗，可能是 GMS API 尚未開放此端點。'
+        : `此案場使用 ${platformName} 監控，目前尚未整合告警明細 API。`}
+    </div>
+    <div style="font-size:12px;color:var(--text3)">
+      <strong>已知資訊</strong>：告警數量 ${alertNum} 筆・平台 ${platformName}<br><br>
+      ${platformUrl ? `<a href="${platformUrl}" target="_blank" style="color:var(--blue)">→ 前往 ${platformName} 查看告警詳情 ↗</a>` : ''}
+    </div>`;
+}
+
+function renderAlertTable(alerts, totalNum) {
+  const rows = alerts.map(a => `
+    <tr>
+      <td style="font-size:11px">${a.time||'—'}</td>
+      <td><span style="font-weight:600">${a.device||'—'}</span></td>
+      <td>${a.type||'—'}</td>
+      <td>${a.desc||'—'}</td>
+      <td><span style="color:${a.status==='正常'||a.status==='OK'?'var(--green)':'var(--red)'};font-weight:600">${a.status||'—'}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('ad-body').innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">共 <strong style="color:var(--red)">${totalNum}</strong> 筆告警</div>
+    <div style="overflow-x:auto">
+      <table class="inv-table">
+        <thead><tr><th>時間</th><th>裝置</th><th>類型</th><th>說明</th><th>狀態</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+let _currentDetailSiteId = null;
+
+function openEditSite() {
+  const s = SITES.find(x => x.id === _currentDetailSiteId);
+  if (!s) return;
+  document.getElementById('es-name').value   = s.name;
+  document.getElementById('es-loc').value    = s.loc;
+  document.getElementById('es-cap').value    = s.cap;
+  document.getElementById('es-fee').value    = s.fee || 0;
+  document.getElementById('es-tariff').value = s.tariff || 0;
+  document.getElementById('es-pr').value     = s.pr || 75;
+  document.getElementById('es-spec').value   = s.moduleSpec || '';
+  document.getElementById('es-count').value  = s.moduleCount || 0;
+  document.getElementById('es-clean').value  = s.cleanFreq || 2;
+  document.getElementById('es-cstart').value = s.cStart || '';
+  document.getElementById('es-cend').value   = s.cEnd || '';
+  document.getElementById('es-status').value = s.status || 'normal';
+  const grpSel = document.getElementById('es-group');
+  for (let o of grpSel.options) o.selected = (o.value === s.group);
+  const regSel = document.getElementById('es-region');
+  for (let o of regSel.options) o.selected = (o.value === s.region);
+  openModal('modal-edit-site');
+}
+
+function saveEditSite() {
+  const s = SITES.find(x => x.id === _currentDetailSiteId);
+  if (!s) return;
+  const oldName = s.name;
+  s.name        = document.getElementById('es-name').value.trim() || s.name;
+  s.loc         = document.getElementById('es-loc').value.trim()  || s.loc;
+  s.cap         = parseFloat(document.getElementById('es-cap').value) || s.cap;
+  s.fee         = parseInt(document.getElementById('es-fee').value) || 0;
+  s.tariff      = parseFloat(document.getElementById('es-tariff').value) || 0;
+  s.pr          = parseInt(document.getElementById('es-pr').value) || 75;
+  s.moduleSpec  = document.getElementById('es-spec').value.trim();
+  s.moduleCount = parseInt(document.getElementById('es-count').value) || 0;
+  s.cleanFreq   = parseInt(document.getElementById('es-clean').value) || 2;
+  s.cStart      = document.getElementById('es-cstart').value;
+  s.cEnd        = document.getElementById('es-cend').value;
+  s.status      = document.getElementById('es-status').value;
+  s.group       = document.getElementById('es-group').value;
+  s.region      = document.getElementById('es-region').value;
+  // 若名稱變更，同步更新 _realSites
+  if (oldName !== s.name) {
+    if (_realSites.has(oldName)) { _realSites.delete(oldName); _realSites.add(s.name); }
+  }
+  // 若為自訂案場，同步 localStorage
+  const custom = JSON.parse(localStorage.getItem('ess_custom_sites') || '[]');
+  const ci = custom.findIndex(x => x.id === s.id);
+  if (ci >= 0) { custom[ci] = {...s}; localStorage.setItem('ess_custom_sites', JSON.stringify(custom)); }
+  closeModal('modal-edit-site');
+  renderSiteGrid();
+  renderStats();
+  renderSiteTree();
+  showSiteDetail(s.id);
+}
+
+function confirmDeleteSite() {
+  const s = SITES.find(x => x.id === _currentDetailSiteId);
+  if (!s) return;
+  document.getElementById('del-site-name').textContent = s.name;
+  openModal('modal-delete-site');
+}
+
+function executeDeleteSite() {
+  const id = _currentDetailSiteId;
+  const idx = SITES.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const s = SITES[idx];
+  SITES.splice(idx, 1);
+  // 若為自訂案場，從 localStorage 移除
+  const custom = JSON.parse(localStorage.getItem('ess_custom_sites') || '[]');
+  const filtered = custom.filter(x => x.id !== id);
+  localStorage.setItem('ess_custom_sites', JSON.stringify(filtered));
+  _realSites.delete(s.name);
+  closeModal('modal-delete-site');
+  renderSiteGrid();
+  renderStats();
+  renderSiteTree();
+  backToOverview();
+}
+
+function hourlyChartSvg(s, m) {
+  const data = [];
+  for (let h = 5; h <= 19; h++) {
+    const x = (h - 12.5) / 3.8;
+    const kw = Math.max(0, s.cap * 0.0014 * Math.exp(-x*x) * (0.55 + siteRng(s.id, h+50)*0.45));
+    data.push({h, kw: Math.round(kw*10)/10});
+  }
+  const maxKw = Math.max(...data.map(d=>d.kw), 1);
+  const VW=580, VH=120, pL=40, pR=8, pT=20, pB=28, cW=VW-pL-pR, cH=VH-pT-pB;
+  const bw = Math.floor(cW/data.length)-3;
+  let out = `<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">`;
+  [0,0.5,1].forEach(p=>{
+    const y=pT+(1-p)*cH;
+    out+=`<line x1="${pL}" y1="${y}" x2="${VW-pR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="${pL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${(maxKw*p).toFixed(0)}</text>`;
+  });
+  data.forEach((d,i)=>{
+    const x=pL+i*(cW/data.length)+2, bh=(d.kw/maxKw)*cH, y=pT+cH-bh;
+    if(d.kw>0) out+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="2" fill="var(--green)" opacity="${d.h>=11&&d.h<=15?1:.6}"/>`;
+    if(d.h%3===0||data.length<=10)
+      out+=`<text x="${x+bw/2}" y="${VH-4}" text-anchor="middle" font-size="9" fill="var(--text3)">${d.h<12?d.h+'AM':d.h===12?'12PM':(d.h-12)+'PM'}</text>`;
+  });
+  return out+'</svg>';
+}
+
+function dailyChartSvg(s, m) {
+  const days7=m.days7, maxD=Math.max(...days7,1), n=days7.length;
+  const VW=580, VH=130, pL=44, pR=50, pT=20, pB=28, cW=VW-pL-pR, cH=VH-pT-pB;
+  const bw=Math.floor(cW/n)-4;
+  const today=new Date(2026,5,18);
+  const dates=Array.from({length:7},(_,i)=>{const d=new Date(today);d.setDate(d.getDate()-(6-i));return `${d.getMonth()+1}/${d.getDate()}`;});
+  // cumulative
+  let base=m.total-days7.slice(0,-1).reduce((a,v)=>a+v,0);
+  const cums=[];
+  days7.forEach(v=>{base+=v;cums.push(base);});
+  const maxC=Math.max(...cums,1);
+  let out=`<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">`;
+  // gridlines + left axis
+  [0,0.5,1].forEach(p=>{
+    const y=pT+(1-p)*cH;
+    out+=`<line x1="${pL}" y1="${y}" x2="${VW-pR}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="${pL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${Math.round(maxD*p)}</text>
+      <text x="${VW-pR+4}" y="${y+3}" text-anchor="start" font-size="9" fill="var(--blue)">${Math.round(maxC*p/1000)}k</text>`;
+  });
+  // bars
+  let lineD='';
+  days7.forEach((v,i)=>{
+    const x=pL+i*(cW/n)+2, bh=(v/maxD)*cH, y=pT+cH-bh;
+    out+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="2" fill="${i===6?'var(--green)':'rgba(39,174,96,.45)'}"/>`;
+    out+=`<text x="${x+bw/2}" y="${VH-4}" text-anchor="middle" font-size="9" fill="var(--text3)">${dates[i]}</text>`;
+    const cx=x+bw/2, cy=pT+(1-cums[i]/maxC)*cH;
+    lineD+=(i===0?`M${cx},${cy}`:`L${cx},${cy}`);
+    out+=`<circle cx="${cx}" cy="${cy}" r="2.5" fill="var(--blue)"/>`;
+  });
+  out+=`<path d="${lineD}" stroke="var(--blue)" stroke-width="1.5" fill="none"/>`;
+  // legend
+  out+=`<rect x="${pL}" y="5" width="9" height="9" rx="1" fill="rgba(39,174,96,.8)"/>
+    <text x="${pL+12}" y="12" font-size="9" fill="var(--text2)">${s.name}：電站發電量</text>
+    <line x1="${pL+120}" y1="9" x2="${pL+138}" y2="9" stroke="var(--blue)" stroke-width="2"/>
+    <circle cx="${pL+129}" cy="9" r="2" fill="var(--blue)"/>
+    <text x="${pL+142}" y="12" font-size="9" fill="var(--blue)">歷史總發電量</text>`;
+  return out+'</svg>';
+}
+
+async function openSiteModal(id) {
+  const s = SITES.find(x=>x.id===id);
+  if (!s) return;
+  currentModalSiteId = id;
+  const gc = GROUP_COLOR[s.group]||{c:'var(--text2)',bg:'var(--grey-d)'};
+  const pct = contractPct(s.cStart, s.cEnd);
+  const pctColor = pct>80?'var(--amber)':pct>50?'var(--blue)':'var(--green)';
+
+  // 先開 modal 並顯示載入中
+  openModal('modal-site');
+  document.getElementById('modal-site-title').textContent = s.name;
+  document.getElementById('modal-site-body').innerHTML =
+    `<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px;">⏳ 正在讀取監控數據…</div>`;
+  document.getElementById('modal-api-hint').innerHTML = '';
+
+  const mon = await fetchMonitor(s);
+
+  // 若有真實 GMS 告警，自動同步到 Firestore 告警中心
+  if (mon.isReal) syncGmsAlertToFirestore(s, mon);
+
+  // photo
+  const savedImg = localStorage.getItem(`site_img_${id}`);
+  const photoImg = document.getElementById('modal-photo-img');
+  const photoPlaceholder = document.getElementById('modal-photo-placeholder');
+  if (savedImg) {
+    photoImg.src = savedImg; photoImg.style.display='block';
+    photoPlaceholder.style.display='none';
+  } else {
+    photoImg.style.display='none';
+    photoPlaceholder.style.display='flex';
+  }
+
+  // info bar
+  document.getElementById('modal-info-bar').innerHTML = `
+    <div class="sib-item">📍 <span class="sib-val">${s.region} · ${s.loc}</span></div>
+    <div class="sib-item">⚡ <span class="sib-val">${s.cap} kWp</span></div>
+    <div class="sib-item">🏷 <span style="color:${gc.c};font-weight:700;">${s.group}</span></div>
+    <div class="sib-item">📋 合約至 <span class="sib-val">${s.cEnd}</span></div>`;
+
+  // 7-day labels
+  const dayLabels = Array.from({length:7},(_,i)=>{
+    const d=new Date(2026,5,10+i);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  });
+  dayLabels[6]='今日';
+
+  // ── 即時監控面板（真實數據限定）──
+  const realtimePanel = (() => {
+    if (!mon.isReal) return '';
+    const ac   = mon.ac_kw   || 0;
+    const rad  = mon.radiation || 0;
+    const wind = mon.wind_speed != null ? mon.wind_speed : null;
+    const modT = mon.mod_temp  != null ? mon.mod_temp  : null;
+    const ambT = mon.amb_temp  != null ? mon.amb_temp  : null;
+    const alertN = parseInt(mon.alert_num) || 0;
+    const pct  = Math.min(100, Math.round(ac / s.cap * 100));
+
+    // Alert banner
+    const alertBanner = alertN > 0
+      ? `<div class="alert-banner">⚠️ 目前有 ${alertN} 筆告警，請至 <a href="https://gms.auo.com/MvcWebPortal/DeviceInfo/index?plantNo=${PLANT_MAP_FE[s.name]||''}" target="_blank" style="color:var(--red)">GMS 平台</a> 查看詳情</div>`
+      : '';
+
+    // Environment bar
+    const pr = mon.kw_pr != null && mon.kw_pr > 0 ? mon.kw_pr : null;
+    const prColor = pr == null ? 'var(--text)' : pr >= 90 ? 'var(--green)' : pr >= 75 ? 'var(--blue)' : pr >= 60 ? 'var(--amber)' : 'var(--red)';
+    const envItems = [
+      {icon:'☀️', val: rad>0?rad+' W/m²':'—', label:'日照強度'},
+      {icon:'⚡', val: ac.toFixed(1)+' kW', label:'即時功率'},
+      {icon:'📈', val: pr!=null?`<span style="color:${prColor};font-weight:700">${pr.toFixed(1)}%</span>`:'—', label:'今日PR值'},
+    ];
+    if (wind != null) envItems.push({icon:'💨', val: wind.toFixed(1)+' m/s', label:'風速'});
+    if (modT != null) envItems.push({icon:'🌡', val: modT.toFixed(1)+'°C', label:'模組溫度'});
+    if (ambT != null) envItems.push({icon:'🌤', val: ambT.toFixed(1)+'°C', label:'環境溫度'});
+    envItems.push({icon:'🚨', val: alertN>0?`<span style="color:var(--red)">${alertN} 筆</span>`:'<span style="color:var(--green)">正常</span>', label:'告警狀態'});
+
+    const envBar = `<div class="rt-env-bar">${envItems.map(e=>`
+      <div class="rt-env-item">
+        <div class="rt-env-icon">${e.icon}</div>
+        <div class="rt-env-val">${e.val}</div>
+        <div class="rt-env-label">${e.label}</div>
+      </div>`).join('')}</div>`;
+
+    // AC power utilization bar
+    const acBar = `
+      <div class="ac-bar-wrap">
+        <div class="ac-bar-header">
+          <span class="ac-bar-title">⚡ 逆變器輸出功率</span>
+          <span class="ac-bar-val">${ac.toFixed(1)} kW <span style="font-size:10px;color:var(--text3)">/ ${s.cap} kWp</span></span>
+        </div>
+        <div class="ac-bar-bg"><div class="ac-bar-fill" style="width:${pct}%"></div></div>
+        <div class="ac-bar-sub"><span>0 kW</span><span>容量使用率 ${pct}%</span><span>${s.cap} kWp</span></div>
+      </div>`;
+
+    // Estimated inverter table (capacity / 75kW per unit, typical)
+    const invKw  = s.cap >= 500 ? 75 : s.cap >= 100 ? 50 : 10;
+    const invCnt = Math.max(1, Math.round(s.cap / invKw));
+    const perInv = invCnt > 0 ? ac / invCnt : 0;
+    const invRows = Array.from({length: Math.min(invCnt, 10)}, (_, i) => {
+      const pwr = (perInv * (0.92 + siteRng(s.id, i+50) * 0.16)).toFixed(1);
+      const v   = (496 + siteRng(s.id, i+60)*8).toFixed(1);
+      const amp = (parseFloat(pwr)/parseFloat(v)*1000).toFixed(1);
+      const ok  = parseFloat(pwr) > 0;
+      return `<tr>
+        <td><span class="inv-status-dot" style="background:${ok?'var(--green)':'var(--text3)'}"></span>INV${i+1}</td>
+        <td>[AC]: ${v} V</td><td>${amp} A</td>
+        <td class="${ok?'inv-ok':'inv-err'}">${pwr} kW</td>
+        <td style="color:var(--text3);font-size:9px">${mon.collected?.split(' ')[1]||'—'}</td>
+      </tr>`;
+    }).join('');
+    const moreRow = invCnt > 10 ? `<tr><td colspan="5" style="color:var(--text3);font-size:10px;padding:5px 8px;">…另 ${invCnt-10} 台（估算）</td></tr>` : '';
+    const invTable = `
+      <div class="ms-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>逆變器狀態（估算）</span>
+        <a href="https://gms.auo.com/MvcWebPortal/DeviceInfo/index" target="_blank" style="font-size:9px;color:var(--green);text-transform:none;font-weight:400;">→ GMS 查看真實裝置</a>
+      </div>
+      <div style="overflow-x:auto;margin-bottom:12px;">
+        <table class="inv-table">
+          <thead><tr><th>裝置名稱</th><th>電壓</th><th>電流</th><th>功率</th><th>採集時間</th></tr></thead>
+          <tbody>${invRows}${moreRow}</tbody>
+        </table>
+        <div class="collected-time">資料採集：${mon.collected || mon.updated || '—'} &nbsp;·&nbsp; 共 ${invCnt} 台逆變器（${invKw} kW/台）</div>
+      </div>`;
+
+    return alertBanner + envBar + acBar + invTable;
+  })();
+
+  // body
+  document.getElementById('modal-site-body').innerHTML = `
+    ${realtimePanel}
+    <div class="ms-title" style="margin-top:2px;">📊 發電量統計${mon.isReal?'（即時）':'（模擬）'}</div>
+    <div class="monitor-grid">
+      <div class="mg-card">
+        <div class="mg-label">☀ 今日發電量</div>
+        <div class="mg-val" style="color:var(--green)">${mon.today>=1000?(mon.today/1000).toFixed(2)+'<span class="mg-unit"> MWh</span>':mon.today+'<span class="mg-unit"> kWh</span>'}</div>
+      </div>
+      <div class="mg-card">
+        <div class="mg-label">📅 本月發電量</div>
+        <div class="mg-val" style="color:var(--blue)">${mon.month>=1000?(mon.month/1000).toFixed(1)+'<span class="mg-unit"> MWh</span>':mon.month+'<span class="mg-unit"> kWh</span>'}</div>
+      </div>
+      <div class="mg-card">
+        <div class="mg-label">📦 累積發電量</div>
+        <div class="mg-val" style="color:var(--purple)">${mon.total>=1000000?(mon.total/1000000).toFixed(2)+'<span class="mg-unit"> GWh</span>':(mon.total/1000).toFixed(1)+'<span class="mg-unit"> MWh</span>'}</div>
+      </div>
+      <div class="mg-card">
+        <div class="mg-label">💰 今日${s.tariff>0?'收益':'預估收益'}</div>
+        <div class="mg-val" style="color:var(--amber)">${mon.revenue.toLocaleString()}<span class="mg-unit"> TWD</span></div>
+      </div>
+      <div class="mg-card">
+        <div class="mg-label">📈 今日PR值${mon.isReal?'':'（目標）'}</div>
+        ${mon.isReal && mon.kw_pr != null && mon.kw_pr > 0
+          ? (() => { const p=mon.kw_pr; const c=p>=90?'var(--green)':p>=75?'var(--blue)':p>=60?'var(--amber)':'var(--red)'; return `<div class="mg-val" style="color:${c}">${p.toFixed(1)}<span class="mg-unit"> %</span></div><div style="font-size:9px;color:var(--text3);margin-top:2px;">目標：${s.pr}%</div>`; })()
+          : `<div class="mg-val" style="color:var(--text2)">${s.pr}<span class="mg-unit"> %</span></div><div style="font-size:9px;color:var(--text3);margin-top:2px;">設計PR值</div>`
+        }
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">⚡ 近 7 日每日發電量 (kWh) &nbsp;<span style="font-size:10px;color:var(--text3)">今日發電效率 ${mon.efficiency} kWh/kWp</span></div>
+      ${svgBarChart(mon.days7, dayLabels)}
+    </div>
+
+    <div class="ms-title">合約進度</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px;">
+      <span>${s.cStart} → ${s.cEnd}</span><span style="color:${pctColor};font-weight:700;">${pct}%</span>
+    </div>
+    <div class="soc-bar" style="height:8px;margin-bottom:4px;">
+      <div class="soc-fill" style="width:${pct}%;background:${pctColor};height:8px;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:14px;">${(()=>{const prLine=mon.isReal&&mon.kw_pr>0?` · 今日PR：<span style="color:${mon.kw_pr>=s.pr?'var(--green)':'var(--amber)'};font-weight:600">${mon.kw_pr.toFixed(1)}%</span>`:'';return`年度清洗：${s.cleanFreq} 次 · PR 目標：${s.pr}%${prLine} · 模組：${s.moduleSpec||'—'} × ${s.moduleCount||'—'} 片`;})()}</div>
+
+    <div class="ms-title">設備 &amp; 合約</div>
+    <div class="detail-grid">
+      <div class="di"><div class="di-label">年度維運費用</div><div class="di-val">${s.fee>0?(s.fee/10000).toFixed(1)+' 萬元':'免費維護'}</div></div>
+      <div class="di"><div class="di-label">下次請款日期</div><div class="di-val">${s.nextBilling}</div></div>
+      <div class="di"><div class="di-label">躉售電價</div><div class="di-val">${s.tariff>0?s.tariff+' 元/度':'—'}</div></div>
+      <div class="di"><div class="di-label">案場類型</div><div class="di-val">屋頂型太陽能</div></div>
+    </div>
+
+    <div class="ms-title">最近工單</div>
+    ${EVENTS.filter(e=>e.site===s.name).slice(0,3).map(e=>`
+    <div style="background:var(--surface2);border-radius:6px;padding:7px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);">
+      <span class="chip ${e.type==='pm'?'green':e.type==='ir'?'blue':''}">
+        ${e.type==='pm'?'保養':e.type==='ir'?'熱顯像':'檢測'}
+      </span>
+      <span style="font-size:12px;color:var(--text)">${e.date}</span>
+      <span style="font-size:11px;color:var(--text2)">${e.person}</span>
+      ${e.done?'<span style="margin-left:auto;font-size:10px;color:var(--green);font-weight:600;">✓ 已完成</span>':'<span style="margin-left:auto;font-size:10px;color:var(--amber);">待執行</span>'}
+    </div>`).join('') || '<div style="font-size:12px;color:var(--text3);padding:6px 0;">暫無工單</div>'}`;
+
+  const hintMap = {
+    true:       `✅ 真實數據 · 更新：${mon.updated||'今日'} · <a href="#" onclick="refreshSiteData(${id});return false;" style="color:var(--green);">重新整理</a>`,
+    notMapped:  `🟡 後端在線 · 此案場 plantNO 尚未設定 · <a href="#" onclick="showApiInfo();return false;" style="color:var(--green);">設定說明</a>`,
+    offline:    `📡 模擬數據（後端離線）· <a href="#" onclick="showApiInfo();return false;" style="color:var(--green);">串接說明</a>`,
+  };
+  document.getElementById('modal-api-hint').innerHTML =
+    mon.isReal ? hintMap[true] : (hintMap[mon.offlineReason] || hintMap.offline);
+}
+
+// ── Photo upload ──
+function triggerPhotoUpload() {
+  document.getElementById('photo-upload-input').click();
+}
+function handlePhotoUpload(evt) {
+  const file = evt.target.files[0];
+  if (!file || !currentModalSiteId) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    localStorage.setItem(`site_img_${currentModalSiteId}`, dataUrl);
+    const img = document.getElementById('modal-photo-img');
+    img.src = dataUrl; img.style.display = 'block';
+    document.getElementById('modal-photo-placeholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  evt.target.value = '';
+}
+
+async function refreshAllSites() {
+  const btn = document.getElementById('refresh-btn');
+  btn.style.animation = 'spin 1s linear infinite';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/refresh`, { method: 'POST', signal: AbortSignal.timeout(60000) });
+    const data = await res.json();
+    if (data.ok) {
+      await loadBackendData();
+      showToast(`✅ 已更新 ${data.sites_updated} 個案場數據`);
+    } else {
+      showToast('❌ 更新失敗，請確認後端是否正常運行');
+    }
+  } catch(e) {
+    showToast('❌ 無法連接後端，請確認後端是否正常運行');
+  } finally {
+    btn.style.animation = '';
+    btn.disabled = false;
+  }
+}
+
+async function refreshSiteData(id) {
+  if (currentModalSiteId === id) openSiteModal(id);
+}
+
+function openAddEventForSite() {
+  if (currentModalSiteId) {
+    const s = SITES.find(x=>x.id===currentModalSiteId);
+    if (s) document.getElementById('ev-site').value = s.name;
+  }
+  closeModal('modal-site');
+  openModal('modal-event');
+}
+
+function showApiInfo() {
+  alert(`串接真實監控數據方式：\n\n① 若使用 thingnario PHOTON\n  → 申請 API Token，後端每小時呼叫：\n  GET https://api.thingnario.com/v1/stations/{id}/data\n\n② 若使用其他監控平台\n  → 同樣需要後端 Proxy（Node.js / Python）\n  避免 CORS 及 Token 暴露問題\n\n③ 手動 Excel 匯入\n  → 可用「Excel 智能匯入排程」功能\n  匯入每月發電量報表\n\n需要協助建立後端 API？\n請聯繫技術團隊或使用 Claude Code 自動生成。`);
+}
+
+// ═══════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════
+function renderAlerts() {
+  const makeItem = (a, withActions) => `
+    <div class="alert-item ${a.level}">
+      <div class="ai-icon">${a.icon}</div>
+      <div class="ai-body">
+        <div class="ai-title">${a.site} · ${a.title}</div>
+        <div class="ai-detail">${a.detail}</div>
+      </div>
+      <div class="ai-time">今日 ${a.time}</div>
+      ${withActions ? `<div class="ai-actions">
+        <button class="ai-act-btn" onclick="openAlertForm('${a.id}')" title="編輯">✏️</button>
+        <button class="ai-act-btn del" onclick="deleteAlert('${a.id}')" title="刪除">🗑</button>
+      </div>` : ''}
+    </div>`;
+  const miniHtml = ALERTS.map(a=>makeItem(a,false)).join('');
+  const fullHtml = ALERTS.map(a=>makeItem(a,true)).join('');
+  document.getElementById('alert-wrap').innerHTML =
+    `<div class="aw-header"><div class="aw-title">今日告警（${ALERTS.length}）</div><button class="sh-link" onclick="showPage('alerts')">查看全部</button></div>${miniHtml}`;
+  document.getElementById('alerts-full').innerHTML =
+    `<div class="alerts-wrap">
+      <div class="aw-header">
+        <div class="aw-title">今日告警（${ALERTS.length}）</div>
+        <button class="aw-add-btn" onclick="openAlertForm(null)">＋ 新增告警</button>
+      </div>
+      ${fullHtml || '<div style="padding:28px;text-align:center;color:var(--text3);font-size:13px;">目前無告警記錄</div>'}
+    </div>`;
+}
+
+function updateNotifDot() {
+  const n = ALERTS.length;
+  document.getElementById('notif-dot').style.display = n > 0 ? 'block' : 'none';
+  const badge = document.getElementById('alert-badge');
+  if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
+}
+
+// ── 告警 CRUD ────────────────────────────────────────
+let _alertEditId = null;
+
+function openAlertForm(id) {
+  _alertEditId = id;
+  document.getElementById('alert-form-title').textContent = id !== null ? '編輯告警' : '新增告警';
+  const sel = document.getElementById('af-site');
+  sel.innerHTML = SITES.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+  if (id !== null) {
+    const a = ALERTS.find(x=>x.id===id);
+    if (!a) return;
+    sel.value = a.site;
+    document.getElementById('af-level').value = a.level;
+    document.getElementById('af-title').value = a.title;
+    document.getElementById('af-detail').value = a.detail;
+    document.getElementById('af-time').value = a.time;
+  } else {
+    sel.selectedIndex = 0;
+    document.getElementById('af-level').value = 'warning';
+    document.getElementById('af-title').value = '';
+    document.getElementById('af-detail').value = '';
+    const t = new Date();
+    document.getElementById('af-time').value =
+      String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  }
+  openModal('modal-alert');
+}
+
+async function saveAlertForm() {
+  const site   = document.getElementById('af-site').value.trim();
+  const level  = document.getElementById('af-level').value;
+  const title  = document.getElementById('af-title').value.trim();
+  const detail = document.getElementById('af-detail').value.trim();
+  const time   = document.getElementById('af-time').value || '00:00';
+  if (!site || !title) { alert('請填寫案場名稱及標題'); return; }
+  const iconMap = {critical:'🔴', warning:'🟡', info:'🔵'};
+  const today = new Date().toISOString().split('T')[0];
+  const data = {
+    level, icon: iconMap[level], site, title, detail, time,
+    date: today, source: 'manual',
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  try {
+    if (_alertEditId !== null) {
+      await alertsRef.doc(_alertEditId).update({level, icon:iconMap[level], site, title, detail, time});
+    } else {
+      await alertsRef.add(data);
+    }
+    closeModal('modal-alert');
+    // onSnapshot 自動觸發 renderAlerts
+  } catch (e) {
+    alert('儲存失敗：' + e.message);
+  }
+}
+
+async function syncGmsAlertToFirestore(site, mon) {
+  if (typeof alertsRef === 'undefined') return;
+  const alertNum = parseInt(mon.alert_num) || 0;
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  try {
+    const existing = await alertsRef
+      .where('site',   '==', site.name)
+      .where('source', '==', 'gms')
+      .where('date',   '==', today)
+      .get();
+    if (alertNum > 0) {
+      const payload = {
+        level:     alertNum >= 3 ? 'critical' : 'warning',
+        icon:      alertNum >= 3 ? '🔴' : '🟡',
+        site:      site.name,
+        title:     'GMS 監控告警',
+        detail:    `目前有 ${alertNum} 筆異常，請至 GMS 平台確認`,
+        time:      timeStr,
+        date:      today,
+        source:    'gms',
+        alert_num: alertNum,
+      };
+      if (existing.empty) {
+        payload.created_at = firebase.firestore.FieldValue.serverTimestamp();
+        await alertsRef.add(payload);
+      } else {
+        await existing.docs[0].ref.update({...payload, time: timeStr});
+      }
+    } else if (!existing.empty) {
+      // 告警已消除，從 Firestore 移除
+      for (const doc of existing.docs) await doc.ref.delete();
+    }
+  } catch(e) {
+    console.warn('[Firebase] GMS 告警同步失敗', e);
+  }
+}
+
+async function deleteAlert(id) {
+  if (!confirm('確定要刪除這筆告警嗎？')) return;
+  try {
+    await alertsRef.doc(String(id)).delete();
+    // onSnapshot 自動觸發 renderAlerts
+  } catch (e) {
+    // fallback to local
+    const idx = ALERTS.findIndex(a=>a.id===id);
+    if (idx !== -1) ALERTS.splice(idx, 1);
+    saveAlerts(); renderAlerts(); updateNotifDot();
+  }
+}
+
+// ═══════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════
+function renderCalendar() {
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('cal-title').textContent = `${calYear} 年 ${months[calMonth]}`;
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const days = new Date(calYear, calMonth+1, 0).getDate();
+  const prevDays = new Date(calYear, calMonth, 0).getDate();
+  let html = '';
+  const eventMap = {};
+  EVENTS.forEach(e => { if (!eventMap[e.date]) eventMap[e.date]=[];  eventMap[e.date].push(e); });
+  let cells = [];
+  for (let i=first-1;i>=0;i--) cells.push({day:prevDays-i,cur:false});
+  for (let i=1;i<=days;i++) cells.push({day:i,cur:true});
+  while (cells.length%7!==0) { cells.push({day:cells.length-days-first+2,cur:false}); }
+  cells.forEach(c => {
+    const dateStr = c.cur ? `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(c.day).padStart(2,'0')}` : '';
+    const isToday = c.cur && calYear===now.getFullYear() && calMonth===now.getMonth() && c.day===now.getDate();
+    const evs = eventMap[dateStr] || [];
+    html += `<div class="cal-day${!c.cur?' other-m':''}${isToday?' today':''}">
+      <div class="cdn">${c.day}</div>
+      ${evs.map(e=>`<div class="cev ${e.type}" title="${e.site}: ${e.person}">${e.site.slice(0,3)}</div>`).join('')}
+    </div>`;
+  });
+  document.getElementById('cal-days').innerHTML = html;
+}
+
+function changeMonth(d) {
+  calMonth += d;
+  if (calMonth > 11) { calMonth=0; calYear++; }
+  if (calMonth < 0) { calMonth=11; calYear--; }
+  renderCalendar();
+}
+
+// ═══════════════════════════════════════
+// SCHEDULE TABS
+// ═══════════════════════════════════════
+function switchSchedTab(name, el) {
+  document.querySelectorAll('.sched-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sched-pane').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(`sched-pane-${name}`).classList.add('active');
+  if (name === 'kanban') renderKanban();
+}
+
+// ═══════════════════════════════════════
+// KANBAN BOARD
+// ═══════════════════════════════════════
+const WO_COLS = [
+  {key:'pending',    label:'待受理',  color:'var(--amber)'},
+  {key:'dispatched', label:'已派工',  color:'var(--blue)'},
+  {key:'in_progress',label:'執行中',  color:'var(--purple)'},
+  {key:'done',       label:'已完成',  color:'var(--green)'},
+];
+const STATUS_LABEL = {pending:'待受理',dispatched:'已派工',in_progress:'執行中',done:'已完成'};
+
+function renderKanban() {
+  const html = WO_COLS.map(col => {
+    const cards = EVENTS.filter(e => (e.status || 'pending') === col.key);
+    return `<div class="kb-col">
+      <div class="kb-col-hd">
+        <div class="kb-col-title" style="color:${col.color}">${col.label}</div>
+        <div class="kb-col-count">${cards.length}</div>
+      </div>
+      ${cards.length ? cards.map(e => kbCardHtml(e)).join('') : `<div style="font-size:11px;color:var(--text3);text-align:center;padding:16px 0;">無工單</div>`}
+    </div>`;
+  }).join('');
+  document.getElementById('kb-board').innerHTML = html;
+}
+
+function kbCardHtml(e) {
+  const urgBadge = e.priority === 'urgent' ? `<span class="kb-tag urgent">緊急</span>` : '';
+  const descHtml = e.description ? `<div class="kb-desc">${e.description}</div>` : '';
+  return `<div class="kb-card" onclick="openWoDetail('${e.id}')">
+    <div class="kb-card-title">${TYPE_LABEL[e.type] || e.type}</div>
+    <div class="kb-card-site">${e.site}</div>
+    <div class="kb-card-meta">
+      <span class="kb-tag ${e.type}">${TYPE_LABEL[e.type] || e.type}</span>
+      ${urgBadge}
+      <span class="kb-date">${e.date}</span>
+      <span class="kb-person">${e.person || '—'}</span>
+    </div>
+    ${descHtml}
+  </div>`;
+}
+
+let _woId = null;
+function openWoDetail(id) {
+  const e = EVENTS.find(x => x.id === id);
+  if (!e) return;
+  _woId = id;
+  document.getElementById('wo-modal-title').textContent = `工單：${TYPE_LABEL[e.type] || e.type} — ${e.site}`;
+  const rows = [
+    ['案場', e.site], ['工作類型', TYPE_LABEL[e.type] || e.type],
+    ['執行日期', e.date],
+    ['緊急程度', e.priority === 'urgent' ? '🔴 緊急' : '一般'],
+    ['回報人', e.reporter || '—'], ['備註', e.note || '—'],
+  ];
+  const infoHtml = rows.map(([l,v]) =>
+    `<div class="wo-info-row"><div class="wo-info-label">${l}</div><div class="wo-info-val">${v}</div></div>`
+  ).join('');
+  const techHtml = `<div class="wo-info-row">
+    <div class="wo-info-label">負責技師</div>
+    <div class="wo-info-val">
+      <select id="wo-tech-select" onchange="assignTechnician('${id}',this.value)" style="font-size:13px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text1);min-width:110px;">
+        <option value="">— 待指定 —</option>
+        ${buildTechOptions(e.person || '')}
+      </select>
+    </div>
+  </div>`;
+  const descHtml = e.description
+    ? `<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text2);line-height:1.6;">${e.description}</div>`
+    : '';
+  const statusBtns = WO_COLS.map(col =>
+    `<button class="wo-status-btn s-${col.key}${e.status===col.key?' current':''}" onclick="updateWoStatus('${id}','${col.key}')">${col.label}</button>`
+  ).join('');
+  document.getElementById('wo-modal-body').innerHTML = `
+    ${infoHtml}
+    ${techHtml}
+    ${descHtml}
+    <div style="margin-top:14px;font-size:11px;color:var(--text3);font-weight:600;">更新狀態</div>
+    <div class="wo-status-row">${statusBtns}</div>`;
+  openModal('modal-wo');
+}
+
+function assignTechnician(id, person) {
+  if (person === '__new__') {
+    const name = prompt('請輸入技師姓名：');
+    if (!name) {
+      document.getElementById('wo-tech-select').value = '';
+      return;
+    }
+    addTechnician(name);
+    person = name;
+    // rebuild options with the new name
+    const sel = document.getElementById('wo-tech-select');
+    sel.innerHTML = `<option value="">— 待指定 —</option>${buildTechOptions(name)}`;
+    sel.value = name;
+  }
+  const e = EVENTS.find(x => x.id === id);
+  if (!e) return;
+  e.person = person || '';
+  workordersRef.doc(id).update({ person: person || '' }).catch(err => console.warn('[Firebase] 技師更新失敗', err));
+}
+
+function updateWoStatus(id, status) {
+  const e = EVENTS.find(x => x.id === id);
+  if (!e) return;
+  e.status = status;
+  workordersRef.doc(id).update({ status }).catch(err => console.warn('[Firebase] 狀態更新失敗', err));
+  closeModal('modal-wo');
+  renderKanban();
+  renderCalendar();
+}
+
+function deleteWo() {
+  if (!_woId || !confirm('確定要刪除這筆工單嗎？')) return;
+  workordersRef.doc(_woId).delete().catch(err => console.warn('[Firebase] 工單刪除失敗', err));
+  const idx = EVENTS.findIndex(x => x.id === _woId);
+  if (idx !== -1) EVENTS.splice(idx, 1);
+  closeModal('modal-wo');
+  renderKanban();
+  renderCalendar();
+}
+
+// ═══════════════════════════════════════
+// ADD EVENT
+// ═══════════════════════════════════════
+function onSiteChange(val) {
+  const custom = document.getElementById('ev-site-custom');
+  custom.style.display = val === '__custom__' ? 'block' : 'none';
+  if (val === '__custom__') custom.focus();
+}
+
+function onPersonChange(val) {
+  const custom = document.getElementById('ev-person-custom');
+  custom.style.display = val === '__new__' ? 'block' : 'none';
+  if (val === '__new__') custom.focus();
+}
+
+function onTypeChange(val) {
+  const custom = document.getElementById('ev-type-custom');
+  custom.style.display = val === '__custom__' ? 'block' : 'none';
+  if (val === '__custom__') custom.focus();
+}
+
+function openAddEvent() {
+  const sel = document.getElementById('ev-site');
+  sel.innerHTML = SITES.map(s => `<option value="${s.name}">${s.name}</option>`).join('')
+    + `<option value="__custom__">＋ 輸入其他案場名稱…</option>`;
+  document.getElementById('ev-site-custom').style.display = 'none';
+  document.getElementById('ev-site-custom').value = '';
+  document.getElementById('ev-type-custom').style.display = 'none';
+  document.getElementById('ev-type-custom').value = '';
+  document.getElementById('ev-date').value = new Date().toISOString().split('T')[0];
+  const personSel = document.getElementById('ev-person');
+  personSel.innerHTML = `<option value="">— 待指定 —</option>${buildTechOptions('')}<option value="__new__">＋ 新增技師…</option>`;
+  personSel.value = '';
+  document.getElementById('ev-person-custom').style.display = 'none';
+  document.getElementById('ev-person-custom').value = '';
+  document.getElementById('ev-reporter').value = '';
+  document.getElementById('ev-note').value = '';
+  document.getElementById('ev-desc').value = '';
+  document.getElementById('ev-priority').value = 'normal';
+  document.getElementById('ev-type').value = 'pm';
+  openModal('modal-event');
+}
+
+function addEvent() {
+  let site = document.getElementById('ev-site').value;
+  let type = document.getElementById('ev-type').value;
+  if (site === '__custom__') {
+    site = document.getElementById('ev-site-custom').value.trim();
+    if (!site) { alert('請輸入案場名稱'); return; }
+  }
+  if (type === '__custom__') {
+    type = document.getElementById('ev-type-custom').value.trim();
+    if (!type) { alert('請輸入工作類型'); return; }
+  }
+  const date     = document.getElementById('ev-date').value;
+  let person = document.getElementById('ev-person').value;
+  if (person === '__new__') {
+    person = document.getElementById('ev-person-custom').value.trim();
+    if (person) addTechnician(person);
+  }
+  person = person || '';
+  const priority = document.getElementById('ev-priority').value;
+  const reporter = document.getElementById('ev-reporter').value;
+  const note     = document.getElementById('ev-note').value;
+  const desc     = document.getElementById('ev-desc').value;
+  if (!date) { alert('請選擇日期'); return; }
+  const id = 'wo' + Date.now();
+  const status = (type === 'em' || type === 'incident') ? 'pending' : 'dispatched';
+  const wo = {id, date, type, status, priority, site, person, reporter, note, description: desc};
+  // 存到 Firestore（監聽器會自動更新畫面）
+  workordersRef.doc(id).set({
+    ...wo,
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch(err => {
+    // Firebase 失敗時退回本機
+    console.warn('[Firebase] 工單儲存失敗，退回本機', err);
+    EVENTS.push(wo);
+    renderCalendar();
+    renderKanban();
+  });
+  closeModal('modal-event');
+}
+
+const AS_SOUTH = ['台南市','高雄市','台東縣','屏東縣','嘉義縣','嘉義市','雲林縣','彰化縣','南投縣'];
+
+function asCountyChange(county) {
+  document.getElementById('as-region').value = AS_SOUTH.includes(county) ? '南區' : '北區';
+}
+
+function openAddSite() {
+  document.getElementById('as-name').value = '';
+  document.getElementById('as-cap').value  = '';
+  document.getElementById('as-county').value = '';
+  document.getElementById('as-group').value  = '綠源科技';
+  document.getElementById('as-region').value = '南區';
+  const today = new Date().toISOString().split('T')[0];
+  const end20 = new Date(); end20.setFullYear(end20.getFullYear() + 20);
+  document.getElementById('as-cstart').value = today;
+  document.getElementById('as-cend').value   = end20.toISOString().split('T')[0];
+  openModal('modal-add-site');
+}
+
+function addSite() {
+  const name   = document.getElementById('as-name').value.trim();
+  const county = document.getElementById('as-county').value;
+  const cap    = parseFloat(document.getElementById('as-cap').value);
+  const cStart = document.getElementById('as-cstart').value;
+  const cEnd   = document.getElementById('as-cend').value;
+  const group  = document.getElementById('as-group').value;
+  const region = document.getElementById('as-region').value;
+
+  if (!name || !county || !cap || !cStart || !cEnd) {
+    alert('請填寫所有必填欄位（*）'); return;
+  }
+
+  const existing = JSON.parse(localStorage.getItem('ess_custom_sites') || '[]');
+  const maxId = Math.max(25, ...SITES.map(s => s.id), ...existing.map(s => s.id));
+  const d6 = new Date(cStart); d6.setMonth(d6.getMonth() + 6);
+  const nextBilling = d6.toISOString().split('T')[0];
+
+  const newSite = {
+    id: maxId + 1, name, group, region,
+    loc: county, cap, cStart, cEnd,
+    fee: 0, nextBilling, status: 'normal',
+    moduleSpec: '—', moduleCount: 0, cleanFreq: 2, pr: 75, tariff: 0,
+    _custom: true,
+  };
+
+  existing.push(newSite);
+  localStorage.setItem('ess_custom_sites', JSON.stringify(existing));
+  SITES.push(newSite);
+
+  closeModal('modal-add-site');
+  renderSiteGrid();
+  renderStats();
+  renderSiteTree();
+}
+
+// ═══════════════════════════════════════
+// EXCEL IMPORT (SIMULATED)
+// ═══════════════════════════════════════
+const MOCK_IMPORT = [
+  {site:'東培龍潭',       type:'定期保養 PM',  date:'2026-09-05',person:'王技師'},
+  {site:'大量科技',       type:'熱顯像檢測 IR',date:'2026-09-10',person:'陳工程師'},
+  {site:'屏東客運',       type:'定期保養 PM',  date:'2026-09-15',person:'李工程師'},
+  {site:'大林薯光',       type:'定期保養 PM',  date:'2026-09-20',person:'王技師'},
+  {site:'台東-東職一期',  type:'熱顯像檢測 IR',date:'2026-09-25',person:'陳工程師'},
+];
+
+function handleFileUpload(input) {
+  if (!input.files.length) return;
+  setTimeout(showPreview, 600); // simulate parsing
+}
+
+function dzDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('dg'); }
+function dzDragLeave() { document.getElementById('dropzone').classList.remove('dg'); }
+function dzDrop(e) { e.preventDefault(); dzDragLeave(); setTimeout(showPreview, 600); }
+
+function showPreview() {
+  document.getElementById('preview-section').style.display='block';
+  document.getElementById('row-count').textContent = MOCK_IMPORT.length;
+  document.getElementById('preview-body').innerHTML = MOCK_IMPORT.map(r=>`
+    <tr><td>${r.site}</td><td>${r.type}</td><td>${r.date}</td><td>${r.person}</td></tr>`).join('');
+}
+
+function importConfirm() {
+  MOCK_IMPORT.forEach(r=>{
+    const typeMap={'定期保養 PM':'pm','熱顯像檢測 IR':'ir','SOH 健康度檢測':'soh'};
+    EVENTS.push({date:r.date,type:typeMap[r.type]||'pm',site:r.site,person:r.person,note:''});
+  });
+  document.getElementById('import-count').textContent = MOCK_IMPORT.length;
+  document.getElementById('import-success').style.display='block';
+  document.getElementById('preview-section').style.display='none';
+  renderCalendar();
+  setTimeout(()=>{ document.getElementById('import-success').style.display='none'; }, 4000);
+}
+
+function cancelImport() {
+  document.getElementById('preview-section').style.display='none';
+}
+
+function downloadTemplate() {
+  const csv = '案場名稱,工作類型,預計執行日,負責人,備註\n台南仁德廠,定期保養 PM,2026-07-05,王技師,季度例保';
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='ESS_排程匯入範本.csv'; a.click();
+}
+
+// ═══════════════════════════════════════
+// TIMELINE (CLIENT)
+// ═══════════════════════════════════════
+function renderTimeline() {
+  const clientSiteNames = CLIENT_SITE_IDS.map(id=>SITES.find(s=>s.id===id).name);
+  const upcoming = EVENTS
+    .filter(e=>clientSiteNames.includes(e.site) && e.date >= '2026-06-16')
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .slice(0,8);
+  document.getElementById('client-timeline').innerHTML = upcoming.map(e=>`
+    <div class="tl-item">
+      <div class="tl-connector"><div class="tl-dot ${e.type}"></div><div class="tl-line"></div></div>
+      <div class="tl-card">
+        <div class="tc-hd">
+          <span class="tc-tag ${e.type}">${TYPE_LABEL[e.type]}</span>
+          <span class="tc-date">📅 ${e.date}</span>
+        </div>
+        <div class="tc-title">${e.site}</div>
+        <div class="tc-detail">負責人：${e.person}${e.note?' · '+e.note:''}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════
+// REPORTS (CLIENT)
+// ═══════════════════════════════════════
+function renderReports() {
+  let rpts = REPORTS;
+  if (reportFilter !== 'all') rpts = rpts.filter(r=>r.type===reportFilter);
+  document.getElementById('rpt-tbody').innerHTML = rpts.map(r=>`
+    <tr>
+      <td>${r.name}</td>
+      <td><span class="rtype ${r.type}">${TYPE_LABEL[r.type]}</span></td>
+      <td>${r.site}</td>
+      <td>${r.date}</td>
+      <td><button class="dl-btn" onclick="fakeDownload('${r.name}')">⬇ 下載 (${r.size})</button></td>
+    </tr>`).join('');
+}
+
+function filterReports(type, btn) {
+  reportFilter = type;
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReports();
+}
+
+function fakeDownload(name) { alert(`下載功能：「${name}」\n（實際串接後端 API 後可提供真實檔案）`); }
+
+// ═══════════════════════════════════════
+// MODAL UTILS
+// ═══════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('m-overlay')) e.target.classList.remove('open');
+});
+
+</script>
+
+<!-- ═══ FIREBASE SDK ═══ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ── Firebase 初始化 ──────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyA99jABY1q531m49EYmtBKL7pvBaRySLmg",
+  authDomain: "ess-dashboard-110ec.firebaseapp.com",
+  projectId: "ess-dashboard-110ec",
+  storageBucket: "ess-dashboard-110ec.firebasestorage.app",
+  messagingSenderId: "671675526089",
+  appId: "1:671675526089:web:04768af573682aa96d1618"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const alertsRef     = db.collection('alerts');
+const workordersRef = db.collection('workorders');
+
+// ── 工單 Firestore 即時同步 ──────────────────────────────
+let _woUnsubscribe = null;
+
+function startWorkordersListener() {
+  if (_woUnsubscribe) _woUnsubscribe();
+  _woUnsubscribe = workordersRef
+    .orderBy('created_at', 'desc')
+    .onSnapshot(snapshot => {
+      if (!snapshot.empty) {
+        // 有雲端資料 → 完全使用雲端，不用寫死的範例
+        EVENTS.length = 0;
+        snapshot.docs.forEach(doc => {
+          const d = doc.data();
+          EVENTS.push({
+            id:          doc.id,
+            date:        d.date        || '',
+            type:        d.type        || 'pm',
+            status:      d.status      || 'pending',
+            priority:    d.priority    || 'normal',
+            site:        d.site        || '',
+            person:      d.person      || '',
+            reporter:    d.reporter    || '',
+            note:        d.note        || '',
+            description: d.description || '',
+          });
+        });
+      }
+      renderCalendar();
+      renderKanban();
+    }, err => {
+      console.warn('[Firebase] 工單監聽失敗，使用本機資料', err);
+    });
+}
+
+// ── URL 參數自動進入（?admin 或 ?client，方便預覽開發）──
+// 放在 Firebase init 之後，確保 startAlertsListener 已定義
+(function() {
+  const p = new URLSearchParams(location.search);
+  if (p.has('admin'))  enterApp('admin');
+  else if (p.has('client')) enterApp('client');
+})();
+
+let _alertsUnsubscribe = null;
+let _fbReady = false;
+
+function startAlertsListener() {
+  if (_alertsUnsubscribe) _alertsUnsubscribe();
+  _alertsUnsubscribe = alertsRef
+    .orderBy('created_at', 'desc')
+    .onSnapshot(snapshot => {
+      _fbReady = true;
+      ALERTS = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id:     doc.id,
+          level:  d.level  || 'warning',
+          icon:   d.icon   || '🟡',
+          site:   d.site   || '—',
+          title:  d.title  || '告警',
+          detail: d.detail || '',
+          time:   d.time   || '00:00',
+          date:   d.date   || '',
+          source: d.source || 'manual',
+        };
+      });
+      renderAlerts();
+      updateNotifDot();
+    }, err => {
+      console.warn('[Firebase] 監聽失敗，改用後端告警', err);
+      if (!_fbReady) loadBackendAlerts(true);
+    });
+}
+
+async function loadBackendAlerts(withFallback=false) {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
+    const res  = await fetch('http://localhost:5050/api/alerts', {signal: ctrl.signal});
+    const json = await res.json();
+    // 保留手動新增的本機告警，替換後端 gms 來源告警
+    const manualAlerts = ALERTS.filter(a => a.source !== 'gms');
+    const backendAlerts = (json.ok && json.alerts) ? json.alerts : [];
+    ALERTS = [...backendAlerts, ...manualAlerts];
+    if (ALERTS.length === 0 && withFallback) {
+      ALERTS = ALERTS_DEFAULT.map(a=>({...a}));
+    }
+  } catch {
+    if (withFallback && ALERTS.length === 0) {
+      ALERTS = JSON.parse(localStorage.getItem('ess_alerts') || 'null') || ALERTS_DEFAULT.map(a=>({...a}));
+    }
+  }
+  renderAlerts();
+  updateNotifDot();
+}
+</script>
+</body>
+</html>
