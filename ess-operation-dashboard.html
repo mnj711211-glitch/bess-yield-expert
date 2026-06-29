@@ -1462,7 +1462,14 @@ function handleSearch(val) { searchVal=val; renderSiteGrid(); }
 // SITE MODAL
 // ═══════════════════════════════════════
 let currentModalSiteId = null;
-const BACKEND_URL = 'http://localhost:5050';
+const BACKEND_URL = (() => {
+  // GitHub Pages → 使用 Railway 雲端後端
+  if (location.hostname === 'mnj711211-glitch.github.io') {
+    return 'https://RAILWAY_URL_PLACEHOLDER.up.railway.app';
+  }
+  // 本機開發 → localhost
+  return 'http://localhost:5050';
+})();
 // 後端有真實數據的案場名稱集合（啟動時非同步填入）
 const _realSites = new Set();
 // 前端用的 plantNo 對照（用於 GMS 連結）
