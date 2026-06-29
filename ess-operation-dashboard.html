@@ -1248,6 +1248,7 @@ function enterApp(r) {
   try { startAlertsListener(); } catch(e) { console.warn('[Firebase] 監聽啟動失敗，使用本機資料', e); }
   try { startWorkordersListener(); } catch(e) { console.warn('[Firebase] 工單監聽啟動失敗', e); }
   initRealSites();
+  loadCloudPhotos();
 }
 
 function switchRole() {
@@ -2263,6 +2264,7 @@ async function openSiteModal(id) {
 // 壓縮並儲存案場照片（統一 key：site_photo_<id>）
 // 手機原圖常 3~8MB，超過 localStorage 上限會存不進去 → 重整就消失。
 // 這裡先縮到最大 1280px、轉 JPEG 品質 0.82，通常可降到 200~400KB。
+// 流程：壓縮 → 本機立即顯示 → 背景上傳 Firebase Storage（所有人都看得到）
 function storeSitePhoto(id, file, onDone) {
   if (!file) return;
   const reader = new FileReader();
@@ -2279,17 +2281,55 @@ function storeSitePhoto(id, file, onDone) {
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      try {
-        localStorage.setItem(`site_photo_${id}`, dataUrl);
-        if (onDone) onDone(dataUrl);
-      } catch (err) {
-        showToast('⚠️ 照片太大無法儲存，請換一張解析度較低的照片', 4000);
-      }
+      // 1) 本機快取 + 立即顯示
+      try { localStorage.setItem(`site_photo_${id}`, dataUrl); } catch (_) {}
+      if (onDone) onDone(dataUrl);
+      // 2) 背景上傳雲端共享
+      uploadPhotoToCloud(id, canvas);
     };
     img.onerror = () => showToast('照片讀取失敗，請換一張', 3000);
     img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+// 上傳壓縮後的照片到 Firebase Storage，並把下載網址寫入 Firestore 索引
+function uploadPhotoToCloud(id, canvas) {
+  if (typeof storage === 'undefined' || !storage) return; // Storage 未啟用 → 只存本機
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    showToast('☁️ 照片上傳雲端中…', 2000);
+    const ref = storage.ref(`site_photos/${id}.jpg`);
+    ref.put(blob, { contentType: 'image/jpeg' })
+      .then(snap => snap.ref.getDownloadURL())
+      .then(url => db.collection('site_photos').doc(String(id)).set({
+        url, updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => url))
+      .then(url => {
+        try { localStorage.setItem(`site_photo_${id}`, url); } catch (_) {}
+        showToast('✅ 照片已同步雲端，所有人都看得到了', 2500);
+      })
+      .catch(err => {
+        console.error('[Storage] 上傳失敗', err);
+        showToast('⚠️ 雲端上傳失敗（已存本機）：' + (err.code || err.message || ''), 4500);
+      });
+  }, 'image/jpeg', 0.82);
+}
+
+// 啟動時從 Firestore 載入所有案場雲端照片網址，寫回 localStorage 快取後重繪
+async function loadCloudPhotos() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const snap = await db.collection('site_photos').get();
+    let n = 0;
+    snap.forEach(doc => {
+      const url = doc.data().url;
+      if (url) { try { localStorage.setItem(`site_photo_${doc.id}`, url); n++; } catch (_) {} }
+    });
+    if (n > 0) renderSiteGrid();
+  } catch (err) {
+    console.warn('[Storage] 載入雲端照片失敗', err);
+  }
 }
 
 // 同步更新案場總覽卡牌縮圖
@@ -2917,6 +2957,7 @@ document.addEventListener('click', e => {
 <!-- ═══ FIREBASE SDK ═══ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
 // ── Firebase 初始化 ──────────────────────────────
 const firebaseConfig = {
@@ -2929,6 +2970,7 @@ const firebaseConfig = {
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 const alertsRef     = db.collection('alerts');
 const workordersRef = db.collection('workorders');
 
