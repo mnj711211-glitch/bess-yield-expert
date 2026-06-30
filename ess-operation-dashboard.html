@@ -405,6 +405,7 @@ select option{background:var(--surface2);}
 .tn-sbadge.normal{background:rgba(39,174,96,.85);color:#fff;}
 .tn-sbadge.warning{background:rgba(224,120,32,.85);color:#fff;}
 .tn-sbadge.critical{background:rgba(192,57,43,.85);color:#fff;}
+.tn-sbadge.offline{background:rgba(80,80,80,.92);color:#fff;}
 .tn-mock{font-size:8px;font-weight:700;padding:2px 6px;border-radius:99px;background:rgba(100,100,100,.78);color:#fff;letter-spacing:.3px;}
 .tn-body{padding:11px 13px 9px;}
 .tn-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;}
@@ -1399,7 +1400,7 @@ async function initRealSites(retry = 0) {
   try {
     if (typeof db !== 'undefined' && db) {
       const snap = await db.collection('site_realtime').get();
-      snap.forEach(doc => _realSites.add(doc.id));
+      snap.forEach(doc => { _realSites.add(doc.id); _realData[doc.id] = doc.data(); });
       if (_realSites.size > 0) { renderSiteGrid(); return; }
     } else if (retry < 6) {
       // Firebase 尚未初始化完成 → 稍後重試
@@ -1435,8 +1436,9 @@ function siteCard(s, readOnly=false) {
   const barColor = pct>80?'var(--amber)':pct>50?'var(--blue)':'var(--green)';
   const grad = CARD_GRAD[s.group] || 'linear-gradient(135deg,#1a3a2a 0%,#2d6b4a 100%)';
   const spYield = (m.today / s.cap).toFixed(2);
-  const statusCls = s.status==='normal'?'normal':s.status==='warning'?'warning':'critical';
-  const statusTw  = s.status==='normal'?'正常':s.status==='warning'?'告警':'故障';
+  const st = liveStatus(s);
+  const statusCls = st==='normal'?'normal':st==='warning'?'warning':st==='offline'?'offline':'critical';
+  const statusTw  = st==='normal'?'正常':st==='warning'?'告警':st==='offline'?'斷線':'故障';
   const capLabel  = s.cap>=1000 ? (s.cap/1000).toFixed(2)+' MWp' : s.cap+' kWp';
   const savedPhoto = localStorage.getItem(`site_photo_${s.id}`);
   const imgStyle = savedPhoto
@@ -1568,6 +1570,17 @@ const BACKEND_URL = (() => {
 })();
 // 後端有真實數據的案場名稱集合（啟動時非同步填入）
 const _realSites = new Set();
+const _realData = {};   // 案場名稱 → Firestore 即時資料（用來判斷斷線/異常）
+
+// 依真實資料判斷案場即時狀態：全廠都在發電、但此案場 0 發電 → 斷線
+function liveStatus(s) {
+  const rd = _realData[s.name];
+  if (!rd) return s.status;                       // 無真實資料 → 沿用既有狀態
+  const ac = rd.ac_kw || 0, today = rd.today_kwh || 0;
+  const fleetActive = Object.values(_realData).some(d => (d.ac_kw || 0) > 0.5);
+  if (fleetActive && ac <= 0 && today <= 0) return 'offline';   // 白天斷線
+  return s.status;
+}
 // 前端用的 plantNo 對照（用於 GMS 連結）
 const PLANT_MAP_FE = {
   '東培龍潭': 'BDL222060124',
