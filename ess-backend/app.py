@@ -187,6 +187,19 @@ def fetch_all_sites():
     except Exception as e:
         logger.error("fetch_all_sites (SolarEdge) 例外: %s", e)
 
+    # ── SEPV solarV4 資料源 ───────────────────────────────────
+    try:
+        from sepv_client import fetch_sepv_sites
+        sepv_sites = fetch_sepv_sites()
+        for d in sepv_sites:
+            site_name = d.pop("site_name")
+            _cache[site_name] = d
+            logger.info("✓ SEPV %s: 今日 %.1f kWh, 即時 %.1f kW",
+                        site_name, d["today_kwh"], d["ac_kw"])
+        updated += len(sepv_sites)
+    except Exception as e:
+        logger.error("fetch_all_sites (SEPV) 例外: %s", e)
+
     save_cache()
     logger.info("快取更新完成 (%d 案場)", updated)
 
