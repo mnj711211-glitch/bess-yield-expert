@@ -244,6 +244,20 @@ def send_daily_alert_digest():
 
 # ── API 路由 ──────────────────────────────────────────────────
 
+@app.post("/callback")
+def line_callback():
+    """LINE webhook 接收點：擷取群組 ID（取得新 group_id 用）。"""
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        for ev in body.get("events", []):
+            src = ev.get("source", {}) or {}
+            logger.info("🆔 LINE_WEBHOOK source type=%s groupId=%s roomId=%s userId=%s",
+                        src.get("type"), src.get("groupId"), src.get("roomId"), src.get("userId"))
+    except Exception as e:
+        logger.error("callback 解析失敗: %s", e)
+    return "OK", 200
+
+
 @app.get("/api/health")
 def health():
     return jsonify({
