@@ -14,6 +14,20 @@ logger = logging.getLogger(__name__)
 
 BASE = "https://www.sepv.com.tw/solarV4"
 
+# SEPV 案場名稱 → 儀表板既有案場名稱（接到現有案場，避免重複顯示）
+NAME_MAP = {
+    "台南柳營．牛舍（綠源施工）":       "柳營-黃燕良牛舍",
+    "台南楠西．楠西（一）":            "台南/楠西一",
+    "雲林西螺．雞舍（綠源合作案）":     "西螺-洪慶堂雞舍",
+}
+
+# 不納入（Test 案件、或已由其他平台提供真實資料的重複案場）
+SKIP_NAMES = {
+    "台南安平．天賜良緣（綠源／Test案件／追日)",
+    "台南安平．天賜良緣（綠源／Test案件／固定)",
+    "嘉義大林．台糖薯光案（追日案）",
+}
+
 
 def _num(x):
     x = (x or "").strip().replace(",", "")
@@ -81,6 +95,9 @@ def fetch_sepv_sites() -> list[dict]:
             continue
 
         name  = cells[1]
+        if name in SKIP_NAMES:
+            continue
+        name = NAME_MAP.get(name, name)   # 接到現有案場名稱
         cap   = _num(cells[2])
         ac_kw = _num(cells[3])
         today = _num(cells[4])
