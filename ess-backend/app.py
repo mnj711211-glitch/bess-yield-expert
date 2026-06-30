@@ -41,8 +41,10 @@ _wx_cache_ts: dict = {}    # county → float
 
 # ── GMS 案場對照表（名稱 → GMS plantNO）────────────────────────
 PLANT_MAP: dict[str, str] = {
-    "東培龍潭":  "BDL222060124",   # id=12, cap=1279.46 kWp
-    "屏東客運":  "BDL222060166",   # id=19, cap=1571.39 kWp
+    "東培龍潭":      "BDL222060124",   # id=12, cap=1279.46 kWp
+    "屏東客運":      "BDL222060166",   # id=19, cap=1571.39 kWp
+    "萬隆造紙":      "BDLP23050044",   # id=36, cap=1811.94 kWp, 桃園新屋
+    "精湛光學特登廠": "BDLP26034238",   # id=37, cap=499.95 kWp, 高雄湖內
 }
 
 # ── iPVita 案場對照表（名稱 → iPVita site code）─────────────────
