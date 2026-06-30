@@ -1126,6 +1126,14 @@ const SITES = [
   custom.forEach(s => { if (!SITES.find(x => x.id === s.id)) SITES.push(s); });
 })();
 
+// 套用已刪除案場（含預設案場），重整後維持移除
+(function applyDeletedSites() {
+  const deleted = JSON.parse(localStorage.getItem('ess_deleted_sites') || '[]');
+  for (let i = SITES.length - 1; i >= 0; i--) {
+    if (deleted.includes(SITES[i].id)) SITES.splice(i, 1);
+  }
+})();
+
 // 案場群組色彩
 const GROUP_COLOR = {
   '綠源科技':{c:'#3fb950',bg:'rgba(63,185,80,.18)'},
@@ -2066,6 +2074,9 @@ function executeDeleteSite() {
   const custom = JSON.parse(localStorage.getItem('ess_custom_sites') || '[]');
   const filtered = custom.filter(x => x.id !== id);
   localStorage.setItem('ess_custom_sites', JSON.stringify(filtered));
+  // 預設案場：記錄已刪除 ID，重整後才不會又出現
+  const deleted = JSON.parse(localStorage.getItem('ess_deleted_sites') || '[]');
+  if (!deleted.includes(id)) { deleted.push(id); localStorage.setItem('ess_deleted_sites', JSON.stringify(deleted)); }
   _realSites.delete(s.name);
   closeModal('modal-delete-site');
   renderSiteGrid();
