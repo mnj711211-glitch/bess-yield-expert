@@ -149,9 +149,16 @@ def fetch_all_sites():
             for site_name, plant_no in THINGNARIO_PLANT_MAP.items():
                 data = tn.fetch_realtime(plant_no)
                 if data:
+                    # 進行中事件明細（裝置/錯誤碼/訊息）
+                    ev = tn.get_active_events(plant_no)
+                    if ev and ev.get("count"):
+                        data["alert_num"]    = ev["count"]
+                        data["alert_flag"]   = "ACTIVE"
+                        data["event_detail"] = ev
                     _cache[site_name] = data
-                    logger.info("✓ Thingnario %s (%s): %.1f kW, 今日 %.1f kWh",
-                                site_name, plant_no, data["ac_kw"], data["today_kwh"])
+                    logger.info("✓ Thingnario %s (%s): %.1f kW, 今日 %.1f kWh, 告警 %s",
+                                site_name, plant_no, data["ac_kw"], data["today_kwh"],
+                                (ev or {}).get("count", 0))
                     updated += 1
                 else:
                     logger.warning("✗ Thingnario %s (%s) 無資料", site_name, plant_no)

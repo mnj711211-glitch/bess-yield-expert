@@ -120,6 +120,60 @@ class ThingnarioClient:
             result.append(round(kwh, 1))
         return result
 
+    # ── 進行中事件（告警明細）─────────────────────────
+    def get_active_events(self, plant_no: str) -> dict | None:
+        """
+        取得案場「進行中」(未結束) 事件摘要。
+        回傳: {device, code, type, category, message, started, count} 或 None。
+        """
+        import json as _json
+        self.ensure_logged_in()
+        try:
+            r = self.session.get(
+                f"{API_BASE}/SolarEvents/findOne",
+                params={"filter": _json.dumps({
+                    "where": {"plantNo": plant_no, "endTimestamp": None},
+                    "order": "startTimestamp DESC",
+                })},
+                timeout=12,
+            )
+            if r.status_code != 200:
+                return None
+            ev = r.json()
+            if not ev:
+                return None
+
+            # 進行中事件數
+            rc = self.session.get(
+                f"{API_BASE}/SolarEvents/count",
+                params={"where": _json.dumps({"plantNo": plant_no, "endTimestamp": None})},
+                timeout=12,
+            )
+            count = rc.json().get("count", 0) if rc.status_code == 200 else 0
+
+            # 事件訊息文字對照
+            message, category = "", ""
+            mid = ev.get("eventMessageId")
+            if mid:
+                rm = self.session.get(f"{API_BASE}/SolarEventMessages/{mid}", timeout=12)
+                if rm.status_code == 200:
+                    m = rm.json()
+                    message  = m.get("message") or m.get("description") or ""
+                    category = m.get("category") or ""
+
+            return {
+                "device":   ev.get("deviceNo", ""),
+                "code":     ev.get("value", ""),
+                "type":     ev.get("eventType", ""),
+                "category": category,
+                "message":  message,
+                "started":  ev.get("startTimestamp", ""),
+                "count":    count,
+            }
+        except Exception as e:
+            logger.warning("Thingnario get_active_events(%s) 例外: %s", plant_no, e)
+            return None
+
     # ── 完整即時數據（供後端快取使用）───────────────
     def fetch_realtime(self, plant_no: str) -> dict | None:
         """
