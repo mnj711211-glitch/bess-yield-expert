@@ -199,45 +199,47 @@ def fetch_all_sites():
     except Exception as fb_err:
         logger.warning("Firestore site_realtime 推送跳過: %s", fb_err)
 
-    # ── LINE 告警推播（合併成一則訊息）────────────────────────
-    new_alerts   = []   # 新增或變化的告警
-    resolved     = []   # 已解除的案場
+    # ── LINE 通知改為「每天定時兩次」推播（見 send_daily_alert_digest）──
+    # 不再每次抓取就推播，避免洗版＆節省免費額度（每月 200 則）。
+    # 排程在 09:00 與 16:00 各推一次當前所有案場告警總覽。
 
+
+# ── 定時告警總覽推播（每天 09:00 / 16:00）──────────────────────
+def send_daily_alert_digest():
+    """推播當前所有案場的告警總覽到 LINE。固定時間呼叫，不做去重。"""
+    alerts = []
     for site_name, data in _cache.items():
-        alert_num  = int(data.get("alert_num") or 0)
-        alert_flag = str(data.get("alert_flag") or "")
-        prev_num   = _notified_alerts.get(site_name, 0)
-
-        if alert_num > 0 and alert_num != prev_num:
+        alert_num = int(data.get("alert_num") or 0)
+        if alert_num > 0:
             level = "critical" if alert_num >= 3 else "warning"
-            new_alerts.append({
+            alerts.append({
                 "site":      site_name,
                 "level":     level,
                 "alert_num": alert_num,
-                "detail":    f"目前有 {alert_num} 筆異常（{alert_flag}）",
+                "detail":    f"目前有 {alert_num} 筆異常",
             })
-            _notified_alerts[site_name] = alert_num
 
-        elif alert_num == 0 and prev_num > 0:
-            resolved.append(site_name)
-            _notified_alerts.pop(site_name, None)
-
-    # 所有新告警合併成一則
-    if new_alerts:
-        send_alert_summary(new_alerts)
-
-    # 解除通知（多個也合併）
-    if resolved:
+    if alerts:
+        ok = send_alert_summary(alerts)
+        logger.info("定時告警總覽推播：%d 案場 異常，結果=%s", len(alerts), ok)
+    else:
+        # 全部正常也推一則，當作系統心跳，讓使用者確認通知管道正常
         from line_notifier import _token, _group_id
         import requests as _r
         token, gid = _token(), _group_id()
         if token and gid:
-            sites_str = "、".join(resolved)
-            text = f"✅ ESS 戰情版｜告警解除\n━━━━━━━━━━━━━━━\n📍 {sites_str}\n狀態已恢復正常。"
-            _r.post("https://api.line.me/v2/bot/message/push",
-                    headers={"Content-Type":"application/json","Authorization":f"Bearer {token}"},
-                    json={"to": gid, "messages":[{"type":"text","text":text}]},
-                    timeout=8)
+            text = ("✅ ESS 戰情版｜定時巡檢\n"
+                    "━━━━━━━━━━━━━━━\n"
+                    "目前所有案場運作正常，無告警。")
+            try:
+                r = _r.post("https://api.line.me/v2/bot/message/push",
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": f"Bearer {token}"},
+                            json={"to": gid, "messages": [{"type": "text", "text": text}]},
+                            timeout=8)
+                logger.info("定時告警總覽推播：全部正常，HTTP=%d", r.status_code)
+            except Exception as e:
+                logger.error("定時推播例外: %s", e)
 
 
 # ── API 路由 ──────────────────────────────────────────────────
@@ -585,8 +587,11 @@ if __name__ == "__main__":
     # 定時每 CACHE_MINUTES 分鐘自動刷新
     scheduler = BackgroundScheduler()
     scheduler.add_job(fetch_all_sites, "interval", minutes=CACHE_MINUTES, id="refresh")
+    # 每天 09:00、16:00 各推一次 LINE 告警總覽（使用系統本地時間＝台灣時間）
+    scheduler.add_job(send_daily_alert_digest, "cron", hour=9,  minute=0, id="digest_am")
+    scheduler.add_job(send_daily_alert_digest, "cron", hour=16, minute=0, id="digest_pm")
     scheduler.start()
-    logger.info("排程啟動：每 %d 分鐘更新一次", CACHE_MINUTES)
+    logger.info("排程啟動：每 %d 分鐘更新；LINE 告警總覽 09:00 / 16:00", CACHE_MINUTES)
 
     # 啟動時立即拉一次（若 PLANT_MAP 已設定）
     if PLANT_MAP:
