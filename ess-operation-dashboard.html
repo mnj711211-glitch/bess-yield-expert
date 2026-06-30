@@ -1439,6 +1439,17 @@ function siteCard(s, readOnly=false) {
   const st = liveStatus(s);
   const statusCls = st==='normal'?'normal':st==='warning'?'warning':st==='offline'?'offline':'critical';
   const statusTw  = st==='normal'?'正常':st==='warning'?'告警':st==='offline'?'斷線':'故障';
+  // ── 卡片三格數據：有真實資料用真實，否則用模擬 ──
+  const rd = _realData[s.name];
+  const fmtKwh = v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v);
+  const cToday = (rd ? rd.today_kwh : m.today) || 0;
+  const monthVal = (rd ? rd.month_kwh : m.month) || 0;
+  const cMonthDisp = monthVal > 0 ? fmtKwh(monthVal) : '—';
+  const alertN = rd ? (parseInt(rd.alert_num) || 0) : 0;
+  let alertSv, alertColor;
+  if (st === 'offline')  { alertSv = '斷線';        alertColor = 'var(--text2)'; }
+  else if (alertN > 0)   { alertSv = alertN + '筆'; alertColor = 'var(--red)'; }
+  else                   { alertSv = '正常';        alertColor = 'var(--green)'; }
   const capLabel  = s.cap>=1000 ? (s.cap/1000).toFixed(2)+' MWp' : s.cap+' kWp';
   const savedPhoto = localStorage.getItem(`site_photo_${s.id}`);
   const imgStyle = savedPhoto
@@ -1465,9 +1476,9 @@ function siteCard(s, readOnly=false) {
       <div class="tn-name">${s.name}</div>
       <div class="tn-loc">📍 ${s.loc} · ${s.region}</div>
       <div class="tn-stats-row">
-        <div class="tn-stat"><div class="tn-si">📊</div><div class="tn-sv">${spYield}</div><div class="tn-sl">kWh/kWp</div></div>
-        <div class="tn-stat"><div class="tn-si">⚡</div><div class="tn-sv">${m.today>=1000?(m.today/1000).toFixed(1)+'k':m.today}</div><div class="tn-sl">kWh</div></div>
-        <div class="tn-stat"><div class="tn-si">💰</div><div class="tn-sv">${(m.revenue/1000).toFixed(1)}K</div><div class="tn-sl">TWD</div></div>
+        <div class="tn-stat"><div class="tn-si">⚡</div><div class="tn-sv">${fmtKwh(cToday)}</div><div class="tn-sl">今日 kWh</div></div>
+        <div class="tn-stat"><div class="tn-si">📅</div><div class="tn-sv">${cMonthDisp}</div><div class="tn-sl">本月 kWh</div></div>
+        <div class="tn-stat"><div class="tn-si">🔔</div><div class="tn-sv" style="color:${alertColor}">${alertSv}</div><div class="tn-sl">告警</div></div>
       </div>
       <div class="tn-bar">
         <div class="tn-track"><div class="tn-fill" style="width:${pct}%;background:${barColor}"></div></div>
