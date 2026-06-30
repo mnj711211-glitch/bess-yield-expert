@@ -400,11 +400,12 @@ select option{background:var(--surface2);}
 .tn-img{height:120px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .tn-img svg{opacity:.25;width:64px;height:64px;}
 .tn-cap{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.48);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;backdrop-filter:blur(3px);}
-.tn-sbadge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;}
+.tn-badges{position:absolute;top:8px;left:8px;display:flex;gap:4px;align-items:center;z-index:2;}
+.tn-sbadge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;}
 .tn-sbadge.normal{background:rgba(39,174,96,.85);color:#fff;}
 .tn-sbadge.warning{background:rgba(224,120,32,.85);color:#fff;}
 .tn-sbadge.critical{background:rgba(192,57,43,.85);color:#fff;}
-.tn-mock{position:absolute;top:28px;left:8px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:99px;background:rgba(100,100,100,.72);color:#fff;letter-spacing:.3px;}
+.tn-mock{font-size:8px;font-weight:700;padding:2px 6px;border-radius:99px;background:rgba(100,100,100,.78);color:#fff;letter-spacing:.3px;}
 .tn-body{padding:11px 13px 9px;}
 .tn-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;}
 .tn-loc{font-size:10px;color:var(--text3);margin-bottom:9px;}
@@ -1393,7 +1394,20 @@ function sc(label,val,sub,color,pct) {
 // ═══════════════════════════════════════
 // SITE CARDS
 // ═══════════════════════════════════════
-async function initRealSites() {
+async function initRealSites(retry = 0) {
+  // 1. 優先用 Firestore 判斷哪些案場有真實資料（線上、離線都可用）
+  try {
+    if (typeof db !== 'undefined' && db) {
+      const snap = await db.collection('site_realtime').get();
+      snap.forEach(doc => _realSites.add(doc.id));
+      if (_realSites.size > 0) { renderSiteGrid(); return; }
+    } else if (retry < 6) {
+      // Firebase 尚未初始化完成 → 稍後重試
+      setTimeout(() => initRealSites(retry + 1), 600);
+      return;
+    }
+  } catch(_) {}
+  // 2. 後備：本機後端（開發用）
   try {
     const resp = await fetch(`${BACKEND_URL}/api/sites`, {signal: AbortSignal.timeout(4000)});
     if (!resp.ok) return;
@@ -1443,8 +1457,7 @@ function siteCard(s, readOnly=false) {
     <div class="tn-img" style="${imgStyle}">
       ${svgHtml}
       <div class="tn-cap">${capLabel}</div>
-      <div class="tn-sbadge ${statusCls}">${statusTw}</div>
-      ${mockBadge}
+      <div class="tn-badges"><div class="tn-sbadge ${statusCls}">${statusTw}</div>${mockBadge}</div>
     </div>
     <div class="tn-body">
       <div class="tn-name">${s.name}</div>
