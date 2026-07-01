@@ -120,7 +120,9 @@ def _parse(sites_raw: dict, meas_raw: list) -> list[dict]:
         today_kwh  = m.get("energyToday") or 0
         total_kwh  = m.get("energyLifeTime") or 0
         cap        = s.get("peakPower") or 1
-        alert_num  = s.get("alertsCount") or 0
+        # 注意：SolarEdge 的 alertsCount 是「告警清單開啟中的項目數」(含歷史/低優先)，
+        # 與案場總覽「無警示」不符，不能當作實際異常數。改保留為參考欄位，不當告警。
+        alert_items = s.get("alertsCount") or 0
         lrt        = m.get("lastReportingTime") or ""
         pr_today   = m.get("prToday")
 
@@ -138,8 +140,9 @@ def _parse(sites_raw: dict, meas_raw: list) -> list[dict]:
             "kw_pr":      round(pr_today, 3) if pr_today else 0,
             "mod_temp":   None,
             "amb_temp":   None,
-            "alert_num":  alert_num,
-            "alert_flag": "ACTIVE" if alert_num > 0 else "",
+            "alert_num":  0,          # 不用 alertsCount 當異常（與平台不符）
+            "alert_flag": "",
+            "alert_items": alert_items,  # 保留 SolarEdge 記錄的告警項目數供參考
             "collected":  lrt,
             "updated":    lrt[:10] if lrt else "",
         })
