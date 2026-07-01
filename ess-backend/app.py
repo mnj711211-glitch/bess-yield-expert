@@ -175,8 +175,17 @@ def fetch_all_sites():
                 if raw:
                     _cache[site_name] = ipvita_parse(raw)
                     d = _cache[site_name]
-                    logger.info("✓ iPVita %s (%s): %.1f kW, 今日 %.1f kWh",
-                                site_name, site_id, d["ac_kw"], d["today_kwh"])
+                    # 逐台逆變器異常（發電量對應日照不足 / 設備錯誤）
+                    try:
+                        ev = iv.get_inverter_issues(site_id)
+                        if ev and ev.get("count"):
+                            d["alert_num"]    = ev["count"]
+                            d["alert_flag"]   = "ACTIVE"
+                            d["event_detail"] = ev
+                    except Exception as ie:
+                        logger.warning("iPVita %s 逆變器異常查詢失敗: %s", site_name, ie)
+                    logger.info("✓ iPVita %s (%s): %.1f kW, 今日 %.1f kWh, 告警 %s",
+                                site_name, site_id, d["ac_kw"], d["today_kwh"], d.get("alert_num"))
                     updated += 1
                 else:
                     logger.warning("✗ iPVita %s (%s) 無資料", site_name, site_id)

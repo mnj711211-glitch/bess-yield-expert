@@ -71,6 +71,61 @@ class iPVitaClient:
                 return s
         return None
 
+    def get_inverter_issues(self, site_id: str) -> dict | None:
+        """
+        比對逐台逆變器（/api/sites/{id}/realpv），挑出：
+          1. 有錯誤碼的（設備錯誤）
+          2. 發電量明顯低於最佳台（發電量對應日照不足）
+        回傳與前端 event_detail 相容的 dict，或 None。
+        """
+        data = self._get(f"/api/sites/{site_id}/realpv")
+        if not data:
+            return None
+        invs = data.get("data", []) if isinstance(data, dict) else []
+        rows = []
+        for d in invs:
+            name = d.get("user_eqp_id") or d.get("Eqp_ID") or ""
+            if not name:
+                continue
+            try:
+                gen = float(d.get("Power_KWH") or 0)
+            except (TypeError, ValueError):
+                gen = 0.0
+            err = str(d.get("Error_Code") or "").strip()
+            rows.append((name, gen, err))
+        if not rows:
+            return None
+
+        errs = [(n, e) for n, g, e in rows if e]
+        max_gen = max(g for _, g, _ in rows)
+
+        low = []
+        if max_gen >= 10:  # 夜間/無日照不比對
+            low = [n for n, g, _ in rows if g < 0.90 * max_gen]
+
+        if not errs and not low:
+            return None
+
+        # 以「設備錯誤」優先，其次「發電量對應日照不足」
+        if errs:
+            devices = [f"{n}({e})" for n, e in errs]
+            return {
+                "device": "、".join(devices),
+                "message": "設備錯誤",
+                "category": "設備錯誤",
+                "type": "逆變器",
+                "count": len(devices) + len(low),
+                "started": "",
+            }
+        return {
+            "device": "、".join(low),
+            "message": "發電量對應日照不足",
+            "category": "發電偏低",
+            "type": "逆變器",
+            "count": len(low),
+            "started": "",
+        }
+
 
 # ── 單例 ──────────────────────────────────────────────────────
 _client: "iPVitaClient | None" = None
