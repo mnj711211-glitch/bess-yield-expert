@@ -1090,7 +1090,7 @@ const SITES = [
   {id:11,name:'新營/心德教養院',  group:'綠拓',    region:'南區', loc:'新營',        cap:48.96,   cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2016-06-24', status:'normal', moduleSpec:'255W',     moduleCount:192,  cleanFreq:2, pr:75, tariff:0},
   {id:12,name:'東培龍潭',        group:'東元',    region:'北區', loc:'桃園龍潭',    cap:1279.46, cStart:'2024-04-01', cEnd:'2029-04-01', fee:383000, nextBilling:'2026-10-01', status:'normal', moduleSpec:'345W',     moduleCount:4346, cleanFreq:2, pr:75, tariff:0},
   {id:13,name:'大量科技',        group:'東元',    region:'北區', loc:'大量科技廠',  cap:667.23,  cStart:'2024-04-01', cEnd:'2029-04-01', fee:249000, nextBilling:'2026-10-01', status:'normal', moduleSpec:'345W',     moduleCount:1934, cleanFreq:2, pr:75, tariff:0},
-  {id:14,name:'台南/楠西一',     group:'綠拓',    region:'南區', loc:'台南楠西',    cap:310.2,   cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2016-06-24', status:'normal', moduleSpec:'235W',     moduleCount:1320, cleanFreq:2, pr:75, tariff:0},
+  {id:14,name:'台南楠西一',     group:'綠拓',    region:'南區', loc:'台南楠西',    cap:310.2,   cStart:'2015-12-24', cEnd:'2035-12-24', fee:0,      nextBilling:'2016-06-24', status:'normal', moduleSpec:'235W',     moduleCount:1320, cleanFreq:2, pr:75, tariff:0},
   {id:15,name:'台東海端-廣源國小',group:'綠頌',   region:'南區', loc:'台東海端',    cap:99.66,   cStart:'2021-12-31', cEnd:'2041-12-31', fee:0,      nextBilling:'2022-06-30', status:'normal', moduleSpec:'330W',     moduleCount:302,  cleanFreq:2, pr:75, tariff:5.29},
   {id:16,name:'台東-東職一期',   group:'綠頌',    region:'南區', loc:'台東',        cap:489.21,  cStart:'2020-12-31', cEnd:'2040-12-31', fee:0,      nextBilling:'2021-06-30', status:'normal', moduleSpec:'330W',     moduleCount:1482, cleanFreq:2, pr:75, tariff:4.34},
   {id:17,name:'西螺-洪慶堂雞舍', group:'綠拓',    region:'北區', loc:'西螺',        cap:225,     cStart:'2013-12-27', cEnd:'2033-12-27', fee:0,      nextBilling:'2014-06-27', status:'normal', moduleSpec:'250W',     moduleCount:900,  cleanFreq:2, pr:75, tariff:4.78},
@@ -1616,6 +1616,10 @@ function getSitePlatform(siteName) {
     '東元湖口廠','台以八翁一期','板橋果菜市場'];
   if (tn.includes(siteName)) return 'Thingnario';
   if (siteName === '大量科技') return 'iPVita';
+  const sepv = ['柳營-黃燕良牛舍','西螺-洪慶堂雞舍','台南楠西一',
+    '雲林土庫．大荖場（綠源合作案）','雲林虎尾．墾地里（綠源合作案）',
+    '屏東枋寮．盟陽二場．追日（統益機電）','台南楠西．楠西（二）','台南楠西．楠西（三）'];
+  if (sepv.includes(siteName)) return 'SEPV';
   return '監控平台';
 }
 
@@ -2498,40 +2502,57 @@ function showApiInfo() {
 // ═══════════════════════════════════════
 // ALERTS
 // ═══════════════════════════════════════
+// 從即時資料 (_realData) 產生平台告警（含白天斷線），與手動告警合併
+function getDisplayAlerts() {
+  const live = [];
+  for (const s of SITES) {
+    const rd = _realData[s.name];
+    if (!rd) continue;
+    const n = parseInt(rd.alert_num) || 0;
+    if (n <= 0) continue;
+    const ev = rd.event_detail;
+    const offline = rd.alert_flag === 'OFFLINE' || (ev && ev.category === '斷線');
+    const tm = (rd.collected || '').match(/(\d{1,2}:\d{2})/);
+    live.push({
+      id:    'live_' + s.id,
+      level: (offline || n >= 3) ? 'critical' : 'warning',
+      icon:  offline ? '⚫' : (n >= 3 ? '🔴' : '🟡'),
+      site:  s.name,
+      title: getSitePlatform(s.name) + ' 監控告警',
+      detail: (ev && (ev.device || ev.message))
+        ? `${ev.message || '異常'}：${ev.device || ''}${ev.count && ev.count > 1 ? `（共 ${ev.count} 項）` : ''}`
+        : `目前有 ${n} 筆異常`,
+      time:  tm ? tm[1] : '',
+      source: 'live',
+    });
+  }
+  const manual = ALERTS.filter(a => a.source !== 'gms' && a.source !== 'live');
+  return [...live, ...manual];
+}
+
 function renderAlerts() {
-  const makeItem = (a, withActions) => {
-    // 平台告警 → 用即時資料覆蓋標題/明細，直接顯示實際問題
-    let title = a.title, detail = a.detail;
-    const rd = _realData[a.site];
-    if (rd && a.source === 'gms') {
-      title = `${getSitePlatform(a.site)} 監控告警`;
-      const ev = rd.event_detail;
-      if (ev && (ev.device || ev.message)) {
-        detail = `${ev.message || '異常'}：${ev.device || ''}${ev.count && ev.count > 1 ? `（共 ${ev.count} 項）` : ''}`;
-      }
-    }
-    return `
+  const items = getDisplayAlerts();
+  const makeItem = (a, withActions) => `
     <div class="alert-item ${a.level}">
       <div class="ai-icon">${a.icon}</div>
       <div class="ai-body">
-        <div class="ai-title">${a.site} · ${title}</div>
-        <div class="ai-detail">${detail}</div>
+        <div class="ai-title">${a.site} · ${a.title}</div>
+        <div class="ai-detail">${a.detail}</div>
       </div>
-      <div class="ai-time">今日 ${a.time}</div>
-      ${withActions ? `<div class="ai-actions">
+      <div class="ai-time">${a.time ? '今日 ' + a.time : ''}</div>
+      ${withActions && a.source !== 'live' ? `<div class="ai-actions">
         <button class="ai-act-btn" onclick="openAlertForm('${a.id}')" title="編輯">✏️</button>
         <button class="ai-act-btn del" onclick="deleteAlert('${a.id}')" title="刪除">🗑</button>
       </div>` : ''}
     </div>`;
-  };
-  const miniHtml = ALERTS.map(a=>makeItem(a,false)).join('');
-  const fullHtml = ALERTS.map(a=>makeItem(a,true)).join('');
+  const miniHtml = items.map(a=>makeItem(a,false)).join('');
+  const fullHtml = items.map(a=>makeItem(a,true)).join('');
   document.getElementById('alert-wrap').innerHTML =
-    `<div class="aw-header"><div class="aw-title">今日告警（${ALERTS.length}）</div><button class="sh-link" onclick="showPage('alerts')">查看全部</button></div>${miniHtml}`;
+    `<div class="aw-header"><div class="aw-title">今日告警（${items.length}）</div><button class="sh-link" onclick="showPage('alerts')">查看全部</button></div>${miniHtml}`;
   document.getElementById('alerts-full').innerHTML =
     `<div class="alerts-wrap">
       <div class="aw-header">
-        <div class="aw-title">今日告警（${ALERTS.length}）</div>
+        <div class="aw-title">今日告警（${items.length}）</div>
         <button class="aw-add-btn" onclick="openAlertForm(null)">＋ 新增告警</button>
       </div>
       ${fullHtml || '<div style="padding:28px;text-align:center;color:var(--text3);font-size:13px;">目前無告警記錄</div>'}
@@ -2539,7 +2560,7 @@ function renderAlerts() {
 }
 
 function updateNotifDot() {
-  const n = ALERTS.length;
+  const n = getDisplayAlerts().length;
   document.getElementById('notif-dot').style.display = n > 0 ? 'block' : 'none';
   const badge = document.getElementById('alert-badge');
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }

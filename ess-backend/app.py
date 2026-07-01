@@ -6,7 +6,7 @@ ESS Dashboard 後端 API
 
 import os, json, time, logging
 import requests as _req
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
@@ -218,10 +218,30 @@ def fetch_all_sites():
     except Exception as e:
         logger.error("fetch_all_sites (SEPV) 例外: %s", e)
 
+    # ── 白天(09:00-16:00) 未發電 → 視為斷線告警 ──────────────────
+    # 此時段太陽正常應在發電，today_kwh=0 代表案場斷線/停機。
+    hour = datetime.now().hour
+    if 9 <= hour <= 16:
+        for site_name, d in _cache.items():
+            today = d.get("today_kwh") or 0
+            # 已有其他平台告警明細者不覆蓋；純粹沒發電才標斷線
+            if today <= 0 and not d.get("event_detail"):
+                d["alert_num"]    = max(int(d.get("alert_num") or 0), 1)
+                d["alert_flag"]   = "OFFLINE"
+                d["event_detail"] = {
+                    "device":   site_name,
+                    "message":  "白天無發電（疑似斷線/停機）",
+                    "category": "斷線",
+                    "type":     "案場",
+                    "count":    1,
+                    "started":  "",
+                }
+                logger.info("⚫ 斷線告警：%s 白天無發電", site_name)
+
     # ── 清除已退役/改名的殭屍案場（避免舊快取殘留顯示假資料）──────
     try:
         from sepv_client import NAME_MAP as _SEPV_MAP, SKIP_NAMES as _SEPV_SKIP
-        retired = set(_SEPV_MAP.keys()) | set(_SEPV_SKIP) | {"精湛光學"}
+        retired = set(_SEPV_MAP.keys()) | set(_SEPV_SKIP) | {"精湛光學", "台南/楠西一"}
         removed = [n for n in list(_cache.keys()) if n in retired]
         for n in removed:
             _cache.pop(n, None)
