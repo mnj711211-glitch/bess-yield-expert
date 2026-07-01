@@ -1409,7 +1409,7 @@ async function initRealSites(retry = 0) {
     if (typeof db !== 'undefined' && db) {
       const snap = await db.collection('site_realtime').get();
       snap.forEach(doc => { _realSites.add(doc.id); _realData[doc.id] = doc.data(); });
-      if (_realSites.size > 0) { renderSiteGrid(); return; }
+      if (_realSites.size > 0) { renderSiteGrid(); try { renderAlerts(); } catch(_){} return; }
     } else if (retry < 6) {
       // Firebase 尚未初始化完成 → 稍後重試
       setTimeout(() => initRealSites(retry + 1), 600);
@@ -1605,6 +1605,19 @@ const PLANT_MAP_FE = {
   '東培龍潭': 'BDL222060124',
   '屏東客運': 'BDL222060166',
 };
+
+// 判斷案場所屬監控平台
+function getSitePlatform(siteName) {
+  if (PLANT_MAP_FE[siteName]) return 'GMS';
+  const se = ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期','台東海端-廣源國小',
+    '台東海端-廣源幼兒園','苗栗揚展','盛餘太陽能','東山1342','通霄套房','大林薯光案'];
+  if (se.includes(siteName)) return 'SolarEdge';
+  const tn = ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)',
+    '東元湖口廠','台以八翁一期','板橋果菜市場'];
+  if (tn.includes(siteName)) return 'Thingnario';
+  if (siteName === '大量科技') return 'iPVita';
+  return '監控平台';
+}
 
 // 各案場對應監控平台告警頁 URL
 function getAlertPlatformUrl(siteName) {
@@ -2486,12 +2499,23 @@ function showApiInfo() {
 // ALERTS
 // ═══════════════════════════════════════
 function renderAlerts() {
-  const makeItem = (a, withActions) => `
+  const makeItem = (a, withActions) => {
+    // 平台告警 → 用即時資料覆蓋標題/明細，直接顯示實際問題
+    let title = a.title, detail = a.detail;
+    const rd = _realData[a.site];
+    if (rd && a.source === 'gms') {
+      title = `${getSitePlatform(a.site)} 監控告警`;
+      const ev = rd.event_detail;
+      if (ev && (ev.device || ev.message)) {
+        detail = `${ev.message || '異常'}：${ev.device || ''}${ev.count && ev.count > 1 ? `（共 ${ev.count} 項）` : ''}`;
+      }
+    }
+    return `
     <div class="alert-item ${a.level}">
       <div class="ai-icon">${a.icon}</div>
       <div class="ai-body">
-        <div class="ai-title">${a.site} · ${a.title}</div>
-        <div class="ai-detail">${a.detail}</div>
+        <div class="ai-title">${a.site} · ${title}</div>
+        <div class="ai-detail">${detail}</div>
       </div>
       <div class="ai-time">今日 ${a.time}</div>
       ${withActions ? `<div class="ai-actions">
@@ -2499,6 +2523,7 @@ function renderAlerts() {
         <button class="ai-act-btn del" onclick="deleteAlert('${a.id}')" title="刪除">🗑</button>
       </div>` : ''}
     </div>`;
+  };
   const miniHtml = ALERTS.map(a=>makeItem(a,false)).join('');
   const fullHtml = ALERTS.map(a=>makeItem(a,true)).join('');
   document.getElementById('alert-wrap').innerHTML =
@@ -2588,12 +2613,18 @@ async function syncGmsAlertToFirestore(site, mon) {
       .where('date',   '==', today)
       .get();
     if (alertNum > 0) {
+      const platform = getSitePlatform(site.name);
+      const ev = mon.event_detail;
+      // 有明細 → 直接顯示問題；否則顯示告警數 + 平台
+      const detail = (ev && (ev.device || ev.message))
+        ? `${ev.message || '異常'}：${ev.device || ''}${ev.count && ev.count > 1 ? `（共 ${ev.count} 項）` : ''}`
+        : `目前有 ${alertNum} 筆異常，請至 ${platform} 平台確認`;
       const payload = {
         level:     alertNum >= 3 ? 'critical' : 'warning',
         icon:      alertNum >= 3 ? '🔴' : '🟡',
         site:      site.name,
-        title:     'GMS 監控告警',
-        detail:    `目前有 ${alertNum} 筆異常，請至 GMS 平台確認`,
+        title:     `${platform} 監控告警`,
+        detail:    detail,
         time:      timeStr,
         date:      today,
         source:    'gms',
