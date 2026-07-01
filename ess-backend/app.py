@@ -209,6 +209,18 @@ def fetch_all_sites():
     except Exception as e:
         logger.error("fetch_all_sites (SEPV) 例外: %s", e)
 
+    # ── 清除已退役/改名的殭屍案場（避免舊快取殘留顯示假資料）──────
+    try:
+        from sepv_client import NAME_MAP as _SEPV_MAP, SKIP_NAMES as _SEPV_SKIP
+        retired = set(_SEPV_MAP.keys()) | set(_SEPV_SKIP) | {"精湛光學"}
+        removed = [n for n in list(_cache.keys()) if n in retired]
+        for n in removed:
+            _cache.pop(n, None)
+        if removed:
+            logger.info("清除殭屍案場: %s", removed)
+    except Exception as e:
+        logger.warning("清除殭屍案場失敗: %s", e)
+
     save_cache()
     logger.info("快取更新完成 (%d 案場)", updated)
 
