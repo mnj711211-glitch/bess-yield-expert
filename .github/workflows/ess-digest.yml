@@ -2,8 +2,13 @@ name: ESS LINE 告警總覽
 
 on:
   schedule:
-    # 台北 09:00 = UTC 01:00；台北 16:00 = UTC 08:00
-    - cron: "0 1,8 * * *"
+    # 台北時間（UTC+8）→ UTC。每天 6 次推播
+    - cron: "0 1 * * *"    # 09:00
+    - cron: "30 2 * * *"   # 10:30
+    - cron: "0 4 * * *"    # 12:00
+    - cron: "30 5 * * *"   # 13:30
+    - cron: "0 7 * * *"    # 15:00
+    - cron: "30 8 * * *"   # 16:30
   workflow_dispatch: {}   # 允許手動測試推播
 
 concurrency:
