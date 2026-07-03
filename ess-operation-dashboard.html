@@ -641,8 +641,8 @@ select option{background:var(--surface2);}
           </div>
           <div class="sd-right">
             <div class="sd-chart-card">
-              <div class="sd-chart-lbl" id="sd-hourly-lbl">今日發電量</div>
-              <div id="sd-hourly"></div>
+              <div class="sd-chart-lbl">📅 本案場維運排程</div>
+              <div id="sd-schedule"></div>
             </div>
             <div class="sd-chart-card">
               <div class="sd-chart-lbl">累計發電量 (kWh)</div>
@@ -1833,11 +1833,36 @@ function sdSetPhoto(photoEl, id, s) {
 }
 
 function sdRenderCharts(s, m, isReal=false) {
-  const badge = isReal ? ' <span style="font-size:9px;font-weight:700;background:rgba(39,174,96,.2);color:var(--green);padding:1px 6px;border-radius:99px;margin-left:4px">即時</span>' : '';
-  document.getElementById('sd-hourly-lbl').innerHTML =
-    `今日發電量${badge}  <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">今日發電效率 ${(m.today/s.cap).toFixed(2)} kWh/kWp</span>`;
-  document.getElementById('sd-hourly').innerHTML = hourlyChartSvg(s, m);
+  document.getElementById('sd-schedule').innerHTML = sdScheduleHtml(s);
   document.getElementById('sd-daily').innerHTML  = dailyChartSvg(s, m);
+}
+
+// 本案場維運排程（從工單 EVENTS 篩選）
+function sdScheduleHtml(s) {
+  const STATUS = {pending:['待處理','var(--amber)'], dispatched:['已派工','var(--blue)'],
+                  in_progress:['進行中','var(--purple)'], done:['已完成','var(--green)']};
+  const todayStr = new Date().toISOString().slice(0,10);
+  const list = (typeof EVENTS !== 'undefined' ? EVENTS : [])
+    .filter(e => e.site === s.name)
+    .sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  if (!list.length) {
+    return `<div style="padding:22px 8px;text-align:center;color:var(--text3);font-size:12px;">
+      本案場目前無維運排程<br><span style="font-size:11px">可至「排程管理」新增</span></div>`;
+  }
+  return list.map(e => {
+    const st = STATUS[e.status] || ['—','var(--text3)'];
+    const upcoming = e.date >= todayStr && e.status !== 'done';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border2);">
+      <div style="text-align:center;min-width:44px;">
+        <div style="font-size:13px;font-weight:700;color:${upcoming?'var(--text)':'var(--text3)'}">${(e.date||'').slice(5)}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:600;color:var(--text)">${getTypeLabel(e.type)}${e.note?` <span style="font-size:10px;color:var(--text3)">· ${e.note}</span>`:''}</div>
+        <div style="font-size:10px;color:var(--text3)">👤 ${e.person||'未指派'}</div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:${st[1]};white-space:nowrap;">${st[0]}</div>
+    </div>`;
+  }).join('');
 }
 
 function sdRenderFooter(s, m, statusTw, isReal=false) {
