@@ -1160,7 +1160,7 @@ function saveAlerts() {
   localStorage.setItem('ess_alerts', JSON.stringify(ALERTS));
 }
 
-const now = new Date(2026, 5, 16); // 2026-06-16
+const now = new Date(); // 真實今日
 let calYear = 2026, calMonth = 5; // 0-indexed
 
 const EVENTS = [
@@ -1350,7 +1350,7 @@ function showPage(page) {
 // STATS
 // ═══════════════════════════════════════
 function contractPct(cStart, cEnd) {
-  const s=new Date(cStart), e=new Date(cEnd), t=new Date(2026,5,16);
+  const s=new Date(cStart), e=new Date(cEnd), t=new Date();
   return Math.max(0,Math.min(100,Math.round((t-s)/(e-s)*100)));
 }
 
@@ -1642,7 +1642,7 @@ function mockMonitor(s) {
   const baseYield = s.cap * (1.1 + siteRng(s.id, 1) * 0.8);
   const today = Math.round(baseYield);
   const days7 = Array.from({length:7}, (_,i) => Math.round(baseYield * (0.75 + siteRng(s.id, i+5) * 0.55)));
-  const contractYears = (new Date(2026,5,16) - new Date(s.cStart)) / (365.25*24*3600*1000);
+  const contractYears = (new Date() - new Date(s.cStart)) / (365.25*24*3600*1000);
   const total = Math.round(s.cap * 365 * 1.35 * contractYears * (0.9 + siteRng(s.id,20)*0.2));
   const month = Math.round(baseYield * (14 + siteRng(s.id,30)*4));
   const revenue = s.tariff > 0 ? Math.round(today * s.tariff) : Math.round(today * (1.2 + siteRng(s.id,40)*0.6));
@@ -2127,7 +2127,7 @@ function dailyChartSvg(s, m) {
   const days7=m.days7, maxD=Math.max(...days7,1), n=days7.length;
   const VW=580, VH=130, pL=44, pR=50, pT=20, pB=28, cW=VW-pL-pR, cH=VH-pT-pB;
   const bw=Math.floor(cW/n)-4;
-  const today=new Date(2026,5,18);
+  const today=new Date();
   const dates=Array.from({length:7},(_,i)=>{const d=new Date(today);d.setDate(d.getDate()-(6-i));return `${d.getMonth()+1}/${d.getDate()}`;});
   // cumulative
   let base=m.total-days7.slice(0,-1).reduce((a,v)=>a+v,0);
@@ -2203,7 +2203,7 @@ async function openSiteModal(id) {
 
   // 7-day labels
   const dayLabels = Array.from({length:7},(_,i)=>{
-    const d=new Date(2026,5,10+i);
+    const d=new Date(); d.setDate(d.getDate()-(6-i));
     return `${d.getMonth()+1}/${d.getDate()}`;
   });
   dayLabels[6]='今日';
