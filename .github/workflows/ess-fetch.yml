@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}   # 允許在 Actions 頁面手動執行
 
 concurrency:
-  group: ess-backend
+  group: ess-fetch
   cancel-in-progress: false
 
 jobs:

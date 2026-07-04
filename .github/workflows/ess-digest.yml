@@ -12,7 +12,7 @@ on:
   workflow_dispatch: {}   # 允許手動測試推播
 
 concurrency:
-  group: ess-backend
+  group: ess-digest
   cancel-in-progress: false
 
 jobs:
