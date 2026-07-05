@@ -7,7 +7,7 @@ GitHub Actions 專用：執行一次資料抓取並推送 Firestore。
 """
 import sys
 import logging
-# (診斷觸發用)
+# (診斷觸發用 v2)
 
 logging.basicConfig(
     level=logging.INFO,
