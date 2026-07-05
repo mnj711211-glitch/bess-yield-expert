@@ -5,6 +5,9 @@ on:
     # UTC 時間；台北 = UTC+8。涵蓋台北約 05:00-20:00，每 30 分鐘一次
     - cron: "*/30 21-23,0-11 * * *"
   workflow_dispatch: {}   # 允許在 Actions 頁面手動執行
+  push:
+    branches: [master]
+    paths: [ess-backend/run_fetch.py]   # 診斷用：改此檔即觸發一次雲端執行
 
 concurrency:
   group: ess-fetch
