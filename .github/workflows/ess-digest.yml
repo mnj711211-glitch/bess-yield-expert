@@ -10,9 +10,6 @@ on:
     - cron: "0 7 * * *"    # 15:00
     - cron: "30 8 * * *"   # 16:30
   workflow_dispatch: {}   # 允許手動測試推播
-  push:
-    branches: [master]
-    paths: [ess-backend/run_fetch.py]   # 診斷用：改此檔即觸發一次 LINE 推播
 
 concurrency:
   group: ess-digest
