@@ -107,13 +107,16 @@ def fetch_all_sites():
                 p = plant_data[plant_no]
                 ac_kw = p.get("ac_kw") or 0
                 cap   = p.get("capacity") or 1
-                today_kwh = round(ac_kw * 6, 1)
+                # 今日發電：從 GetEnergyList 取真實值（AC 電表），失敗才退回粗估
+                today_kwh = gms.get_today_kwh(plant_no)
+                if today_kwh is None:
+                    today_kwh = round(ac_kw * 6, 1)
                 _cache[site_name] = {
                     "today_kwh":  today_kwh,
                     "month_kwh":  0,
                     "total_kwh":  0,
                     "days7":      [today_kwh] * 7,
-                    "efficiency": round(ac_kw / cap, 3),
+                    "efficiency": round(today_kwh / cap, 3) if cap else 0,
                     "ac_kw":      ac_kw,
                     "radiation":  p.get("radiation", 0),
                     "wind_speed": p.get("wind_speed"),
@@ -125,7 +128,7 @@ def fetch_all_sites():
                     "collected":  p.get("collected", ""),
                     "updated":    today,
                 }
-                logger.info("✓ GMS %s: %.1f kW", site_name, ac_kw)
+                logger.info("✓ GMS %s: %.1f kW, 今日 %.1f kWh", site_name, ac_kw, today_kwh)
                 updated += 1
 
                 try:

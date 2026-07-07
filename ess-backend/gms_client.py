@@ -101,6 +101,47 @@ class GMSClient:
         logger.info("取得案場清單: %d 筆", len(result))
         return result
 
+    def get_today_kwh(self, plant_no: str) -> float | None:
+        """
+        從 GetEnergyList 取得今日真實發電量（AC 電表值，找不到則加總逆變器）。
+        GetPlants 清單不含今日發電，故改用此端點取代原本 ac_kw×6 的粗估。
+        """
+        self.ensure_logged_in()
+        try:
+            r = self.session.get(
+                "https://gms.auo.com/MvcWebPortal/api/GetEnergyList",
+                params={"plantNo": plant_no}, timeout=15,
+            )
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            titles = d.get("lstTitle", [])
+            rows   = d.get("lstValue", [])
+            row = next((v for v in rows
+                        if v.get("shift_time") and v["shift_time"] != "Total" and v.get("strValue")), None)
+            if not titles or not row:
+                return None
+            vals = row["strValue"].split(",")
+            # 1) 優先取 AC 電表（全廠總量）
+            for i, t in enumerate(titles):
+                if t.get("unit_type") == "AC_POWER_METER" and i < len(vals):
+                    try:
+                        return round(float(vals[i]), 1)
+                    except ValueError:
+                        pass
+            # 2) 沒電表 → 加總所有逆變器
+            total, found = 0.0, False
+            for i, t in enumerate(titles):
+                if t.get("unit_type") == "INVERTER" and i < len(vals):
+                    try:
+                        total += float(vals[i]); found = True
+                    except ValueError:
+                        pass
+            return round(total, 1) if found else None
+        except Exception as e:
+            logger.warning("GMS get_today_kwh(%s) 失敗: %s", plant_no, e)
+            return None
+
     # ── 取得案場即時數據 ──────────────────────────
     def fetch_realtime(self, plant_no: str) -> dict | None:
         """
