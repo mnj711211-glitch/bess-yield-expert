@@ -433,6 +433,8 @@ tr:hover td{background:rgba(28,35,51,.5)}
           <option value="hv3" selected>高壓電力 — 三段式時間電價</option>
           <option value="ehv2">特高壓電力 — 二段式時間電價</option>
           <option value="ehv3">特高壓電力 — 三段式時間電價</option>
+          <option value="bhv">高壓電力 — 批次生產時間電價</option>
+          <option value="behv">特高壓電力 — 批次生產時間電價</option>
         </select>
         <span class="hint">收益分析自動涵蓋夏月（5/1~10/31）與非夏月（11/1~4/30）全年計算</span>
       </div>
@@ -443,6 +445,8 @@ tr:hover td{background:rgba(28,35,51,.5)}
           <option value="hv3">高壓電力 — 三段式時間電價</option>
           <option value="ehv2">特高壓電力 — 二段式時間電價</option>
           <option value="ehv3">特高壓電力 — 三段式時間電價</option>
+          <option value="bhv">高壓電力 — 批次生產時間電價</option>
+          <option value="behv">特高壓電力 — 批次生產時間電價</option>
         </select>
         <span class="hint">計算改用此電價後的收益差異</span>
       </div>
@@ -1304,7 +1308,16 @@ const T = {
   ehv3: { summer:   {peak:8.69, semi:5.38, semiSat:2.60, off:2.40},
           nonsummer:{peak:5.03, semi:4.86, semiSat:2.41, off:2.18} },
   ehv2: { summer:   {peak:6.17, semi:2.73, semiSat:2.73, off:2.55},
-          nonsummer:{peak:5.79, semi:2.48, semiSat:2.48, off:2.28} }
+          nonsummer:{peak:5.79, semi:2.48, semiSat:2.48, off:2.28} },
+  // ── 批次生產時間電價 ─────────────────────────────────────────────
+  // 僅兩段：平日尖峰 15:30~21:30、其餘時間與例假日離峰；例假日全日離峰。
+  // 15:30/21:30 落在整點半處 → 小時 15 與 21 各半尖峰半離峰。
+  // 引擎以「每小時定功率」為前提，故半峰小時之精確費率 = (peak+off)/2，
+  // 存於 semi 欄供調度與帳單使用（semiSat=off，週六全離峰不會用到）。
+  bhv:  { summer:   {peak:12.47, semi:(12.47+3.18)/2, semiSat:3.18, off:3.18},
+          nonsummer:{peak:11.79, semi:(11.79+2.88)/2, semiSat:2.88, off:2.88} },
+  behv: { summer:   {peak:11.44, semi:(11.44+2.99)/2, semiSat:2.99, off:2.99},
+          nonsummer:{peak:10.80, semi:(10.80+2.67)/2, semiSat:2.67, off:2.67} }
 };
 
 // 0=off, 1=semi, 2=peak  ─ 尖離峰時段排程（依台電2025年電價表）
@@ -1322,8 +1335,19 @@ const SCHED = {
   hv2_nonsummer_weekday:    [0,0,0,0,0,0,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2],
   hv2_summer_saturday:      [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   hv2_nonsummer_saturday:   [0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1],
+  // 批次生產：平日尖峰 15:30~21:30 → h16~20 全尖峰(2)，h15/h21 各半峰半離(1)；
+  // 夏月/非夏月時段相同；週六及例假日全日離峰(0)。
+  batch_summer_weekday:     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,2,2,2,2,1,0,0],
+  batch_nonsummer_weekday:  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,2,2,2,2,1,0,0],
+  batch_summer_saturday:    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  batch_nonsummer_saturday: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
   sunday:                   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 };
+// 依電價類別回傳排程 key；批次生產(bhv/behv)共用 'batch' 排程，特高壓沿用高壓時段
+function schedKey(t){
+  if(t === 'bhv' || t === 'behv') return 'batch';
+  return t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+}
 const PL = ['離峰','半尖峰','尖峰'];
 const PC = ['#58a6ff','#ffa657','#f78166'];
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
@@ -1523,8 +1547,7 @@ function stat(label, value, sub='', cls='', delta=''){
 
 function getSched(){
   const t = vs('tariffType');
-  // ehv3 有自己的排程（非夏月 11-13h 為半尖峰，非離峰）；ehv2 同 hv2
-  const k = t === 'ehv3' ? 'ehv3' : t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  const k = schedKey(t);
   // 調度圖以非夏月平日為代表性顯示（年度收益已分夏/非夏分開計算）
   return SCHED[`${k}_nonsummer_weekday`] || SCHED['hv3_nonsummer_weekday'];
 }
@@ -1586,7 +1609,9 @@ function calcContractOverload(){
 // hv3/ehv3=true（非夏月 11-14h 離峰），hv2/ehv2=true（非夏月 11-14h 離峰）
 function tariffSupports2C2D(){
   const t = vs('tariffType');
-  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  // 批次生產僅單一尖峰窗（15:30~21:30），無上午尖峰可放電 → 不適用兩充兩放
+  if(t === 'bhv' || t === 'behv') return false;
+  const k = schedKey(t);
   const sched = SCHED[`${k}_nonsummer_weekday`] || SCHED['hv3_nonsummer_weekday'];
   return sched.slice(11,14).some(p => p === 0);
 }
@@ -1605,10 +1630,12 @@ function updateRateDisplay(){
   const t  = vs('tariffType');
   const rs = T[t]['summer'];
   const rn = T[t]['nonsummer'];
+  // 批次生產只有尖峰/離峰兩段，semi 僅為半峰小時的內部混合費率，不對外顯示
+  const isBatch = t === 'bhv' || t === 'behv';
 
   function rateRow(label, r, labelClr){
     const spread  = r.peak - r.off;
-    const hasSemi = r.semi !== r.peak && r.semi !== r.off;
+    const hasSemi = !isBatch && r.semi !== r.peak && r.semi !== r.off;
     const spreadClr = spread > 5 ? 'var(--green)' : spread > 3 ? '#4ade80' : 'var(--accent)';
     return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:700;color:${labelClr};min-width:54px">${label}</span>
@@ -1619,10 +1646,15 @@ function updateRateDisplay(){
     </div>`;
   }
 
+  const batchNote = isBatch
+    ? `<div style="font-size:11px;color:var(--text2);margin-top:2px">📅 平日尖峰 15:30–21:30；其餘時間與例假日皆為離峰（15:30/21:30 半小時邊界已精確計算）</div>`
+    : '';
+
   document.getElementById('rateDisplay').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:7px">
       ${rateRow('🌞 夏月',  rs, '#f97316')}
       ${rateRow('❄ 非夏月', rn, '#60a5fa')}
+      ${batchNote}
     </div>`;
 }
 
@@ -1662,9 +1694,10 @@ function onHwChange(){ renderDegTable(); }
 // dayType: 'weekday' | 'saturday' | 'sunday'
 function getSchedFor(season, dayType = 'weekday') {
   if (dayType === 'sunday') return SCHED.sunday;
-  const t = vs('tariffType');
-  // 特高壓與高壓尖離峰時段相同，僅電價不同；ehv3→hv3, ehv2→hv2
-  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  // 比較模式下 _tariffOverride 需同步套用該電價的時段排程（批次生產與標準電價時段不同）
+  const t = window._tariffOverride || vs('tariffType');
+  // 特高壓與高壓尖離峰時段相同，僅電價不同；ehv3→hv3, ehv2→hv2, bhv/behv→batch
+  const k = schedKey(t);
   const suffix = dayType === 'saturday' ? 'saturday' : 'weekday';
   return SCHED[`${k}_${season}_${suffix}`] || SCHED['hv3_nonsummer_weekday'];
 }
@@ -2560,7 +2593,8 @@ function calcMonthlyBill(tariffKey) {
   if (!ld) return null;
 
   const contractKw = v('contractPeak');
-  const k = tariffKey.startsWith('ehv') ? tariffKey.replace('ehv','hv') : tariffKey;
+  const k = schedKey(tariffKey);
+  const isBatch = tariffKey === 'bhv' || tariffKey === 'behv';
 
   // 依 YYYY-MM 分組
   const monthGroups = {};
@@ -2607,7 +2641,11 @@ function calcMonthlyBill(tariffKey) {
             // → 月度表顯示在「半尖峰度數」欄，以符合台電帳單格式
             if (r.peak > r.semi + 0.01) peakKwh   += kw;   // 有真正尖峰（hv3夏月 9.39）
             else                        semiWdKwh  += kw;   // 無超尖峰（hv3非夏月：均5.47）
-          } else if (code === 1) semiWdKwh += kw;           // 平日半尖峰（hv3 夏月 5.85）
+          } else if (code === 1) {
+            // 批次生產：h15/h21 為半峰半離（15:30~21:30 邊界），精確拆半計入尖峰/離峰
+            if (isBatch) { peakKwh += kw * 0.5; offKwh += kw * 0.5; }
+            else         semiWdKwh += kw;                   // 平日半尖峰（hv3 夏月 5.85）
+          }
           else                   offKwh    += kw;
         }
       }
@@ -2742,7 +2780,7 @@ function calcAnnualElecCost(tariffKey) {
     const priceMap = [r.off, r.semi, r.peak];
     const sched = (() => {
       if (sc.dayType === 'sunday') return SCHED.sunday;
-      const k = tariffKey.startsWith('ehv') ? tariffKey.replace('ehv','hv') : tariffKey;
+      const k = schedKey(tariffKey);
       return SCHED[`${k}_${sc.season}_${sc.dayType}`] || SCHED['hv3_nonsummer_weekday'];
     })();
     for (let h = 0; h < 24; h++) {
@@ -2793,7 +2831,8 @@ function calcYieldWithTariff(tariffKey, yearNum = 1){
 function renderComparePanel(yldA, tariffA, yldB, tariffB){
   const NAMES = {
     hv2:'高壓二段式', hv3:'高壓三段式',
-    ehv2:'特高壓二段式', ehv3:'特高壓三段式'
+    ehv2:'特高壓二段式', ehv3:'特高壓三段式',
+    bhv:'高壓批次生產', behv:'特高壓批次生產'
   };
   const nameA = NAMES[tariffA] || tariffA;
   const nameB = NAMES[tariffB] || tariffB;
@@ -3199,7 +3238,7 @@ function renderHeatmap(){
 // ═══════════════════════════════════════════════
 function renderTariff(){
   const t = vs('tariffType');
-  const k = t.startsWith('ehv') ? t.replace('ehv','hv') : t;
+  const k = schedKey(t);
   const rows = [
     { label:'夏月 平日',      sched:SCHED[`${k}_summer_weekday`]    || SCHED.hv3_summer_weekday },
     { label:'非夏月 平日',    sched:SCHED[`${k}_nonsummer_weekday`] || SCHED.hv3_nonsummer_weekday },
@@ -3590,14 +3629,16 @@ function renderReportDispatchCharts(){
 
   // ── 動態時段說明（依選用電價填入）──────────────────────────
   const tariff = vs('tariffType');
-  const tariffName = {hv2:'高壓二段式', hv3:'高壓三段式', ehv2:'特高壓二段式', ehv3:'特高壓三段式'}[tariff] || tariff;
+  const tariffName = {hv2:'高壓二段式', hv3:'高壓三段式', ehv2:'特高壓二段式', ehv3:'特高壓三段式', bhv:'高壓批次生產', behv:'特高壓批次生產'}[tariff] || tariff;
   const isHV3 = tariff === 'hv3' || tariff === 'ehv3';
+  const isBatch = tariff === 'bhv' || tariff === 'behv';
   const descS  = document.getElementById('pdfDispatchDescSummer');
   const descNS = document.getElementById('pdfDispatchDescNonSummer');
-  if(descS)  descS.textContent  = isHV3
+  const batchDesc = `${tariffName}：🔴 尖峰 15:30~21:30（週一~五）｜🟢 離峰 其餘時間及例假日`;
+  if(descS)  descS.textContent  = isBatch ? batchDesc : isHV3
     ? `${tariffName}：🔴 尖峰 16~22h｜🟠 半尖峰 9~16h / 22~24h｜🟢 離峰 0~9h`
     : `${tariffName}：🔴 尖峰 9~24h（週一~五）｜🟢 離峰 0~9h`;
-  if(descNS) descNS.textContent = isHV3
+  if(descNS) descNS.textContent = isBatch ? batchDesc : isHV3
     ? `${tariffName}：🟠 半尖峰 6~11h / 14~24h｜🟢 離峰 0~6h / 11~14h`
     : `${tariffName}：🔴 尖峰 6~11h / 14~24h（週一~五）｜🟢 離峰 0~6h / 11~14h`;
 
@@ -5591,7 +5632,7 @@ async function loadProjectList(){
       return;
     }
 
-    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式'};
+    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式',bhv:'高壓批次生產',behv:'特高壓批次生產'};
     listEl.innerHTML = snap.docs.map(d => {
       const p  = d.data();
       const s  = p.summary || {};
@@ -5767,7 +5808,7 @@ async function loadAdminProjects(){
   try {
     const snap = await fbDb.collection('projects').orderBy('createdAt','desc').limit(100).get();
     if(snap.empty){ el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px">尚無專案記錄</div>'; return; }
-    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式'};
+    const tariffNames = {hv2:'高壓二段式',hv3:'高壓三段式',ehv2:'特高壓二段式',ehv3:'特高壓三段式',bhv:'高壓批次生產',behv:'特高壓批次生產'};
     el.innerHTML = `
     <div style="font-size:12px;color:#6b7280;margin-bottom:12px">共 ${snap.size} 個專案</div>
     ${snap.docs.map(d => {
