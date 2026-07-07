@@ -273,8 +273,16 @@ def fetch_all_sites():
 # ── 定時告警總覽推播（每天 09:00 / 16:00）──────────────────────
 def send_daily_alert_digest():
     """推播當前所有案場的告警總覽到 LINE。固定時間呼叫，不做去重。"""
+    # 雙重保險：已退役/排除的案場永不進推播（例如楠西二/三）
+    try:
+        from sepv_client import SKIP_NAMES as _SKIP
+    except Exception:
+        _SKIP = set()
+    excluded = set(_SKIP) | {"精湛光學"}
     alerts = []
     for site_name, data in _cache.items():
+        if site_name in excluded:
+            continue
         alert_num = int(data.get("alert_num") or 0)
         if alert_num > 0:
             level = "critical" if alert_num >= 3 else "warning"
