@@ -91,6 +91,29 @@ def is_cache_valid():
     return (time.time() - _cache_time) < (CACHE_MINUTES * 60)
 
 
+# GMS 告警圖示 → 類別 / 說明（GMS 未提供可查詢的明細 API，依 flag 圖示歸類）
+_GMS_FLAG_MAP = {
+    "system.png":  ("發電效率 / 系統", "案場發電效率低 (PR) 或系統類告警"),
+    "device.png":  ("設備", "設備異常告警"),
+    "inverter.png":("逆變器", "逆變器異常告警"),
+    "comm.png":    ("通訊", "通訊 / 斷線告警"),
+}
+
+def _gms_event_detail(plant_no: str, alert_num: int, alert_flag: str) -> dict:
+    """把 GMS 告警包成前端 event_detail 結構（裝置＝案場代碼）。"""
+    fname = (alert_flag or "").split("/")[-1].lower()
+    category, message = _GMS_FLAG_MAP.get(fname, ("系統警示", "GMS 告警，請至平台確認明細"))
+    return {
+        "device":   plant_no,
+        "code":     "",
+        "type":     "GMS",
+        "category": category,
+        "message":  message,
+        "started":  "",
+        "count":    alert_num,
+    }
+
+
 # ── 主要資料拉取 ──────────────────────────────────────────────
 def fetch_all_sites():
     """定時任務：從 GMS + Thingnario 拉取所有案場即時數據"""
@@ -128,6 +151,11 @@ def fetch_all_sites():
                     "collected":  p.get("collected", ""),
                     "updated":    today,
                 }
+                # GMS 有告警 → 補上裝置級明細（沿用前端 event_detail 渲染）
+                alert_num_val = int(p.get("alert_num") or 0)
+                if alert_num_val > 0:
+                    _cache[site_name]["event_detail"] = _gms_event_detail(
+                        plant_no, alert_num_val, p.get("alert_flag", ""))
                 logger.info("✓ GMS %s: %.1f kW, 今日 %.1f kWh", site_name, ac_kw, today_kwh)
                 updated += 1
 
