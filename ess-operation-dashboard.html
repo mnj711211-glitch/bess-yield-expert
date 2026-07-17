@@ -737,9 +737,27 @@ select option{background:var(--surface2);}
       <div class="page" id="p-alerts">
         <div class="ph">
           <h2>🚨 即時告警中心</h2>
-          <p>所有案場異常事件匯整，請及時處理</p>
+          <p>案場設備 / 監控系統異常事件匯整，請及時處理</p>
         </div>
         <div id="alerts-full"></div>
+      </div>
+
+      <!-- ── ADMIN: 收款告警 ── -->
+      <div class="page" id="p-receivables">
+        <div class="ph">
+          <h2>💰 收款告警</h2>
+          <p>請款、帳務到期與逾期提醒，獨立追蹤收款作業</p>
+        </div>
+        <div id="receivables-full"></div>
+      </div>
+
+      <!-- ── ADMIN: 維運排程 ── -->
+      <div class="page" id="p-maintenance">
+        <div class="ph">
+          <h2>🧹 維運排程</h2>
+          <p>清洗、保養、巡檢等維運排程提醒</p>
+        </div>
+        <div id="maintenance-full"></div>
       </div>
 
       <!-- ── CLIENT: MY SITES ── -->
@@ -929,6 +947,14 @@ select option{background:var(--surface2);}
             <option value="info">🔵 資訊 Info</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label>分類</label>
+        <select id="af-kind">
+          <option value="system">🚨 系統／設備告警</option>
+          <option value="payment">💰 收款告警</option>
+          <option value="maintenance">🧹 維運排程</option>
+        </select>
       </div>
       <div class="form-group"><label>標題</label><input type="text" id="af-title" placeholder="例：請款逾期確認"></div>
       <div class="form-group"><label>說明</label><textarea id="af-detail" rows="3" placeholder="詳細描述告警內容…" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;resize:vertical;font-family:inherit;"></textarea></div>
@@ -1147,10 +1173,10 @@ const CLIENT_SITE_IDS = SITES.filter(s=>s.group===CLIENT_GROUP).map(s=>s.id);
 
 const STATUS_TW = {normal:'健康正常'};
 const ALERTS_DEFAULT = [
-  {id:1,level:'critical',icon:'🔴',site:'大林薯光',        title:'請款逾期確認',  detail:'下次請款日期 2025-06-11 已逾期，請確認是否已完成請款作業',time:'09:15'},
-  {id:2,level:'warning', icon:'🟡',site:'東培龍潭',        title:'請款提醒',      detail:'東元帳務 (383,000 元) 預計 2026-10-01 到期，距今約 107 天',time:'08:30'},
-  {id:3,level:'warning', icon:'🟡',site:'善化/大欣雞舍',   title:'清洗排程提醒',  detail:'上次清洗距今已超過 180 天，建議安排下半年度清洗作業',time:'08:00'},
-  {id:4,level:'warning', icon:'🟡',site:'柳營-黃燕良牛舍', title:'清洗排程提醒',  detail:'案場容量 300 kWp，依年度計畫應於本月完成清洗，請確認排程',time:'07:45'},
+  {id:1,level:'critical',icon:'🔴',site:'大林薯光',        title:'請款逾期確認',  detail:'下次請款日期 2025-06-11 已逾期，請確認是否已完成請款作業',time:'09:15',kind:'payment'},
+  {id:2,level:'warning', icon:'🟡',site:'東培龍潭',        title:'請款提醒',      detail:'東元帳務 (383,000 元) 預計 2026-10-01 到期，距今約 107 天',time:'08:30',kind:'payment'},
+  {id:3,level:'warning', icon:'🟡',site:'善化/大欣雞舍',   title:'清洗排程提醒',  detail:'上次清洗距今已超過 180 天，建議安排下半年度清洗作業',time:'08:00',kind:'maintenance'},
+  {id:4,level:'warning', icon:'🟡',site:'柳營-黃燕良牛舍', title:'清洗排程提醒',  detail:'案場容量 300 kWp，依年度計畫應於本月完成清洗，請確認排程',time:'07:45',kind:'maintenance'},
 ];
 let ALERTS = JSON.parse(localStorage.getItem('ess_alerts') || 'null') || ALERTS_DEFAULT.map(a=>({...a}));
 
@@ -1294,6 +1320,8 @@ function setupNav() {
       <div class="snav-section">
         <div class="snav-label">維運管理</div>
         <div class="nitem" onclick="showPage('schedule')"><span class="ni">📅</span>排程管理</div>
+        <div class="nitem" onclick="showPage('receivables')"><span class="ni">💰</span>收款告警<span class="nbadge" id="recv-badge" style="display:none">0</span></div>
+        <div class="nitem" onclick="showPage('maintenance')"><span class="ni">🧹</span>維運排程<span class="nbadge" id="maint-badge" style="display:none">0</span></div>
       </div>`;
   } else {
     nav.innerHTML = `
@@ -1329,18 +1357,22 @@ function showPage(page) {
   currentPage = page;
   const titles = {
     'overview':'電站總覽','alerts':'告警中心','schedule':'維運排程管理',
+    'receivables':'收款告警','maintenance':'維運排程',
     'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
     'site-detail':'電站詳情'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
-  document.querySelectorAll('.nitem').forEach(n => n.classList.remove('active'));
+  // 依 onclick 精確比對，避免標題前綴相同時高亮錯選單
   document.querySelectorAll('.nitem').forEach(n => {
-    if (n.textContent.includes(titles[page]?.slice(0,3) || '')) n.classList.add('active');
+    const oc = n.getAttribute('onclick') || '';
+    n.classList.toggle('active', oc.includes("showPage('" + page + "')"));
   });
   const tp = document.getElementById('tree-panel');
   if (page === 'overview') tp.classList.add('show');
   else tp.classList.remove('show');
   if (page === 'alerts') loadBackendAlerts();
+  if (page === 'receivables') renderKindPage('receivables');
+  if (page === 'maintenance') renderKindPage('maintenance');
   if (window.innerWidth <= 768) closeSidebar();
 }
 
@@ -2522,6 +2554,20 @@ function showApiInfo() {
 // ALERTS
 // ═══════════════════════════════════════
 // 從即時資料 (_realData) 產生平台告警（含白天斷線），與手動告警合併
+// 依內容判斷告警分類：payment(收款) / maintenance(維運排程) / system(系統設備)
+// 有明確 kind 欄位優先，否則用關鍵字推斷（相容舊資料）
+function alertKind(a) {
+  if (a.kind) return a.kind;
+  const t = (a.title || '') + ' ' + (a.detail || '');
+  if (/請款|收款|帳務|逾期|付款|款項|發票|對帳|應收/.test(t)) return 'payment';
+  if (/清洗|洗模|除草|保養|巡檢|維運|排程|檢測|更換|盤點/.test(t)) return 'maintenance';
+  return 'system';
+}
+// 只有手動告警才分流到收款/維運；live/gms 一律屬系統設備告警
+function manualAlertsByKind(kind) {
+  return ALERTS.filter(a => a.source !== 'gms' && a.source !== 'live' && alertKind(a) === kind);
+}
+
 function getDisplayAlerts() {
   const live = [];
   for (const s of SITES) {
@@ -2545,7 +2591,8 @@ function getDisplayAlerts() {
       source: 'live',
     });
   }
-  const manual = ALERTS.filter(a => a.source !== 'gms' && a.source !== 'live');
+  // 告警中心只留系統/設備告警（收款、維運排程已獨立到維運管理）
+  const manual = ALERTS.filter(a => a.source !== 'gms' && a.source !== 'live' && alertKind(a) === 'system');
   return [...live, ...manual];
 }
 
@@ -2572,9 +2619,44 @@ function renderAlerts() {
     `<div class="alerts-wrap">
       <div class="aw-header">
         <div class="aw-title">今日告警（${items.length}）</div>
-        <button class="aw-add-btn" onclick="openAlertForm(null)">＋ 新增告警</button>
+        <button class="aw-add-btn" onclick="openAlertForm(null,'system')">＋ 新增告警</button>
       </div>
       ${fullHtml || '<div style="padding:28px;text-align:center;color:var(--text3);font-size:13px;">目前無告警記錄</div>'}
+    </div>`;
+  renderKindPage('receivables');
+  renderKindPage('maintenance');
+}
+
+// 收款告警 / 維運排程 共用渲染（依 kind 篩選手動告警）
+function renderKindPage(kind) {
+  const map = {
+    payment:     {el:'receivables-full', title:'收款告警', empty:'目前無收款提醒', add:'＋ 新增收款提醒'},
+    maintenance: {el:'maintenance-full', title:'維運排程', empty:'目前無維運排程提醒', add:'＋ 新增維運排程'},
+  };
+  const key = kind === 'receivables' ? 'payment' : (kind === 'maintenance' ? 'maintenance' : kind);
+  const cfg = map[key]; if (!cfg) return;
+  const wrap = document.getElementById(cfg.el); if (!wrap) return;
+  const items = manualAlertsByKind(key);
+  const rows = items.map(a => `
+    <div class="alert-item ${a.level}">
+      <div class="ai-icon">${a.icon}</div>
+      <div class="ai-body">
+        <div class="ai-title">${a.site} · ${a.title}</div>
+        <div class="ai-detail">${a.detail}</div>
+      </div>
+      <div class="ai-time">${a.time ? '今日 ' + a.time : ''}</div>
+      <div class="ai-actions">
+        <button class="ai-act-btn" onclick="openAlertForm('${a.id}')" title="編輯">✏️</button>
+        <button class="ai-act-btn del" onclick="deleteAlert('${a.id}')" title="刪除">🗑</button>
+      </div>
+    </div>`).join('');
+  wrap.innerHTML =
+    `<div class="alerts-wrap">
+      <div class="aw-header">
+        <div class="aw-title">${cfg.title}（${items.length}）</div>
+        <button class="aw-add-btn" onclick="openAlertForm(null,'${key}')">${cfg.add}</button>
+      </div>
+      ${rows || `<div style="padding:28px;text-align:center;color:var(--text3);font-size:13px;">${cfg.empty}</div>`}
     </div>`;
 }
 
@@ -2583,14 +2665,23 @@ function updateNotifDot() {
   document.getElementById('notif-dot').style.display = n > 0 ? 'block' : 'none';
   const badge = document.getElementById('alert-badge');
   if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
+  // 維運管理兩個新分類的 badge
+  const setBadge = (id, cnt) => {
+    const b = document.getElementById(id);
+    if (b) { b.textContent = cnt; b.style.display = cnt > 0 ? '' : 'none'; }
+  };
+  setBadge('recv-badge',  manualAlertsByKind('payment').length);
+  setBadge('maint-badge', manualAlertsByKind('maintenance').length);
 }
 
 // ── 告警 CRUD ────────────────────────────────────────
 let _alertEditId = null;
 
-function openAlertForm(id) {
+function openAlertForm(id, presetKind) {
   _alertEditId = id;
-  document.getElementById('alert-form-title').textContent = id !== null ? '編輯告警' : '新增告警';
+  const titleMap = {system:'告警', payment:'收款提醒', maintenance:'維運排程'};
+  const kindLabel = titleMap[presetKind] || '告警';
+  document.getElementById('alert-form-title').textContent = id !== null ? '編輯' + kindLabel : '新增' + kindLabel;
   const sel = document.getElementById('af-site');
   sel.innerHTML = SITES.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
   if (id !== null) {
@@ -2598,12 +2689,14 @@ function openAlertForm(id) {
     if (!a) return;
     sel.value = a.site;
     document.getElementById('af-level').value = a.level;
+    document.getElementById('af-kind').value = alertKind(a);
     document.getElementById('af-title').value = a.title;
     document.getElementById('af-detail').value = a.detail;
     document.getElementById('af-time').value = a.time;
   } else {
     sel.selectedIndex = 0;
     document.getElementById('af-level').value = 'warning';
+    document.getElementById('af-kind').value = presetKind || 'system';
     document.getElementById('af-title').value = '';
     document.getElementById('af-detail').value = '';
     const t = new Date();
@@ -2616,6 +2709,7 @@ function openAlertForm(id) {
 async function saveAlertForm() {
   const site   = document.getElementById('af-site').value.trim();
   const level  = document.getElementById('af-level').value;
+  const kind   = document.getElementById('af-kind').value || 'system';
   const title  = document.getElementById('af-title').value.trim();
   const detail = document.getElementById('af-detail').value.trim();
   const time   = document.getElementById('af-time').value || '00:00';
@@ -2623,13 +2717,13 @@ async function saveAlertForm() {
   const iconMap = {critical:'🔴', warning:'🟡', info:'🔵'};
   const today = new Date().toISOString().split('T')[0];
   const data = {
-    level, icon: iconMap[level], site, title, detail, time,
+    level, icon: iconMap[level], site, title, detail, time, kind,
     date: today, source: 'manual',
     created_at: firebase.firestore.FieldValue.serverTimestamp(),
   };
   try {
     if (_alertEditId !== null) {
-      await alertsRef.doc(_alertEditId).update({level, icon:iconMap[level], site, title, detail, time});
+      await alertsRef.doc(_alertEditId).update({level, icon:iconMap[level], site, title, detail, time, kind});
     } else {
       await alertsRef.add(data);
     }
@@ -3194,6 +3288,7 @@ function startAlertsListener() {
           time:   d.time   || '00:00',
           date:   d.date   || '',
           source: d.source || 'manual',
+          kind:   d.kind   || '',
         };
       });
       renderAlerts();
