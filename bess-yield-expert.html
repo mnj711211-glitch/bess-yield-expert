@@ -363,6 +363,7 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div class="nav-item" data-panel="loadimport" onclick="nav(this)"><span class="ic">📂</span>用電資料匯入<span id="navImportBadge" style="display:none;margin-left:auto;font-size:9px;padding:1px 5px;border-radius:10px;background:var(--green);color:#000;font-weight:700">已載入</span></div>
     <div class="nav-item" data-panel="hardware"  onclick="nav(this)"><span class="ic">🔋</span>儲能硬體規格</div>
     <div class="nav-item" data-panel="strategy"  onclick="nav(this)"><span class="ic">⚙️</span>操作策略設定</div>
+    <div class="nav-item" data-panel="solar"     onclick="nav(this)"><span class="ic">☀️</span>太陽能模擬<span id="navSolarBadge" style="display:none;margin-left:auto;font-size:9px;padding:1px 5px;border-radius:10px;background:#f59e0b;color:#000;font-weight:700">已啟用</span></div>
     <div class="nav-sec">分析報表</div>
     <div class="nav-item" data-panel="dispatch"  onclick="nav(this)"><span class="ic">📊</span>24H 調度曲線</div>
     <div class="nav-item" data-panel="revenue"   onclick="nav(this)"><span class="ic">💰</span>收益分解報表</div>
@@ -994,6 +995,12 @@ tr:hover td{background:rgba(28,35,51,.5)}
       </div>
       <canvas id="chartLoadProfile" height="100"></canvas>
     </div>
+    <div class="card">
+      <div class="card-h">⚠ 超約最嚴重當日｜原始 15 分鐘用電曲線（未加儲能）
+        <span id="peakDayBadge" style="font-size:11px;font-weight:400;margin-left:8px;color:var(--text2)"></span>
+      </div>
+      <canvas id="chartPeakDayRaw" height="100"></canvas>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="card">
         <div class="card-h">月度峰值需量（kW）</div>
@@ -1007,9 +1014,102 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div class="card">
       <div class="card-h">匯入資料統計</div>
       <div class="tw"><table id="tblImportStats">
-        <thead><tr><th>月份</th><th>資料筆數</th><th>平均需量(kW)</th><th>峰值需量(kW)</th><th>離峰均值(kW)</th><th>月用電量(kWh)</th><th>季節</th></tr></thead>
+        <thead><tr><th>月份</th><th>資料筆數</th><th>平均需量(kW)</th><th>峰值需量(kW)</th><th>超約判定</th><th>離峰均值(kW)</th><th>月用電量(kWh)</th><th>季節</th></tr></thead>
         <tbody></tbody>
       </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SOLAR ══ -->
+<div class="panel" id="panel-solar">
+  <div class="ph">
+    <div class="ph-left"><h2>☀️ 太陽能模擬</h2><p>依中央氣象署（CWA）2020–2025 五年平均日射量模擬逐日發電，計算自用率與儲能淨負載</p></div>
+    <div class="ph-badge" id="solarStatusBadge"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">太陽能系統設定</div>
+    <div class="fg" style="align-items:center;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="solarEnabled" onchange="onSolarChange()" style="width:16px;height:16px">
+        啟用太陽能模擬
+      </label>
+    </div>
+    <div id="solarParams" style="display:none">
+      <div style="margin-bottom:10px;padding:7px 11px;border-radius:6px;font-size:12px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);color:#1e40af">
+        🛰️ 資料來源：中央氣象署（CWA）2020–2025 年五年平均日射量
+      </div>
+      <div class="fg">
+        <div class="fi">
+          <label>縣市（氣象站）</label>
+          <select id="solarCounty" onchange="onSolarChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:13px;width:100%">
+            <option value="taipei">台北市</option>
+            <option value="newtaipei">新北市</option>
+            <option value="keelung">基隆市</option>
+            <option value="taoyuan">桃園市</option>
+            <option value="hsinchu_city">新竹市</option>
+            <option value="hsinchu_co">新竹縣</option>
+            <option value="miaoli">苗栗縣</option>
+            <option value="taichung">台中市</option>
+            <option value="changhua">彰化縣</option>
+            <option value="nantou">南投縣</option>
+            <option value="yunlin">雲林縣</option>
+            <option value="chiayi_city">嘉義市</option>
+            <option value="chiayi_co">嘉義縣</option>
+            <option value="tainan">台南市</option>
+            <option value="kaohsiung">高雄市</option>
+            <option value="pingtung">屏東縣</option>
+            <option value="yilan">宜蘭縣</option>
+            <option value="hualien">花蓮縣</option>
+            <option value="taitung">台東縣</option>
+            <option value="penghu">澎湖縣</option>
+            <option value="kinmen">金門縣</option>
+            <option value="matsu">連江縣</option>
+          </select>
+        </div>
+        <div class="fi">
+          <label>太陽能裝置容量（kWp）</label>
+          <input type="number" id="solarKwp" value="100" min="1" max="9999" step="10" oninput="onSolarChange()">
+          <span class="hint">系統總峰值功率</span>
+        </div>
+        <div class="fi">
+          <label>系統效率 PR（%）</label>
+          <input type="number" id="solarPR" value="80" min="50" max="95" step="1" oninput="onSolarChange()">
+          <span class="hint">含線損、遮蔭、溫度等，預設 80%</span>
+        </div>
+        <div class="fi">
+          <label>日射量資料基準</label>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;line-height:1.3">
+            <span style="font-size:15px">🛰️</span>
+            <span>中央氣象署 2020–2025<br>五年平均</span>
+          </div>
+          <span class="hint" id="solarYearHint">日曆對齊：匯入負載後自動帶入該年</span>
+          <input type="hidden" id="solarYear" value="2025">
+        </div>
+      </div>
+      <div id="solarStats" class="stats" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div id="solarCharts" style="display:none">
+    <div class="card">
+      <div class="card-h">逐月發電量 vs 自用量（kWh）</div>
+      <canvas id="chartSolarMonthly" height="100"></canvas>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card">
+        <div class="card-h">典型日發電曲線（各月平均＋晴天無雲上限）</div>
+        <canvas id="chartSolarHourly" height="160"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-h">逐日發電量分佈（全年）</div>
+        <canvas id="chartSolarDaily" height="160"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h">太陽能電力流向分析</div>
+      <div id="solarFlowTable" style="font-size:13px"></div>
     </div>
   </div>
 </div>
@@ -1620,6 +1720,8 @@ function onParamChange(){
   updateRateDisplay();
   updateContractCalc();
   suggestDRCap();
+  // 契約容量變動時，同步刷新用電匯入的逐月超約判定、峰值日圖契約線、單日選單標紅
+  if(window.LOAD_DATA){ renderImportMonthlyTable(); refreshPeakDayOverload(); recolorDayPicker(); }
   // 費率切換時同步更新兩充兩放相容性提示
   if(vs('cycles') === '2c2d_ns') onCyclesChange();
   // 若 PDF 預覽頁已開著，即時重新渲染
@@ -1750,6 +1852,11 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const contractOff = v('contractOff');
   const contractPeak= v('contractPeak');
   const usable      = battKwh * dod;
+  // 有效離峰契約容量：預設「申請增容」模式下，充電依「現有＋建議增購」容量，
+  // 使中午/夜間離峰能充飽電——與年收益已扣除的增容成本一致。
+  // 勾選「不申請增容」時，維持用現有契約容量限制充電。
+  const _ccOff         = calcContractOverload();
+  const contractOffEff = _ccOff.noExpand ? contractOff : (contractOff + (_ccOff.addNeeded || 0));
 
   // ── 用電大戶模式：18:00~20:00 義務窗口以 P_discharge 放電，其他時段依 PCS 功率 ──
   const isBUMode    = vs('userMode') === 'biguser';
@@ -1765,11 +1872,12 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   let soc, rows = [];
 
   // ── 共用充電 helper（契約感知最大功率）────────────────────────────
-  // 返回本小時實際充電功率（正值 kW），0 表示不充
-  function chargePower(soc, targetSOC, baseLoad, cOff){
+  // 返回本小時實際充電功率（正值 kW），0 表示不充。
+  // 一律以「有效離峰契約容量 contractOffEff」為需量上限（見上方定義）。
+  function chargePower(soc, targetSOC, baseLoad, _cOffIgnored){
     if(soc >= targetSOC - 0.001) return 0;
     const avail    = (targetSOC - soc) * battKwh;
-    const headroom = Math.max(0, cOff - baseLoad);
+    const headroom = Math.max(0, contractOffEff - baseLoad);
     return Math.min(maxPow, headroom, avail);
   }
 
@@ -2023,7 +2131,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         }
       }
       const gridLoad = baseLoad - power;
-      const contractRef = p===0 ? contractOff : contractPeak;
+      const contractRef = p===0 ? contractOffEff : contractPeak;
       // drExpected：DR時段的申報放電目標（drCapKw，受負載上限）
       const drExpected = (isDRMode && disHrSet.has(h))
         ? (hasLoad ? Math.min(drCapKw, baseLoad) : drCapKw)
@@ -2167,7 +2275,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
         // isBUMode && h=14~17：待機，電池保留給 18-20h 義務窗口
       }
       const gridLoad = baseLoad - power;
-      const contractRef = p===0 ? contractOff : contractPeak;
+      const contractRef = p===0 ? contractOffEff : contractPeak;
       rows.push({h, p, price:prices[h], baseLoad, action, power, gridLoad, surplus:contractRef-gridLoad, soc:soc*100});
     }
   }
@@ -2418,9 +2526,29 @@ function renderDispatch(){
   const drDisHrs    = getDRDischargeHours(dispSeason, dispDayType);
   const drCapKw     = drDisHrs ? (v('drCap') || 0) : null;
   const rows = calcDispatchProfile(dispSeason, dispDouble, dispDayType, drDisHrs, drCapKw);
+
+  // ── 太陽能疊加 ─────────────────────────────────────────────
+  const solarEnabled = document.getElementById('solarEnabled')?.checked;
+  const sd = window.SOLAR_DATA;
+  let solarArr = null;
+  if (solarEnabled && sd) {
+    const mode0 = (document.getElementById('dispatchMode')||{}).value||'manual';
+    const selD0 = mode0 === 'singleDay' ? (document.getElementById('dayPicker')||{}).value||'' : '';
+    if (selD0 && sd.daily[selD0]) {
+      solarArr = sd.daily[selD0].map(v=>+v.toFixed(2));
+    } else {
+      const days = Object.keys(sd.daily);
+      const sums = new Array(24).fill(0);
+      days.forEach(dk => { sd.daily[dk].forEach((kw,h) => { sums[h]+=kw; }); });
+      solarArr = sums.map(s=>+(s/Math.max(1,days.length)).toFixed(2));
+    }
+  }
+
   const sched = getSchedFor(dispSeason, dispDayType);
   const bands = makeBands(sched);   // background color bands per hour
   const cc = calcContractOverload();
+  // 調度圖離峰契約參考線：申請增容模式顯示「現有＋建議增購」的有效容量（與充電上限一致）
+  const contractOffEffDisp = cc.noExpand ? v('contractOff') : (v('contractOff') + (cc.addNeeded||0));
   const chargingOverload = rows.filter(r=>r.action.startsWith('充電')&&r.surplus<0).length > 0;
 
   const dailyArb = calcDailyArb(rows);
@@ -2439,15 +2567,26 @@ function renderDispatch(){
     `<span class="load-src-badge ${mode==='manual'?'lsb-manual':'lsb-real'}">${modeLabels[mode]||mode}${selDay?' '+selDay:''}</span>
      <span style="font-size:11px;color:var(--text2);margin-left:6px">🟢離峰 🟠半尖峰 🔴尖峰</span>`;
 
+  const solarDayKwh = solarArr ? solarArr.reduce((a,b)=>a+b,0) : 0;
+  // 淨負載（≥0）＝負載扣掉太陽能後仍須由電網/儲能供應
+  const netLoadArr  = solarArr ? rows.map((r,h)=>Math.max(0, r.baseLoad-(solarArr[h]||0))) : null;
+  // 多餘發電＝太陽能超過負載的部分（用不完 → 回灌/棄電），即淨負載<0 的量
+  const excessArr   = solarArr ? rows.map((r,h)=>Math.max(0, (solarArr[h]||0)-r.baseLoad)) : null;
+  const excessDayKwh= excessArr ? excessArr.reduce((a,b)=>a+b,0) : 0;
+  const selfDayKwh  = solarDayKwh - excessDayKwh;
+
   document.getElementById('dispatchStats').innerHTML =
     stat('日套利收益','NT$'+f0(dailyArb),'元 / 日','green','≈ 年NT$'+f0(dailyArb*(v('touDaysSummer')+v('touDaysNonSummer'))/10000)+'萬') +
     stat('尖峰削峰量',f0(peakShave)+' kW','最大削減需量','blue') +
     stat('日放電量',f(dischargeKwh,1)+' kWh','DoD '+v('dod')+'%','orange') +
     stat('日充電量',f(chargeKwh,1)+' kWh','η='+v('rte')+'%','') +
-    stat('充電超約',cc.overload>0 ? f0(cc.overload)+' kW' : '無超約',cc.overload>0?'建議增購':'契約足夠',cc.overload>0?'red':'green');
+    stat('充電超約',cc.overload>0 ? f0(cc.overload)+' kW' : '無超約',cc.overload>0?'建議增購':'契約足夠',cc.overload>0?'red':'green') +
+    (solarArr ? stat('太陽能發電',f(solarDayKwh,1)+' kWh',sd.kWp+'kWp｜PR'+sd.PR+'%','orange') : '') +
+    (solarArr ? stat('多餘發電（用不完）',f(excessDayKwh,1)+' kWh', excessDayKwh>0?`回灌/棄電（自用 ${f0(selfDayKwh)}kWh）`:'太陽能全數自用', excessDayKwh>0?'red':'green') : '');
 
-  document.getElementById('contractWarning').innerHTML = chargingOverload
-    ? `<div class="alert alert-warn" style="margin-bottom:16px">⚠ 部分充電時段電網需量超出離峰契約，請確認是否已增購離峰契約容量或調低 PCS 功率。</div>` : '';
+  document.getElementById('contractWarning').innerHTML =
+    (chargingOverload ? `<div class="alert alert-warn" style="margin-bottom:8px">⚠ 部分充電時段電網需量超出離峰契約，請確認是否已增購離峰契約容量或調低 PCS 功率。</div>` : '') +
+    (solarArr ? `<div style="margin-bottom:10px;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3)">☀️ 太陽能模式：本日發電 <b>${f(solarDayKwh,1)} kWh</b>，其中自用 <b>${f(selfDayKwh,1)} kWh</b>、<span style="color:#c026d3">多餘用不完 <b>${f(excessDayKwh,1)} kWh</b></span>（紫色區＝太陽能大於負載回灌/棄電）。綠色虛線為扣除太陽能後的淨負載。${(mode!=='singleDay'&&excessDayKwh<solarDayKwh*0.02)?'　<b>提示：</b>目前為平均曲線，多餘電多發生在週末低載日，請切「指定單日」選週六日查看。':''}</div>` : '');
 
   const labels = rows.map(r => `${String(r.h).padStart(2,'0')}:00`);
 
@@ -2467,15 +2606,18 @@ function renderDispatch(){
       labels,
       datasets: [
         { label:'建物基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#8b949e', borderDash:[5,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
+        ...(netLoadArr ? [{ label:'淨負載（扣太陽能）(kW)', data:netLoadArr, borderColor:'#10b981', borderDash:[4,2], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 }] : []),
         { label:'電網端需量(kW)',   data:rows.map(r=>r.gridLoad), borderColor:PC[2], fill:true, backgroundColor:'rgba(247,129,102,.07)', tension:.3, pointRadius:0, borderWidth:2 },
         { label:'儲能功率(kW)',     data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:'origin', backgroundColor:'rgba(59,130,246,.18)', tension:.4, pointRadius:0, borderWidth:2 },
+        ...(solarArr ? [{ label:`太陽能${sd.kWp}kWp(kW)`, data:solarArr, borderColor:'#f59e0b', fill:true, backgroundColor:'rgba(245,158,11,.10)', tension:.4, pointRadius:0, borderWidth:2 }] : []),
+        ...(excessArr ? [{ label:'多餘發電 用不完(kW)', data:excessArr, borderColor:'#d946ef', fill:'origin', backgroundColor:'rgba(217,70,239,.28)', tension:.4, pointRadius:0, borderWidth:2 }] : []),
         { label:`尖峰契約容量 ${f0(v('contractPeak'))}kW`,
           data: Array(24).fill(v('contractPeak')),
           borderColor:'rgba(239,68,68,.75)', borderDash:[8,5], fill:false,
           pointRadius:0, borderWidth:1.5, tension:0, type:'line',
           order:0 },
-        { label:`離峰契約容量 ${f0(v('contractOff'))}kW`,
-          data: Array(24).fill(v('contractOff')),
+        { label:`離峰契約容量 ${f0(contractOffEffDisp)}kW${(!cc.noExpand&&cc.addNeeded>0)?`（含建議增購 ${f0(cc.addNeeded)}kW）`:''}`,
+          data: Array(24).fill(contractOffEffDisp),
           borderColor:'rgba(88,166,255,.6)', borderDash:[5,5], fill:false,
           pointRadius:0, borderWidth:1.5, tension:0, type:'line',
           order:0 }
@@ -3961,7 +4103,7 @@ function runAll(){
   onParamChange();
   renderDegTable();
   const activePanel = document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const map = { dispatch:renderDispatch, revenue:renderRevenue, cashflow:renderCashflow, heatmap:renderHeatmap, tariff:renderTariff, report:renderReport };
+  const map = { dispatch:renderDispatch, revenue:renderRevenue, cashflow:renderCashflow, heatmap:renderHeatmap, tariff:renderTariff, report:renderReport, solar:renderSolarPanel };
   if(map[activePanel]) map[activePanel]();
   else { renderDispatch(); document.querySelector('[data-panel=dispatch]').click(); }
 }
@@ -3970,6 +4112,325 @@ function runAll(){
 // LOAD DATA — GLOBAL STORE
 // ═══════════════════════════════════════════════
 window.LOAD_DATA = null;
+window.SOLAR_DATA = null; // { daily:{dateStr:[24h kW]}, monthly:[12], annualKwh, selfUse, excess }
+
+// ═══════════════════════════════════════════════════════════════
+// ☀️ SOLAR SIMULATION MODULE
+// ═══════════════════════════════════════════════════════════════
+
+// 縣市 → 緯度 / 太陽輻射區域
+const SOLAR_META = {
+  taipei:      { lat:25.04, region:'north' },
+  newtaipei:   { lat:25.01, region:'north' },
+  keelung:     { lat:25.13, region:'north' },
+  taoyuan:     { lat:24.99, region:'taoyuan' },
+  hsinchu_city:{ lat:24.80, region:'taoyuan' },
+  hsinchu_co:  { lat:24.64, region:'taoyuan' },
+  miaoli:      { lat:24.56, region:'central' },
+  taichung:    { lat:24.15, region:'central' },
+  changhua:    { lat:24.07, region:'central' },
+  nantou:      { lat:23.96, region:'central' },
+  yunlin:      { lat:23.71, region:'south' },
+  chiayi_city: { lat:23.48, region:'south' },
+  chiayi_co:   { lat:23.45, region:'south' },
+  tainan:      { lat:22.99, region:'south' },
+  kaohsiung:   { lat:22.62, region:'south' },
+  pingtung:    { lat:22.67, region:'south' },
+  yilan:       { lat:24.75, region:'east' },
+  hualien:     { lat:23.99, region:'east' },
+  taitung:     { lat:22.75, region:'east' },
+  penghu:      { lat:23.57, region:'penghu' },
+  kinmen:      { lat:24.43, region:'kinmen' },
+  matsu:       { lat:26.16, region:'north' },
+};
+
+// 月均日照量 kWh/m²/day（中央氣象署 CWA 2020–2025 五年平均）
+const SOLAR_GHI_MONTHLY = {
+  north:   [2.05,1.85,2.45,3.00,3.75,4.10,4.95,4.80,4.40,4.10,2.75,2.20],
+  taoyuan: [2.35,2.15,2.75,3.30,3.95,4.30,5.20,5.10,4.70,4.45,3.10,2.50],
+  central: [2.65,2.50,3.05,3.60,4.05,4.25,5.35,5.30,4.90,4.80,3.55,2.85],
+  south:   [3.50,3.30,3.80,4.20,4.20,4.10,5.20,5.40,5.30,5.40,4.60,3.90],
+  east:    [2.80,2.60,3.10,3.70,4.10,4.40,5.30,5.25,4.90,4.60,3.30,2.90],
+  penghu:  [3.90,3.70,4.10,4.50,4.50,4.30,5.50,5.60,5.50,5.50,4.80,4.20],
+  kinmen:  [3.20,3.00,3.55,4.00,4.20,4.10,5.10,5.20,5.10,4.90,3.90,3.30],
+};
+
+// 月均日照標準差（天際係數 σ）
+const SOLAR_KT_SIGMA = {
+  north:   [0.18,0.20,0.18,0.15,0.14,0.13,0.11,0.11,0.12,0.13,0.16,0.17],
+  taoyuan: [0.17,0.18,0.17,0.14,0.13,0.12,0.10,0.10,0.11,0.12,0.15,0.16],
+  central: [0.16,0.17,0.16,0.14,0.13,0.12,0.10,0.10,0.11,0.11,0.14,0.15],
+  south:   [0.14,0.15,0.14,0.12,0.12,0.13,0.10,0.09,0.10,0.10,0.12,0.13],
+  east:    [0.17,0.18,0.17,0.14,0.13,0.12,0.10,0.10,0.11,0.12,0.15,0.16],
+  penghu:  [0.13,0.14,0.13,0.11,0.11,0.12,0.09,0.09,0.09,0.09,0.11,0.12],
+  kinmen:  [0.15,0.16,0.15,0.13,0.12,0.13,0.10,0.10,0.10,0.11,0.13,0.14],
+};
+
+const SOLAR_AUTOCORR = 0.62; // 天氣持續性自相關
+const GHI_PEAK = 1000;       // 晴空峰值 W/m²
+
+function doyToDate(yr, doy){
+  const d = new Date(yr, 0, doy);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// 晴空 GHI（W/m²）—— 代表「完全無雲」的上限（Kt≈1）。
+// 峰值校準到約 940 W/m²，讓晴天 PV 輸出可達 kWp×PR×0.94（≈80~85% kWp），
+// 逐日的雲遮由 cloudFactor(0~1) 再乘上去，故晴天會真的衝高、陰天才壓低。
+function clearSkyGHI(doy, hourLocal, latDeg){
+  const decl = 23.45 * Math.sin((360/365*(doy-81)) * Math.PI/180);
+  const omega = (hourLocal + 0.5 - 12) * 15;
+  const lat = latDeg * Math.PI/180, d = decl*Math.PI/180, o = omega*Math.PI/180;
+  const sinAlt = Math.sin(lat)*Math.sin(d) + Math.cos(lat)*Math.cos(d)*Math.cos(o);
+  if(sinAlt <= 0) return 0;
+  return Math.min(GHI_PEAK, GHI_PEAK * 0.95 * Math.pow(sinAlt, 1.05));
+}
+
+// 某緯度、某月中旬「無雲晴空」的整日發電積分（kWh/m²/day）
+function clearSkyDayKwh(mo, latDeg){
+  const midDoy = Math.round((new Date(2025,mo,15) - new Date(2025,0,0))/864e5);
+  let s = 0;
+  for(let h=0;h<24;h++) s += clearSkyGHI(midDoy, h, latDeg)/1000;
+  return s;
+}
+
+// 偽隨機（seeded）—— 保證同參數每次結果相同
+function seededRand(seed){
+  let s = (seed|0) >>> 0;
+  return ()=>{ s=(s*1664525+1013904223)>>>0; return s/0xffffffff; };
+}
+
+const CF_SIGMA_SCALE = 1.9;   // 把舊 Kt σ 放大到雲遮係數尺度（晴/陰落差更真實）
+const CF_MAX = 1.0;           // 晴天上限（無雲）
+
+// 產生全年逐日「雲遮係數 cloudFactor」與各月平均（Markov Chain）。
+// cloudFactor=1 → 無雲晴天（PV 衝到晴空上限）；<1 → 有雲折減。
+// 月均 cf = 氣候月均日照 ÷ 該緯度無雲晴空日積分 → 保證年發電量仍等於氣候值，
+// 但晴天可衝到 kWp×PR×0.94（≈80~85% kWp），陰天/颱風天才壓低。
+// 種子只綁縣市（不綁年份）→ 穩定的「典型年」天氣樣態。
+function generateDailyKt(region, yr, latDeg){
+  const rand = seededRand(region.split('').reduce((a,c)=>a*31+c.charCodeAt(0),0));
+  const ghiM = SOLAR_GHI_MONTHLY[region];
+  const sigM = SOLAR_KT_SIGMA[region];
+  const rho  = SOLAR_AUTOCORR;
+  const maxDays = (yr%4===0&&(yr%100!==0||yr%400===0))?366:365;
+  const cf = [], cfMean = [];
+  let prev = null, doy = 1;
+  for(let m=0;m<12;m++){
+    const mDays = new Date(yr,m+1,0).getDate();
+    const csDay = clearSkyDayKwh(m, latDeg);
+    const mean  = Math.min(0.97, Math.max(0.10, ghiM[m]/(csDay||1)));
+    cfMean.push(mean);
+    const sig    = sigM[m]*CF_SIGMA_SCALE;
+    const sigEps = sig*Math.sqrt(1-rho*rho);
+    if(prev===null) prev = mean;
+    const monthVals = [];
+    for(let d=0;d<mDays;d++){
+      const u=rand(), u2=rand();
+      const eps = Math.sqrt(-2*Math.log(Math.max(1e-9,u)))*Math.cos(2*Math.PI*u2)*sigEps;
+      const raw = mean + rho*(prev-mean) + eps;
+      prev = Math.min(1.10, Math.max(0.06, raw));   // 未夾限值供自相關延續
+      monthVals.push(prev);
+      if(++doy>maxDays) break;
+    }
+    // 月內重正規化 → 實際月均等於氣候 cf（維持年發電量守恆），再夾到 [0.08, CF_MAX]
+    const realized = monthVals.reduce((a,b)=>a+b,0)/monthVals.length;
+    const scale = mean/(realized||1);
+    monthVals.forEach(v=>cf.push(Math.min(CF_MAX, Math.max(0.08, v*scale))));
+  }
+  cf._cfMean = cfMean;
+  return cf;
+}
+
+// 產生全年逐日逐時太陽能發電（kW），回傳並存入 window.SOLAR_DATA
+function generateSolarData(county, kWp, PR, yr){
+  const meta = SOLAR_META[county]||SOLAR_META['taichung'];
+  const {lat,region} = meta;
+  const pr = (PR||80)/100;
+  const maxDays = (yr%4===0&&(yr%100!==0||yr%400===0))?366:365;
+  const ktD = generateDailyKt(region, yr, lat);
+  const monthlyCf = ktD._cfMean || [];
+
+  const daily={}, dailyKwh=[];
+  const monthlyGen=new Array(12).fill(0), monthlyExcess=new Array(12).fill(0), monthlyLoad=new Array(12).fill(0);
+  let annualGen=0, annualExcess=0;
+
+  // 負載備援：匯入資料常有時段缺漏（null），若當成 0 會把太陽能全算成多餘電。
+  // 缺漏時段改用該工具既有的平均負載，並分平日/週末：
+  //   平日缺漏 → 季節平均（營運狀態）
+  //   週末缺漏 → 基本(常在)負載（客戶六日僅基本用電，正是多餘電的主要來源）
+  const ld=window.LOAD_DATA;
+  const sumAvg=ld?.summerHourlyAvg, nsAvg=ld?.nonSummerHourlyAvg, allAvg=ld?.hourlyAvg;
+  // 基本負載 = 全期各時段平均的最小值（通常為深夜常在負載）
+  const baseLoad = allAvg ? Math.min(...allAvg.filter(v=>v>0)) : 0;
+  function fallbackLoad(mo,h,isWeekend){
+    if(isWeekend) return baseLoad;
+    const isSummer=mo>=5&&mo<=8; // 夏月 6~9 月（與工具一致）
+    const arr=isSummer?sumAvg:nsAvg;
+    const v=arr?.[h];
+    return (v!=null&&v>0)?v:(allAvg?.[h]||baseLoad);
+  }
+
+  for(let doy=1;doy<=maxDays;doy++){
+    const dateStr=doyToDate(yr,doy);
+    const dObj=new Date(dateStr);
+    const mo=dObj.getMonth();
+    const dow=dObj.getDay();
+    const isWeekend=(dow===0||dow===6);
+    const kt=ktD[doy-1];
+    const profile=[];
+    let dayKwh=0;
+    for(let h=0;h<24;h++){
+      const kw=Math.max(0,clearSkyGHI(doy,h,lat)*kt/GHI_PEAK*kWp*pr);
+      profile.push(kw);
+      dayKwh+=kw;
+    }
+    daily[dateStr]=profile;
+    dailyKwh.push(dayKwh);
+    monthlyGen[mo]+=dayKwh;
+    annualGen+=dayKwh;
+
+    if(ld){
+      const lp=ld.dailyProfiles?.[dateStr];
+      for(let h=0;h<24;h++){
+        // 有實測值用實測，否則依平日/週末套用平均（不把缺漏當 0）
+        const load=(lp&&lp[h]!=null)?lp[h]:fallbackLoad(mo,h,isWeekend);
+        const exc=Math.max(0,profile[h]-load);
+        monthlyExcess[mo]+=exc; annualExcess+=exc;
+        monthlyLoad[mo]+=load;
+      }
+    }
+  }
+
+  const annualSelf=annualGen-annualExcess;
+  const peakKw = Math.max(...Object.values(daily).map(p=>Math.max(...p)));
+  window.SOLAR_DATA={
+    daily, dailyKwh, monthlyGen, monthlyExcess, monthlyLoad, monthlyCf,
+    annualKwh:annualGen, annualExcess, annualSelf, peakKw,
+    selfUseRate:annualGen>0?annualSelf/annualGen:0,
+    county, kWp, PR:PR||80, yr, region, lat
+  };
+  return window.SOLAR_DATA;
+}
+
+// 取得指定日期、小時的太陽能 kW
+function getSolarKw(dateStr, h){
+  if(!window.SOLAR_DATA||!document.getElementById('solarEnabled')?.checked) return 0;
+  return window.SOLAR_DATA.daily[dateStr]?.[h]||0;
+}
+
+// 日曆對齊年份：日射量固定用 2020–2025 五年平均，年份只決定週末/假日與負載日期對齊。
+// 有匯入負載資料 → 跟著負載年份；否則用今年。
+function solarCalendarYear(){
+  const ld=window.LOAD_DATA;
+  if(ld?.sortedDays?.length){ const y=parseInt(ld.sortedDays[0].slice(0,4)); if(y) return y; }
+  const el=document.getElementById('solarYear'); const v=el?parseInt(el.value):NaN;
+  return v||new Date().getFullYear();
+}
+
+// ── Solar UI ──────────────────────────────────────────────────
+function onSolarChange(){
+  const enabled=document.getElementById('solarEnabled')?.checked;
+  document.getElementById('solarParams').style.display=enabled?'block':'none';
+  document.getElementById('navSolarBadge').style.display=enabled?'inline':'none';
+  if(enabled){
+    const county=document.getElementById('solarCounty').value;
+    const kWp=parseFloat(document.getElementById('solarKwp').value)||100;
+    const PR=parseFloat(document.getElementById('solarPR').value)||80;
+    const yr=solarCalendarYear();
+    const hintEl=document.getElementById('solarYearHint');
+    if(hintEl) hintEl.textContent = window.LOAD_DATA?.sortedDays?.length
+      ? `日曆對齊：${yr} 年（依匯入負載）` : `日曆對齊：${yr} 年（無負載，用今年）`;
+    const yEl=document.getElementById('solarYear'); if(yEl) yEl.value=yr;
+    generateSolarData(county,kWp,PR,yr);
+    renderSolarPanel();
+  } else {
+    window.SOLAR_DATA=null;
+  }
+  onParamChange();
+}
+
+function renderSolarPanel(){
+  if(!document.getElementById('panel-solar')) return;
+  const enabled=document.getElementById('solarEnabled')?.checked;
+  const sd=window.SOLAR_DATA;
+  document.getElementById('solarCharts').style.display=(enabled&&sd)?'block':'none';
+  const badge=document.getElementById('solarStatusBadge');
+  if(!enabled||!sd){ badge.innerHTML=''; document.getElementById('solarStats').innerHTML=''; return; }
+  badge.innerHTML=`<span class="badge" style="background:rgba(245,158,11,.15);color:#b45309;border:1px solid rgba(245,158,11,.3)">${sd.kWp} kWp｜${sd.annualKwh.toFixed(0)} kWh/年</span>`;
+
+  const ld=window.LOAD_DATA;
+  const peakPct = sd.peakKw ? (100*sd.peakKw/sd.kWp) : 0;
+  document.getElementById('solarStats').innerHTML=
+    stat('年發電量',(sd.annualKwh/1000).toFixed(1)+' MWh',`${sd.kWp}kWp × PR${sd.PR}%`,'orange')+
+    stat('自用量',(sd.annualSelf/1000).toFixed(1)+' MWh',`自用率 ${(sd.selfUseRate*100).toFixed(1)}%`,'green')+
+    stat('多餘發電',(sd.annualExcess/1000).toFixed(1)+' MWh',ld?'棄電/回饋':'需匯入負載資料','blue')+
+    stat('晴天最大瞬時',f0(sd.peakKw||0)+' kW',`≈ ${peakPct.toFixed(0)}% kWp（無雲晴天）`,'red')+
+    stat('等效滿載時數',(sd.annualKwh/sd.kWp).toFixed(0)+' h/年','年均 '+((sd.annualKwh/sd.kWp)/365).toFixed(2)+' h/日','');
+
+  const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const selfArr=sd.monthlyGen.map((g,i)=>Math.max(0,g-sd.monthlyExcess[i]));
+
+  dc('solarMonthly');
+  charts['solarMonthly']=new Chart(document.getElementById('chartSolarMonthly').getContext('2d'),{
+    type:'bar',data:{labels:MONTHS,datasets:[
+      {label:'自用(kWh)',data:selfArr,backgroundColor:'rgba(245,158,11,0.75)',borderRadius:4},
+      {label:'多餘(kWh)',data:sd.monthlyExcess,backgroundColor:'rgba(99,102,241,0.55)',borderRadius:4}
+    ]},
+    options:{responsive:true,scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>v.toLocaleString()}}},plugins:{legend:{position:'top'}}}
+  });
+
+  const HRS=Array.from({length:24},(_,i)=>`${i}:00`);
+  const pal=['#f59e0b','#ef4444','#10b981','#3b82f6','#8b5cf6','#f97316'];
+  const repMonths=[0,2,5,8,9,11];
+  const repDoy  =[15,75,162,258,288,349];
+  const prF = sd.PR/100;
+  // 晴天無雲上限：取「太陽最高、晴空峰值最大」的月份（夏季）畫參考線，
+  // 讓使用者看到全年晴天瞬間可衝到的最高功率（≈ 年最大瞬時）。
+  const midDoyOf = m => Math.round((new Date(2025,m,15)-new Date(2025,0,0))/864e5);
+  let sunM=0, sunNoon=-1;
+  for(let m=0;m<12;m++){ const noon=clearSkyGHI(midDoyOf(m),12,sd.lat); if(noon>sunNoon){sunNoon=noon;sunM=m;} }
+  const sunMidDoy = midDoyOf(sunM);
+  const clearCeil = Array.from({length:24},(_,h)=>+(clearSkyGHI(sunMidDoy,h,sd.lat)/1000*sd.kWp*prF).toFixed(1));
+  dc('solarHourly');
+  charts['solarHourly']=new Chart(document.getElementById('chartSolarHourly').getContext('2d'),{
+    type:'line',data:{labels:HRS,datasets:[
+      ...repMonths.map((m,idx)=>{
+        const cf = sd.monthlyCf[m] ?? 0.6;
+        return{label:MONTHS[m]+'均',data:Array.from({length:24},(_,h)=>+(clearSkyGHI(repDoy[idx],h,sd.lat)/1000*cf*sd.kWp*prF).toFixed(1)),
+          borderColor:pal[idx],fill:false,tension:.4,pointRadius:0,borderWidth:1.8};
+      }),
+      {label:`晴天無雲上限（${MONTHS[sunM]}）`,data:clearCeil,borderColor:'#dc2626',borderDash:[6,4],fill:false,tension:.4,pointRadius:0,borderWidth:2}
+    ]},
+    options:{responsive:true,scales:{y:{title:{display:true,text:'kW'}}},plugins:{legend:{position:'top',labels:{boxWidth:12,font:{size:10}}}}}
+  });
+
+  dc('solarDaily');
+  const avg=sd.annualKwh/sd.dailyKwh.length;
+  charts['solarDaily']=new Chart(document.getElementById('chartSolarDaily').getContext('2d'),{
+    type:'bar',data:{labels:sd.dailyKwh.map((_,i)=>i+1),datasets:[{
+      label:'逐日發電(kWh)',data:sd.dailyKwh,borderWidth:0,
+      backgroundColor:sd.dailyKwh.map(v=>v>avg*1.2?'rgba(245,158,11,0.8)':v<avg*0.4?'rgba(99,102,241,0.6)':'rgba(16,185,129,0.5)')
+    }]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{display:false},y:{title:{display:true,text:'kWh/日'}}}}
+  });
+
+  if(ld){
+    const rows2=MONTHS.map((mn,i)=>{
+      const gen=sd.monthlyGen[i],exc=sd.monthlyExcess[i],slf=Math.max(0,gen-exc),lo=sd.monthlyLoad[i];
+      const sr=gen>0?(100*(1-exc/gen)).toFixed(1):'-';
+      return `<tr style="background:${i%2?'':'rgba(0,0,0,.03)'}"><td style="padding:5px 10px">${mn}</td><td style="text-align:right;padding:5px 10px">${gen.toFixed(0)}</td><td style="text-align:right;padding:5px 10px;color:#16a34a">${slf.toFixed(0)}</td><td style="text-align:right;padding:5px 10px;color:#6366f1">${exc.toFixed(0)}</td><td style="text-align:right;padding:5px 10px">${lo.toFixed(0)}</td><td style="text-align:right;padding:5px 10px;font-weight:700">${sr}%</td></tr>`;
+    }).join('');
+    document.getElementById('solarFlowTable').innerHTML=
+      `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1a3a6e;color:#fff">
+       <th style="padding:6px 10px;text-align:left">月份</th><th style="padding:6px 10px;text-align:right">發電(kWh)</th>
+       <th style="padding:6px 10px;text-align:right">自用(kWh)</th><th style="padding:6px 10px;text-align:right">多餘(kWh)</th>
+       <th style="padding:6px 10px;text-align:right">負載(kWh)</th><th style="padding:6px 10px;text-align:right">自用率</th>
+       </tr></thead><tbody>${rows2}</tbody></table>`;
+  } else {
+    document.getElementById('solarFlowTable').innerHTML='<div style="color:var(--text2);padding:12px;text-align:center">匯入用電 CSV 後可計算逐月自用率與多餘電量</div>';
+  }
+}
 
 // ═══════════════════════════════════════════════
 // REAL HOURLY LOAD RESOLVER
@@ -4018,13 +4479,40 @@ function populateDayPicker() {
     });
   }
   if (!sel || !window.LOAD_DATA) return;
+  const prev = sel.value;
   const days = window.LOAD_DATA.sortedDays;
   const DOW = ['日','一','二','三','四','五','六'];
   sel.innerHTML = days.map(d => {
     const dow = DOW[new Date(d).getDay()];
     return `<option value="${d}">${d}（週${dow}）</option>`;
   }).join('');
-  updateDayIndex(0, days.length);
+  if (prev && days.includes(prev)) sel.value = prev;   // 保留原選取
+  recolorDayPicker();                                  // 超約日標紅
+  updateDayIndex(Math.max(0, days.indexOf(sel.value)), days.length);
+}
+
+// 逐日選單上色：當日峰值需量超過尖峰契約容量 → 標紅並顯示超約量。
+// 由 populateDayPicker 及 onParamChange（改契約容量時）呼叫，不重建選單以保留選取。
+function recolorDayPicker() {
+  const sel = document.getElementById('dayPicker');
+  const d = window.LOAD_DATA;
+  if (!sel || !d) return;
+  const cpk = v('contractPeak');
+  const DOW = ['日','一','二','三','四','五','六'];
+  [...sel.options].forEach(o => {
+    const key = o.value;
+    const pk = (d.dailyPeak && d.dailyPeak[key] != null)
+      ? d.dailyPeak[key]
+      : (d.dailyProfiles && d.dailyProfiles[key] ? Math.max(...d.dailyProfiles[key].filter(x => x != null)) : null);
+    const base = `${key}（週${DOW[new Date(key).getDay()]}）`;
+    if (cpk > 0 && pk != null && pk > cpk) {
+      o.style.color = '#dc2626';
+      o.textContent = `🔴 ${base}　峰值 ${f0(pk)}kW（超約 +${f0(pk - cpk)}）`;
+    } else {
+      o.style.color = '';
+      o.textContent = base;
+    }
+  });
 }
 
 function stepDay(delta) {
@@ -4164,9 +4652,32 @@ function processLoadData(records) {
   });
   const sortedDays = Object.keys(dailyProfiles);
 
+  // -- 峰值日：全年最高單點需量那天，取逐時峰值曲線，用於呈現實際超約情境 --
+  let peakRec = records[0];
+  for (const r of records) if (r.power > peakRec.power) peakRec = r;
+  const peakDayKey = `${peakRec.year}-${String(peakRec.month).padStart(2,'0')}-${String(peakRec.day).padStart(2,'0')}`;
+  const peakDayBuckets = dayMap[peakDayKey] || Array.from({length:24}, () => []);
+  const peakDayHourlyMax = peakDayBuckets.map(b => b.length ? +Math.max(...b).toFixed(1) : null);
+  // 原始 15 分鐘序列（{x:小時, y:kW}）：每小時內依檔案（時間）順序展開為 15 分鐘點
+  const peakDayRaw = [];
+  for (let h = 0; h < 24; h++) {
+    const b = peakDayBuckets[h] || [];
+    const n = b.length || 1;
+    b.forEach((p, i) => peakDayRaw.push({ x: +(h + i / n).toFixed(3), y: +p.toFixed(1) }));
+  }
+  const peakDay = { date: peakDayKey, month: peakRec.month, peak: +peakRec.power.toFixed(1), hourlyMax: peakDayHourlyMax, raw15: peakDayRaw };
+
+  // -- 逐日峰值需量（15 分鐘最高單點）：供調度單日選單標示超約日 --
+  const dailyPeak = {};
+  Object.keys(dayMap).forEach(key => {
+    let mx = 0;
+    dayMap[key].forEach(b => b.forEach(p => { if (p > mx) mx = p; }));
+    dailyPeak[key] = +mx.toFixed(1);
+  });
+
   return {
     records, hourlyAvg, summerHourlyAvg, nonSummerHourlyAvg,
-    monthStats, offPeakAvg, summerPeakAvg: +summerPeakAvg.toFixed(1), dailyProfiles, sortedDays,
+    monthStats, offPeakAvg, summerPeakAvg: +summerPeakAvg.toFixed(1), dailyProfiles, sortedDays, peakDay, dailyPeak,
     stats: { count:records.length, maxDemand:+maxDemand.toFixed(1), avgDemand:+avgDemand.toFixed(1), totalKwh:+totalKwh.toFixed(0), months },
     dateRange: `${dateFirst.year}-${String(dateFirst.month).padStart(2,'0')}-${String(dateFirst.day).padStart(2,'0')} ～ ${dateLast.year}-${String(dateLast.month).padStart(2,'0')}-${String(dateLast.day).padStart(2,'0')}`
   };
@@ -4440,6 +4951,8 @@ async function handleFiles(files) {
   const modeEl = document.getElementById('dispatchMode');
   if (modeEl && (modeEl.value === 'manual' || !modeEl.value)) modeEl.value = 'avgAll';
   renderLoadImport();
+  // 匯入負載後，若已啟用太陽能 → 重跑（重新對齊年份並計算多餘電）
+  if (document.getElementById('solarEnabled')?.checked) onSolarChange();
 }
 
 // ═══════════════════════════════════════════════
@@ -4486,11 +4999,36 @@ function renderLoadImport() {
       { label:'全年平均',   data: d.hourlyAvg,          borderColor:'#8b949e', borderDash:[4,3], fill:false, tension:.4, pointRadius:2, borderWidth:1.5 },
       { label:'夏月平均',   data: d.summerHourlyAvg,    borderColor:'#f78166', fill:false, tension:.4, pointRadius:2, borderWidth:2 },
       { label:'非夏月平均', data: d.nonSummerHourlyAvg, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.06)', tension:.4, pointRadius:2, borderWidth:2 },
+      ...(d.peakDay ? [{ label:`⚠ 峰值日 ${d.peakDay.date.slice(5).replace('-','/')}（單點峰值 ${d.stats.maxDemand}kW）`, data:d.peakDay.hourlyMax, borderColor:'#dc2626', fill:false, tension:.3, pointRadius:2, borderWidth:2.5 }] : []),
+      ...(v('contractPeak')>0 ? [{ label:`尖峰契約容量 ${f0(v('contractPeak'))}kW`, data:Array(24).fill(v('contractPeak')), borderColor:'rgba(220,38,38,.5)', borderDash:[7,5], fill:false, pointRadius:0, borderWidth:1.5, tension:0 }] : []),
     ]},
     options: { responsive:true, interaction:{mode:'index'},
       plugins:{ legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:11}}}, bgBands:{bands: importBandsAll} },
       scales:{ x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(48,54,61,.4)'}}, y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.4)'}} } }
   });
+
+  // 峰值日原始 15 分鐘曲線（超約最嚴重當日、未加儲能）
+  dc('peakDayRaw');
+  const pd = d.peakDay, cpkR = v('contractPeak');
+  if (pd && pd.raw15 && pd.raw15.length) {
+    const badge = document.getElementById('peakDayBadge');
+    if (badge) badge.textContent = `${pd.date}　單點峰值 ${d.stats.maxDemand} kW`
+      + (cpkR > 0 ? `　超約 +${f0(Math.max(0, d.stats.maxDemand - cpkR))} kW（契約 ${f0(cpkR)}kW）` : '');
+    charts['peakDayRaw'] = new Chart(document.getElementById('chartPeakDayRaw').getContext('2d'), {
+      type: 'line',
+      data: { datasets: [
+        { label:`${pd.date} 原始負載(kW)`, data: pd.raw15, borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,.08)', fill:true, tension:.2, pointRadius:0, borderWidth:2 },
+        ...(cpkR > 0 ? [{ label:`尖峰契約容量 ${f0(cpkR)}kW`, data:[{x:0,y:cpkR},{x:24,y:cpkR}], borderColor:'rgba(220,38,38,.55)', borderDash:[7,5], fill:false, pointRadius:0, borderWidth:1.5 }] : [])
+      ]},
+      options: { responsive:true, interaction:{mode:'nearest',intersect:false},
+        plugins:{ legend:{labels:{color:'#8b949e',boxWidth:10,font:{size:11}}} },
+        scales:{
+          x:{ type:'linear', min:0, max:24, ticks:{ stepSize:2, color:'#8b949e', font:{size:10}, callback:val=>String(val).padStart(2,'0')+':00' }, grid:{color:'rgba(48,54,61,.4)'} },
+          y:{ ticks:{color:'#8b949e'}, grid:{color:'rgba(48,54,61,.4)'} }
+        }
+      }
+    });
+  }
 
   // Monthly peak chart
   const presentMonths = Object.keys(d.monthStats).map(Number).sort((a,b)=>a-b);
@@ -4519,14 +5057,48 @@ function renderLoadImport() {
       scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(48,54,61,.3)'}},y:{ticks:{color:'#8b949e'},grid:{color:'rgba(48,54,61,.3)'}}} }
   });
 
-  // Monthly stats table
-  document.querySelector('#tblImportStats tbody').innerHTML = presentMonths.map(m => {
+  // Monthly stats table（含逐月超約判定）
+  renderImportMonthlyTable();
+}
+
+// 峰值日原始曲線圖：契約容量變動時，更新契約參考線與超約徽章（不重建整張圖）。
+function refreshPeakDayOverload(){
+  const d = window.LOAD_DATA, ch = charts['peakDayRaw'];
+  if(!d || !d.peakDay || !ch) return;
+  const cpk = v('contractPeak');
+  const badge = document.getElementById('peakDayBadge');
+  if(badge) badge.textContent = `${d.peakDay.date}　單點峰值 ${d.stats.maxDemand} kW`
+    + (cpk>0 ? `　超約 +${f0(Math.max(0, d.stats.maxDemand - cpk))} kW（契約 ${f0(cpk)}kW）` : '');
+  let cds = ch.data.datasets.find(x=>x.label && x.label.includes('契約'));
+  if(cpk>0){
+    if(cds){ cds.data=[{x:0,y:cpk},{x:24,y:cpk}]; cds.label=`尖峰契約容量 ${f0(cpk)}kW`; }
+    else ch.data.datasets.push({ label:`尖峰契約容量 ${f0(cpk)}kW`, data:[{x:0,y:cpk},{x:24,y:cpk}], borderColor:'rgba(220,38,38,.55)', borderDash:[7,5], fill:false, pointRadius:0, borderWidth:1.5 });
+  } else if(cds){ ch.data.datasets = ch.data.datasets.filter(x=>x!==cds); }
+  ch.update();
+}
+
+// 逐月統計表（獨立函式）：對比現有尖峰契約容量逐月判定超約。
+// 由 renderLoadImport 及 onParamChange（改契約容量時）呼叫。
+function renderImportMonthlyTable(){
+  const d = window.LOAD_DATA;
+  const tb = document.querySelector('#tblImportStats tbody');
+  if(!d || !d.monthStats || !tb) return;
+  const presentMonths = Object.keys(d.monthStats).map(Number).sort((a,b)=>a-b);
+  const cpk = v('contractPeak');   // 現有尖峰契約容量
+  tb.innerHTML = presentMonths.map(m => {
     const ms = d.monthStats[m];
-    return `<tr>
+    const over = cpk > 0 ? ms.peak - cpk : 0;
+    const overCell = cpk <= 0
+      ? '<span style="color:var(--text2)">未設定契約</span>'
+      : over > 0
+        ? `<span class="badge" style="background:rgba(220,38,38,.12);color:#dc2626;font-weight:700;border:1px solid rgba(220,38,38,.35)">⚠ 超約 +${f0(over)} kW</span>`
+        : `<span class="badge" style="background:rgba(22,163,74,.12);color:#16a34a">✅ 未超約</span>`;
+    return `<tr${over>0?' style="background:rgba(220,38,38,.05)"':''}>
       <td>${MONTHS[m-1]}</td>
       <td>${ms.count.toLocaleString()}</td>
       <td>${ms.avg}</td>
-      <td style="color:var(--red);font-weight:600">${ms.peak}</td>
+      <td style="color:var(--red);font-weight:600">${ms.peak}${over>0?' ▲':''}</td>
+      <td>${overCell}</td>
       <td>${ms.offAvg}</td>
       <td>${(ms.kwh/10000).toFixed(2)} 萬</td>
       <td><span class="badge ${IS_SUMMER[m-1]?'badge-orange':'badge-blue'}">${IS_SUMMER[m-1]?'夏月':'非夏月'}</span></td>
