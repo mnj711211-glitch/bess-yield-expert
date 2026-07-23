@@ -4655,40 +4655,44 @@ function updateDayStats(key) {
 function parseLoadCSV(text) {
   // 去除 UTF-8 BOM（Excel 另存常帶）
   text = text.replace(/^﻿/, '');
-  const lines = text.trim().split(/\r?\n/);
+  const lines = text.split(/\r?\n/);
   const records = [];
   let skipped = 0;
-  for (let i = 1; i < lines.length; i++) {        // skip header
+  const samples = [];   // 失敗行樣本（診斷用）
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    // 時間欄不含逗號 → 以「第一個」逗號分隔時間與數值
-    // （用 lastIndexOf 會被數值裡的千分位逗號 2,867 誤切，導致峰值被讀低而測不到超約）
-    const comma = line.indexOf(',');
-    if (comma < 0) { skipped++; continue; }
-    const timeStr = line.slice(0, comma).trim();
-    // 數值：去引號、去千分位逗號與空白（Excel 常把 2867 存成 "2,867"）
-    const power   = parseFloat(line.slice(comma + 1).replace(/[",\s]/g, ''));
+    // 於「整行」比對時間戳：因分隔用 \D+（任意非數字，含逗號），
+    // 「2025-09-01 00:15」與「2025-09-01,00:15」（日期,時間 兩欄）皆可匹配。
+    // 日期分隔容許 - 或 /；秒可有可無。
+    const m = line.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})\D+(\d{1,2}):(\d{2})/);
+    if (!m) {
+      // 無時間戳 → 標題列 / 空白 / 非資料列；第 1 行通常是標題，不計入錯誤
+      if (i > 0) { skipped++; if (samples.length < 6) samples.push(line.slice(0, 70)); }
+      continue;
+    }
+    // 功率 = 時間戳「之後」的最後一個數字（先移除千分位逗號 2,867→2867，不動欄位分隔逗號）
+    const after = line.slice(m.index + m[0].length).replace(/(\d),(?=\d{3}(?:\D|$))/g, '$1');
+    const nums  = after.match(/-?\d+(?:\.\d+)?/g);
+    if (!nums || !nums.length) { skipped++; if (samples.length < 6) samples.push(line.slice(0, 70)); continue; }
+    const power = parseFloat(nums[nums.length - 1]);
     if (isNaN(power)) { skipped++; continue; }
 
-    // 日期分隔容許 - 或 /（Excel 可能改成 2025/9/1）；日期與時間間任意非數字分隔；秒可有可無
-    const m = timeStr.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})\D+(\d{1,2}):(\d{2})/);
-    if (!m) { skipped++; continue; }
-    const [, year, month, day, hStr, minStr] = m;
-    let hour = parseInt(hStr);
-    const min  = parseInt(minStr);
-
+    let hour = parseInt(m[4]);
+    const min = parseInt(m[5]);
     // Timestamps are END-of-interval: 01:00 = last 15min of hour 0
     if (min === 0) { hour = (hour === 0) ? 23 : hour - 1; }
 
     records.push({
-      year:  parseInt(year),
-      month: parseInt(month),
-      day:   parseInt(day),
+      year:  parseInt(m[1]),
+      month: parseInt(m[2]),
+      day:   parseInt(m[3]),
       hour,
       power
     });
   }
   records._skipped = skipped;
+  records._samples = samples;
   return records;
 }
 
@@ -5015,21 +5019,29 @@ async function handleFiles(files) {
   const failNames = [];
   let newRecs = [];
   let skippedLines = 0;
+  const failSamples = [];   // 診斷：無法解析的行樣本（含檔名）
 
   for (const file of files) {
     try {
       const text = await readFileText(file);
       const recs = parseLoadCSV(text);
       skippedLines += (recs._skipped || 0);
+      if ((recs._samples||[]).length && failSamples.length < 8) {
+        recs._samples.forEach(s => { if (failSamples.length < 8) failSamples.push(`${file.name}：${s}`); });
+      }
       if (recs.length >= 10) {
         newRecs = newRecs.concat(recs);
         goodNames.push(file.name);
       } else {
-        failNames.push(file.name);
+        failNames.push(file.name + (recs.length ? `（僅 ${recs.length} 筆）` : '（0 筆）'));
       }
     } catch(err) {
       failNames.push(file.name + '（' + err.message + '）');
     }
+  }
+  if (failSamples.length) {
+    console.warn('[CSV 診斷] 無法解析的行樣本（前 8 筆）:\n' + failSamples.join('\n'));
+    window._csvFailSamples = failSamples;   // 可於 console 輸入 _csvFailSamples 查看
   }
 
   if (newRecs.length < 10 && goodNames.length === 0) {
