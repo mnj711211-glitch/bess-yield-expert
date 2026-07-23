@@ -2608,6 +2608,13 @@ function renderDispatch(){
   const peakShave = peakBaseMax - peakGridMax;
   const dischargeKwh = rows.filter(r=>r.action.startsWith('放電')).reduce((s,r)=>s+r.power,0);
   const chargeKwh    = rows.filter(r=>r.action.startsWith('充電')).reduce((s,r)=>s+Math.abs(r.power),0);
+  // 契約削峰模式：標示「削峰前會超約」的需量（尖峰契約適用時段 p≠0）
+  const shaveModeDisp = document.getElementById('shaveToContract')?.checked;
+  const cpkDisp = v('contractPeak');
+  const preShaveOver = (shaveModeDisp && cpkDisp>0)
+    ? rows.map(r => (r.p!==0 && r.baseLoad>cpkDisp) ? r.baseLoad : cpkDisp)
+    : null;
+  const anyOver = preShaveOver ? preShaveOver.some((v,i)=>rows[i].p!==0 && rows[i].baseLoad>cpkDisp) : false;
 
   // -- Badge: show data source --
   const mode = (document.getElementById('dispatchMode') || {}).value || 'manual';
@@ -2657,6 +2664,7 @@ function renderDispatch(){
       labels,
       datasets: [
         { label:'建物基準負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#8b949e', borderDash:[5,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
+        ...(anyOver ? [{ label:'原始超約需量（削峰前）', data:preShaveOver, borderColor:'rgba(220,38,38,.7)', borderDash:[6,4], borderWidth:1.5, backgroundColor:'rgba(220,38,38,.14)', fill:{value:cpkDisp}, pointRadius:0, tension:.3, order:1 }] : []),
         ...(netLoadArr ? [{ label:'淨負載（扣太陽能）(kW)', data:netLoadArr, borderColor:'#10b981', borderDash:[4,2], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 }] : []),
         { label:'電網端需量(kW)',   data:rows.map(r=>r.gridLoad), borderColor:PC[2], fill:true, backgroundColor:'rgba(247,129,102,.07)', tension:.3, pointRadius:0, borderWidth:2 },
         { label:'儲能功率(kW)',     data:rows.map(r=>r.power),    borderColor:'#3b82f6', fill:'origin', backgroundColor:'rgba(59,130,246,.18)', tension:.4, pointRadius:0, borderWidth:2 },
