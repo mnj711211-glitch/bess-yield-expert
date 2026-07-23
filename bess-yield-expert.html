@@ -3679,6 +3679,9 @@ function renderReport(){
         <canvas id="pdfChartLoadProfile" height="80" style="margin-bottom:16px"></canvas>
         <div style="margin:10px 0;font-size:12px;font-weight:700;color:#1a3a6e">月度峰值與平均需量（kW）</div>
         <canvas id="pdfChartMonthPeak" height="80" style="margin-bottom:16px"></canvas>
+        ${d.peakDay ? `<div style="margin:14px 0 6px;font-size:12px;font-weight:700;color:#b91c1c">⚠ 超約最嚴重日（${d.peakDay.date}）｜加入儲能後的削峰調度</div>
+        <canvas id="pdfChartPeakDay" height="80" style="margin-bottom:4px"></canvas>
+        <div id="pdfPeakDayNote" style="font-size:10px;color:#6b7280;margin-bottom:16px"></div>` : ''}
         <div style="margin:10px 0;font-size:12px;font-weight:700;color:#1a3a6e">月度用電統計</div>
         <table class="pdf-table">
           <thead><tr><th>月份</th><th>峰值需量(kW)</th><th>平均需量(kW)</th><th>離峰均值(kW)</th><th>月用電量</th><th>季節</th></tr></thead>
@@ -3906,6 +3909,46 @@ function renderReportDispatchCharts(){
   const ld = window.LOAD_DATA;
   if(ld){
     const labels24 = Array.from({length:24},(_,h)=>`${String(h).padStart(2,'0')}:00`);
+
+    // ── 超約最嚴重日 + 儲能削峰調度（暫時切到「指定單日 = 峰值日」計算）──
+    (function(){
+      const pk = ld.peakDay, canvas = document.getElementById('pdfChartPeakDay');
+      if(!pk || !canvas || !ld.dailyProfiles[pk.date]) return;
+      const ex = Chart.getChart(canvas); if(ex) ex.destroy();
+      const modeEl = document.getElementById('dispatchMode'), dpEl = document.getElementById('dayPicker');
+      const savedMode = modeEl?modeEl.value:null, savedDay = dpEl?dpEl.value:null;
+      const hasOpt = dpEl && [...dpEl.options].some(o=>o.value===pk.date);
+      if(modeEl) modeEl.value = 'singleDay';
+      if(hasOpt) dpEl.value = pk.date;
+      const mo = new Date(pk.date).getMonth()+1;
+      const season = (mo>=5 && mo<=10) ? 'summer' : 'nonsummer';
+      const dayType = (typeof getDayType==='function') ? getDayType(pk.date) : 'weekday';
+      const dbl = season==='nonsummer' && dayType==='weekday' && vs('cycles')==='2c2d_ns';
+      const drH = getDRDischargeHours(season, dayType), drC = drH ? (v('drCap')||0) : null;
+      const rows = calcDispatchProfile(season, dbl, dayType, drH, drC);
+      if(modeEl) modeEl.value = savedMode;      // 還原
+      if(dpEl && savedDay!=null) dpEl.value = savedDay;
+      const cpk = v('contractPeak');
+      const shaveOn = document.getElementById('shaveToContract')?.checked;
+      const preOver = (shaveOn && cpk>0) ? rows.map(r => (r.p!==0 && r.baseLoad>cpk) ? r.baseLoad : cpk) : null;
+      const anyOver = preOver && preOver.some((x,i)=>rows[i].p!==0 && rows[i].baseLoad>cpk);
+      const peakRows = rows.filter(r=>r.p!==0);
+      const maxGrid = peakRows.length ? Math.max(...peakRows.map(r=>r.gridLoad)) : 0;
+      const sched = getSchedFor(season, dayType), bands = makeBands(sched);
+      const bgP = { id:'bgPeakDay', beforeDraw(ch){ const {ctx,chartArea,scales:{x}}=ch; if(!chartArea||!x)return; const {left,right,top,bottom}=chartArea; const cw=(right-left)/bands.length; ctx.save(); bands.forEach((b,i)=>{ctx.fillStyle=b.color;ctx.fillRect(left+i*cw,top,cw,bottom-top);}); ctx.restore(); } };
+      new Chart(canvas.getContext('2d'), { type:'line', plugins:[bgP], data:{ labels, datasets:[
+        { label:'當日負載(kW)', data:rows.map(r=>r.baseLoad), borderColor:'#9ca3af', borderDash:[4,3], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 },
+        ...(anyOver ? [{ label:'原始超約需量（削峰前）', data:preOver, borderColor:'rgba(220,38,38,.7)', borderDash:[6,4], borderWidth:1.5, backgroundColor:'rgba(220,38,38,.14)', fill:{value:cpk}, pointRadius:0, tension:.3 }] : []),
+        { label:'電網需量(kW)', data:rows.map(r=>r.gridLoad), borderColor:'#ef4444', fill:true, backgroundColor:'rgba(239,68,68,.07)', tension:.3, pointRadius:0, borderWidth:2 },
+        { label:'儲能功率(kW)', data:rows.map(r=>r.power), borderColor:'#3b82f6', fill:'origin', backgroundColor:'rgba(59,130,246,.18)', tension:.4, pointRadius:0, borderWidth:1.5 },
+        { label:`尖峰契約 ${f0(cpk)}kW`, data:Array(24).fill(cpk), borderColor:'rgba(239,68,68,.7)', borderDash:[6,4], fill:false, pointRadius:0, borderWidth:1, tension:0 }
+      ]}, options:{ responsive:true, animation:false, interaction:{mode:'index'}, plugins:{ legend:{labels:{color:'#374151',boxWidth:8,font:{size:10}}} }, scales:baseScale } });
+      const note = document.getElementById('pdfPeakDayNote');
+      if(note) note.textContent = shaveOn
+        ? `峰值日單點需量 ${pk.peak} kW；啟用契約削峰後，儲能於尖峰時段放電，將電網需量壓至約 ${f0(maxGrid)} kW（尖峰契約 ${f0(cpk)} kW），避免超約基本電費。`
+        : `峰值日單點需量 ${pk.peak} kW，尖峰時段電網需量最高約 ${f0(maxGrid)} kW。（尚未啟用契約削峰——於「操作策略設定」開啟後，儲能會將需量壓在契約線內。）`;
+    })();
+
     // 24H 負載曲線
     const lpCanvas = document.getElementById('pdfChartLoadProfile');
     if(lpCanvas){
