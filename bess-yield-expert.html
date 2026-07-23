@@ -766,6 +766,19 @@ tr:hover td{background:rgba(28,35,51,.5)}
     <div id="touStrategyPreview" style="margin-top:12px;padding:12px 16px;background:rgba(109,59,191,.05);border:1px solid rgba(109,59,191,.2);border-radius:10px;font-size:12px;display:none"></div>
   </div>
 
+  <!-- 契約容量削峰 -->
+  <div class="card">
+    <div class="card-h">⛰️ 契約容量削峰（避免超約）</div>
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;background:rgba(247,129,102,.06);border:1.5px solid rgba(247,129,102,.28);border-radius:8px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="shaveToContract" onchange="onParamChange()" style="margin-top:2px;width:15px;height:15px;accent-color:var(--red);flex-shrink:0">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--red)">啟用契約削峰放電</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">任何時段電網需量將超過「尖峰契約容量」時，儲能優先放電把需量壓在契約線內，避免超約基本電費（不受 TOU 尖離峰時段限制）。</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">⚠ 削峰會消耗電量，可能減少傍晚 TOU 套利放電；需搭配足夠電池容量／PCS 功率才能完整壓峰。</div>
+      </div>
+    </label>
+  </div>
+
   <!-- 即時備轉 -->
   <div class="card" style="position:relative">
     <div id="spinOverlay" style="display:none;position:absolute;inset:0;background:rgba(22,27,34,.88);border-radius:12px;z-index:10;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px">
@@ -1858,6 +1871,9 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
   const _ccOff         = calcContractOverload();
   const contractOffEff = _ccOff.noExpand ? contractOff : (contractOff + (_ccOff.addNeeded || 0));
 
+  // ── 契約容量削峰：需量將超過尖峰契約時，優先放電壓峰（不受 TOU 時段限制）──
+  const shaveMode   = document.getElementById('shaveToContract')?.checked || false;
+
   // ── 用電大戶模式：18:00~20:00 義務窗口以 P_discharge 放電，其他時段依 PCS 功率 ──
   const isBUMode    = vs('userMode') === 'biguser';
   const buEssKw     = parseFloat(document.getElementById('bu_ess_kw')?.value) || pcsPow;
@@ -2064,6 +2080,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       const p = sched[h];
       const baseLoad = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
       let action = '待機', power = 0;
+      const socEntry = soc;   // 本小時進入時的 SOC（供契約削峰重算）
       if(p === 0){
         const cp = chargePower(soc, socMax, baseLoad, contractOff);
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電'; }
@@ -2127,6 +2144,20 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
             power = dp;
             soc = Math.max(socMin, soc - dp/battKwh);
             action = '放電(半尖)';
+          }
+        }
+      }
+      // ── 契約容量削峰：若電網需量仍將超過尖峰契約，追加放電壓到契約線（不分時段）──
+      if(shaveMode && contractPeak > 0){
+        const capLimit  = (p === 0) ? contractOffEff : contractPeak;  // 依時段套用對應契約容量
+        const shaveWant = baseLoad - capLimit;                        // 壓到契約所需放電
+        if(shaveWant > 0.001){
+          const availSh = (socEntry - socMin) * battKwh;        // 以進入時 SOC 計可放電量
+          const dpShave = Math.min(maxPow, shaveWant, availSh, baseLoad);
+          if(dpShave > Math.max(0, power) + 0.001){             // 比現有放電更多才覆蓋（含取消充電）
+            power  = dpShave;
+            soc    = Math.max(socMin, socEntry - dpShave/battKwh);
+            action = action.startsWith('放電') ? action + '＋削峰' : '削峰放電';
           }
         }
       }
@@ -2237,6 +2268,7 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
       const p = sched[h];
       const baseLoad = getRealHourlyLoad(h, p, season, loadPeak, loadSemi, loadOff);
       let action = '待機', power = 0;
+      const socEntry = soc;   // 本小時進入時的 SOC（供契約削峰重算）
       if(CHA_HRS.includes(h)){
         const cp = chargePower(soc, socMax, baseLoad, contractOff);
         if(cp > 0){ power = -cp; soc = Math.min(socMax, soc + cp/battKwh); action = '充電①'; }
@@ -2273,6 +2305,20 @@ function calcDispatchProfile(overrideSeason = null, doubleMode = false, dayType 
           if(dp > 0.001){ power = dp; soc = Math.max(socMin, soc - dp/battKwh); action = '放電②'; }
         }
         // isBUMode && h=14~17：待機，電池保留給 18-20h 義務窗口
+      }
+      // ── 契約容量削峰：若電網需量仍將超過尖峰契約，追加放電壓到契約線（不分時段）──
+      if(shaveMode && contractPeak > 0){
+        const capLimit  = (p === 0) ? contractOffEff : contractPeak;  // 依時段套用對應契約容量
+        const shaveWant = baseLoad - capLimit;
+        if(shaveWant > 0.001){
+          const availSh = (socEntry - socMin) * battKwh;
+          const dpShave = Math.min(maxPow, shaveWant, availSh, baseLoad);
+          if(dpShave > Math.max(0, power) + 0.001){
+            power  = dpShave;
+            soc    = Math.max(socMin, socEntry - dpShave/battKwh);
+            action = action.startsWith('放電') ? action + '＋削峰' : '削峰放電';
+          }
+        }
       }
       const gridLoad = baseLoad - power;
       const contractRef = p===0 ? contractOffEff : contractPeak;
@@ -2554,7 +2600,12 @@ function renderDispatch(){
   const dailyArb = calcDailyArb(rows);
   const maxGridLoad = Math.max(...rows.map(r=>r.gridLoad));
   const maxBaseLoad = Math.max(...rows.map(r=>r.baseLoad));
-  const peakShave = maxBaseLoad - maxGridLoad;
+  // 尖峰削峰量：以「尖峰契約適用時段（非離峰 p≠0）」的需量削減為準，
+  // 避免夜間離峰充電拉高全日最大需量、讓削峰量顯示為負而看不出儲能功效。
+  const _peakRows = rows.filter(r => r.p !== 0);
+  const peakBaseMax = _peakRows.length ? Math.max(..._peakRows.map(r=>r.baseLoad)) : maxBaseLoad;
+  const peakGridMax = _peakRows.length ? Math.max(..._peakRows.map(r=>r.gridLoad)) : maxGridLoad;
+  const peakShave = peakBaseMax - peakGridMax;
   const dischargeKwh = rows.filter(r=>r.action.startsWith('放電')).reduce((s,r)=>s+r.power,0);
   const chargeKwh    = rows.filter(r=>r.action.startsWith('充電')).reduce((s,r)=>s+Math.abs(r.power),0);
 
