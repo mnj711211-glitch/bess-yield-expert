@@ -3951,12 +3951,18 @@ function renderReportDispatchCharts(){
     // 24H 負載曲線
     const lpCanvas = document.getElementById('pdfChartLoadProfile');
     if(lpCanvas){
+      // 時段底色（與畫面「實際 24H 平均負載曲線」一致，以非夏月排程為代表）
+      const lpBands = makeBands(SCHED.hv3_nonsummer_weekday);
+      const lpBg = { id:'bgLoadProfilePdf', beforeDraw(ch){ const {ctx,chartArea,scales:{x}}=ch; if(!chartArea||!x)return; const {left,right,top,bottom}=chartArea; const cw=(right-left)/lpBands.length; ctx.save(); lpBands.forEach((b,i)=>{ctx.fillStyle=b.color;ctx.fillRect(left+i*cw,top,cw,bottom-top);}); ctx.restore(); } };
       new Chart(lpCanvas.getContext('2d'), {
         type:'line',
+        plugins:[lpBg],
         data:{ labels:labels24, datasets:[
           { label:'全年平均',   data:ld.hourlyAvg,          borderColor:'#6b7280', borderDash:[4,3], fill:false, tension:.4, pointRadius:0, borderWidth:1.5 },
           { label:'夏月平均',   data:ld.summerHourlyAvg,    borderColor:'#f78166', fill:false, tension:.4, pointRadius:0, borderWidth:2 },
           { label:'非夏月平均', data:ld.nonSummerHourlyAvg, borderColor:'#58a6ff', fill:true, backgroundColor:'rgba(88,166,255,.06)', tension:.4, pointRadius:0, borderWidth:2 },
+          ...(ld.peakDay ? [{ label:`⚠ 峰值日 ${ld.peakDay.date.slice(5).replace('-','/')}（單點峰值 ${ld.stats.maxDemand}kW）`, data:ld.peakDay.hourlyMax, borderColor:'#dc2626', fill:false, tension:.3, pointRadius:0, borderWidth:2 }] : []),
+          ...(v('contractPeak')>0 ? [{ label:`尖峰契約容量 ${f0(v('contractPeak'))}kW`, data:Array(24).fill(v('contractPeak')), borderColor:'rgba(220,38,38,.5)', borderDash:[7,5], fill:false, pointRadius:0, borderWidth:1.5, tension:0 }] : []),
         ]},
         options:{ responsive:true, animation:false,
           plugins:{ legend:{labels:{color:tickClr,boxWidth:8,font:{size:9}}} },
