@@ -3752,12 +3752,13 @@ function renderReport(){
       <div class="pdf-section">
         <h2>五、逐年現金流 & 衰退影響</h2>
         <table class="pdf-table">
-          <thead><tr><th>年度</th><th>容量留存(%)</th><th>有效容量(kWh)</th><th>年收益(萬元)</th><th>OPEX(萬元)</th><th>淨CF(萬元)</th><th>累計CF(萬元)</th></tr></thead>
+          <thead><tr><th>年度</th><th>電池衰退(%)</th><th>電池容量(kWh)</th><th>有效容量(kWh)</th><th>年收益(萬元)</th><th>OPEX(萬元)</th><th>淨CF(萬元)</th><th>累計CF(萬元)</th></tr></thead>
           <tbody>
             ${rows.map(r=>`<tr ${r.cum>=0&&(r.y===1||rows[r.y-2].cum<0)?'style="background:#f0fdf4;font-weight:700"':''}>
               <td>第 ${r.y} 年</td>
-              <td style="color:${r.deg>=0.9?'#16a34a':r.deg>=0.8?'#ea580c':'#dc2626'}">${f(r.deg*100,1)}%</td>
+              <td style="color:${(1-r.deg)*100<=10?'#16a34a':(1-r.deg)*100<=20?'#ea580c':'#dc2626'}">${f((1-r.deg)*100,1)}%</td>
               <td>${f0(r.cap)}</td>
+              <td>${f0(r.cap * (v('rte')/100) * (v('dod')/100))}</td>
               <td style="color:#16a34a">${f(r.rev,1)}</td>
               <td style="color:#dc2626">-${f(r.opex,1)}</td>
               <td style="color:${r.net>=0?'#16a34a':'#dc2626'}">${f(r.net,1)}</td>
