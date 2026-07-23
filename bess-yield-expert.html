@@ -3628,7 +3628,7 @@ function renderReport(){
 
       <!-- KPI Summary -->
       <div class="pdf-section">
-        <h2>01 核心財務指標摘要</h2>
+        <h2>一、核心財務指標摘要</h2>
         <div class="pdf-kpi">
           <div class="pdf-kpi-item"><div class="k">回本年限</div><div class="v" style="color:#16a34a">${payback ? f(payback,1) : '>'+vi('analysisYears')}</div><div class="u">年 Payback Period</div></div>
           <div class="pdf-kpi-item"><div class="k">NPV 淨現值</div><div class="v" style="color:${npv>=0?'#16a34a':'#dc2626'}">${fw(npv,0)}</div><div class="u">折現率 ${v('discRate')}%</div></div>
@@ -3667,7 +3667,7 @@ function renderReport(){
         }).join('');
         return `
       <div class="pdf-section" style="page-break-before:always">
-        <h2>02 客戶用電分析</h2>
+        <h2>二、客戶用電分析</h2>
         <div style="font-size:11px;color:#6b7280;margin-bottom:14px">涵蓋期間：${d.dateRange||'—'}｜共 ${d.sortedDays.length} 天｜${d.stats.count.toLocaleString()} 筆資料（15分鐘間距）</div>
         <div class="pdf-kpi" style="grid-template-columns:repeat(4,1fr)">
           <div class="pdf-kpi-item"><div class="k">峰值需量</div><div class="v" style="color:#dc2626">${d.stats.maxDemand}</div><div class="u">kW 最高單點</div></div>
@@ -3692,7 +3692,7 @@ function renderReport(){
 
       <!-- Revenue breakdown -->
       <div class="pdf-section">
-        <h2>03 年度收益組成分析</h2>
+        <h2>三、年度收益組成分析</h2>
         <table class="pdf-table">
           <thead><tr><th>收益來源</th><th>年度收益（萬元）</th><th>佔比</th><th>計算說明</th></tr></thead>
           <tbody>
@@ -3737,7 +3737,7 @@ function renderReport(){
 
       <!-- Contract & overload -->
       <div class="pdf-section">
-        <h2>04 契約容量超約分析</h2>
+        <h2>四、契約容量超約分析</h2>
         <table class="pdf-table">
           <thead><tr><th>項目</th><th>數值</th><th>說明</th></tr></thead>
           <tbody>
@@ -3752,7 +3752,7 @@ function renderReport(){
 
       <!-- Cashflow table -->
       <div class="pdf-section">
-        <h2>05 逐年現金流 & 衰退影響</h2>
+        <h2>五、逐年現金流 & 衰退影響</h2>
         <table class="pdf-table">
           <thead><tr><th>年度</th><th>容量留存(%)</th><th>有效容量(kWh)</th><th>年收益(萬元)</th><th>OPEX(萬元)</th><th>淨CF(萬元)</th><th>累計CF(萬元)</th></tr></thead>
           <tbody>
@@ -3771,7 +3771,7 @@ function renderReport(){
 
       <!-- 24H Dispatch Charts -->
       <div class="pdf-section">
-        <h2>06 24H 負載 &amp; 儲能調度曲線</h2>
+        <h2>六、24H負載&amp;儲能模擬調度曲線</h2>
 
         <!-- 尖離峰時段說明 -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -3800,7 +3800,7 @@ function renderReport(){
 
       <!-- Hardware -->
       <div class="pdf-section">
-        <h2>07 系統規格總覽</h2>
+        <h2>七、系統規格總覽</h2>
         <table class="pdf-table">
           <thead><tr><th>規格項目</th><th>設定值</th><th>規格項目</th><th>設定值</th></tr></thead>
           <tbody>
