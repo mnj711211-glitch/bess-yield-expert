@@ -3660,8 +3660,6 @@ function renderReport(){
             <td>${MONTHS[m-1]}</td>
             <td style="color:#dc2626;font-weight:600">${ms.peak}</td>
             <td>${ms.avg}</td>
-            <td>${ms.offPeakAvg !== undefined ? ms.offPeakAvg : '—'}</td>
-            <td>${(ms.totalKwh/10000).toFixed(2)} 萬</td>
             <td><span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:10px;background:${isSummer?'rgba(247,129,102,.15)':'rgba(88,166,255,.15)'};color:${isSummer?'#ea580c':'#1d4ed8'}">${isSummer?'夏月':'非夏月'}</span></td>
           </tr>`;
         }).join('');
@@ -3684,7 +3682,7 @@ function renderReport(){
         <div id="pdfPeakDayNote" style="font-size:10px;color:#6b7280;margin-bottom:16px"></div>` : ''}
         <div style="margin:10px 0;font-size:12px;font-weight:700;color:#1a3a6e">月度用電統計</div>
         <table class="pdf-table">
-          <thead><tr><th>月份</th><th>峰值需量(kW)</th><th>平均需量(kW)</th><th>離峰均值(kW)</th><th>月用電量</th><th>季節</th></tr></thead>
+          <thead><tr><th>月份</th><th>峰值需量(kW)</th><th>平均需量(kW)</th><th>季節</th></tr></thead>
           <tbody>${monthRows}</tbody>
         </table>
       </div>`;
