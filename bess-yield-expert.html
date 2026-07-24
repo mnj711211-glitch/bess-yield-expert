@@ -477,6 +477,16 @@ tr:hover td{background:rgba(28,35,51,.5)}
         <span class="hint">其他月份（高壓二/三段式）</span>
       </div>
       <div class="fi">
+        <label>經常契約單價－夏月 (NT$/kW/月)</label>
+        <input type="number" id="demandRateSummer" value="236.20" min="0" step="0.1" oninput="onParamChange()">
+        <span class="hint">尖峰契約基本電費，供超約罰款試算</span>
+      </div>
+      <div class="fi">
+        <label>經常契約單價－非夏月 (NT$/kW/月)</label>
+        <input type="number" id="demandRateNonSummer" value="173.20" min="0" step="0.1" oninput="onParamChange()">
+        <span class="hint">尖峰契約基本電費，供超約罰款試算</span>
+      </div>
+      <div class="fi">
         <label>超約罰款倍率</label>
         <select id="overloadPenalty">
           <option value="2">2 倍（一般）</option>
@@ -1718,6 +1728,50 @@ function calcContractOverload(){
   return { projectedOffpeak, overload, addNeeded, contractCostPerYear, rateSummer, rateNonSummer, noExpand: false };
 }
 
+// ═══════════════════════════════════════════════
+// 超約罰款分析（台電經常契約超約附加費）
+// 規則：超約量在契約容量 10% 以內 → 該部分 × 單價 × 2；
+//       超約量超過 10% 的部分     → 該部分 × 單價 × 3。
+// 比較「未裝儲能」與「裝儲能削峰後」的月尖峰需量，算出可避免的罰款。
+// 削峰能力以 PCS 功率（受變壓器限制）為上限。
+// ═══════════════════════════════════════════════
+function calcOverloadPenaltyAnalysis(){
+  const ld = window.LOAD_DATA;
+  if(!ld || !ld.monthStats) return null;
+  const contract = v('contractPeak');
+  if(contract <= 0) return null;
+  const rateS  = v('demandRateSummer')    || 236.20;
+  const rateNS = v('demandRateNonSummer') || 173.20;
+  const xfmr   = v('xfmrKw') || 0;
+  const shaveKw = Math.min(v('pcskW') || 0, xfmr > 0 ? xfmr : Infinity);
+
+  function penaltyOf(demand, rate){
+    const over = Math.max(0, demand - contract);
+    if(over <= 0.001) return 0;
+    const tier1 = Math.min(over, contract * 0.10);      // 10% 以內 → 2 倍
+    const tier2 = Math.max(0, over - contract * 0.10);  // 超過 10% → 3 倍
+    return tier1 * rate * 2 + tier2 * rate * 3;
+  }
+
+  const months = Object.keys(ld.monthStats).map(Number).sort((a,b)=>a-b);
+  let beforeTotal = 0, afterTotal = 0;
+  const rows = months.map(m => {
+    const peak    = ld.monthStats[m].peak;
+    const isSum   = IS_SUMMER[m-1];
+    const rate    = isSum ? rateS : rateNS;
+    const after   = Math.max(contract, peak - shaveKw);   // 削峰後月尖峰（最低壓到契約線）
+    const pBefore = penaltyOf(peak,  rate);
+    const pAfter  = penaltyOf(after, rate);
+    beforeTotal += pBefore; afterTotal += pAfter;
+    return { m, isSummer:isSum, rate, peak, after,
+             overBefore: Math.max(0, peak - contract),
+             overAfter:  Math.max(0, after - contract),
+             pBefore, pAfter, saved: pBefore - pAfter };
+  });
+  return { rows, beforeTotal, afterTotal, saved: beforeTotal - afterTotal,
+           contract, shaveKw, rateS, rateNS, months: months.length };
+}
+
 // 偵測目前費率方案是否支援真正的兩充兩放（午間 11-13h 需為離峰 code=0）
 // hv3/ehv3=true（非夏月 11-14h 離峰），hv2/ehv2=true（非夏月 11-14h 離峰）
 function tariffSupports2C2D(){
@@ -1796,6 +1850,20 @@ function updateContractCalc(){
   } else {
     el.innerHTML = `<div class="alert alert-ok">✅ 充電功率在現有離峰契約容量（${f0(v('contractOff'))} kW）範圍內，無需增購。</div>`;
     document.getElementById('contractAlert').innerHTML = '';
+  }
+
+  // ── 超約罰款試算（需匯入實際用電資料）────────────────────────
+  const pa = calcOverloadPenaltyAnalysis();
+  if(pa && pa.beforeTotal > 0){
+    el.innerHTML += `<div style="margin-top:10px;padding:12px 15px;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.25);border-radius:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px">⚡ 超約罰款試算（依實際用電資料）</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.9">
+        未裝儲能，全年超約附加費約 <b style="color:var(--red)">NT$ ${f0(pa.beforeTotal)}</b>（${fw(pa.beforeTotal/10000,1)}）<br>
+        裝設儲能削峰後（削峰能力 ${f0(pa.shaveKw)} kW）→ 剩餘罰款 <b>NT$ ${f0(pa.afterTotal)}</b><br>
+        <span style="color:var(--green);font-weight:800;font-size:14px">✅ 每年可省下 NT$ ${f0(pa.saved)}（${fw(pa.saved/10000,1)}）</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);margin-top:7px">規則：超約量 10% 以內罰 2 倍、超過 10% 部分罰 3 倍｜經常契約單價 夏月 ${pa.rateS}／非夏月 ${pa.rateNS} 元·kW⁻¹·月⁻¹</div>
+    </div>`;
   }
 }
 
@@ -3746,6 +3814,41 @@ function renderReport(){
             <tr><td>年增購成本</td><td style="color:${cc.overload>0?'#dc2626':'#16a34a'}">${cc.overload>0?'NT$ '+fw(cc.contractCostPerYear,1):'NT$ 0'}</td><td>已納入年度成本計算</td></tr>
           </tbody>
         </table>
+        ${(()=>{
+          const pa = calcOverloadPenaltyAnalysis();
+          if(!pa) return '';
+          const mRows = pa.rows.map(r=>`<tr>
+            <td>${MONTHS[r.m-1]}</td>
+            <td>${f0(r.peak)}</td>
+            <td style="color:${r.overBefore>0?'#dc2626':'#16a34a'}">${r.overBefore>0?'+'+f0(r.overBefore):'—'}</td>
+            <td style="color:#dc2626">${r.pBefore>0?f0(r.pBefore):'—'}</td>
+            <td>${f0(r.after)}</td>
+            <td style="color:${r.pAfter>0?'#dc2626':'#16a34a'}">${f0(r.pAfter)}</td>
+            <td style="color:#16a34a;font-weight:700">${r.saved>0?f0(r.saved):'—'}</td>
+          </tr>`).join('');
+          return `
+        <div style="margin:18px 0 6px;font-size:12px;font-weight:700;color:#b91c1c">超約罰款試算｜裝設儲能前後比較</div>
+        <div style="font-size:10px;color:#6b7280;margin-bottom:8px;line-height:1.6">
+          依台電規定：超約量在契約容量 <b>10% 以內</b>按經常契約基本電價 <b>2 倍</b>計收，<b>超過 10%</b> 之部分按 <b>3 倍</b>計收。<br>
+          經常契約單價：夏月 ${pa.rateS} 元／非夏月 ${pa.rateNS} 元（元/kW·月）｜儲能削峰能力 ${f0(pa.shaveKw)} kW（PCS 功率上限）
+        </div>
+        <table class="pdf-table">
+          <thead><tr><th>月份</th><th>原月尖峰(kW)</th><th>超約量(kW)</th><th>原應繳罰款(元)</th><th>削峰後尖峰(kW)</th><th>削峰後罰款(元)</th><th>省下(元)</th></tr></thead>
+          <tbody>
+            ${mRows}
+            <tr style="background:#fef2f2;font-weight:700">
+              <td>合計</td><td>—</td><td>—</td>
+              <td style="color:#dc2626">${f0(pa.beforeTotal)}</td>
+              <td>—</td>
+              <td style="color:${pa.afterTotal>0?'#dc2626':'#16a34a'}">${f0(pa.afterTotal)}</td>
+              <td style="color:#16a34a">${f0(pa.saved)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:10px;padding:11px 15px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;font-size:13px;color:#15803d;font-weight:700">
+          ✅ 裝設儲能削峰後，可避免超約罰款約 NT$ ${f0(pa.saved)} 元／年（${fw(pa.saved/10000,1)}）
+        </div>`;
+        })()}
       </div>
 
       <!-- Cashflow table -->
@@ -5630,6 +5733,7 @@ function onDRSchemeChange(){
 // ══════════════════════════════════════════════════════════════
 const PARAM_IDS = [
   'tariffType','contractPeak','contractOff','offPeakRateSummer','offPeakRateNonSummer','overloadPenalty',
+  'demandRateSummer','demandRateNonSummer','shaveToContract',
   'battKwh','pcskW','xfmrKw','capex','opex','crate','analysisYears','loanRatio','loanRate','loanYears',
   'rte','dod','socMin','socMax','degradation','discRate',
   'cycles','touDaysSummer','touDaysNonSummer',
