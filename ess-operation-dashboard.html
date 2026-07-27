@@ -2517,16 +2517,24 @@ async function refreshAllSites() {
   btn.style.animation = 'spin 1s linear infinite';
   btn.disabled = true;
   try {
-    const res = await fetch(`${BACKEND_URL}/api/refresh`, { method: 'POST', signal: AbortSignal.timeout(60000) });
-    const data = await res.json();
-    if (data.ok) {
-      await loadBackendData();
-      showToast(`✅ 已更新 ${data.sites_updated} 個案場數據`);
-    } else {
-      showToast('❌ 更新失敗，請確認後端是否正常運行');
-    }
+    // 資料由 GitHub Actions 定時抓取並寫入 Firestore；重新整理＝重讀 Firestore 最新資料
+    if (typeof db === 'undefined' || !db) throw new Error('firestore-unavailable');
+    const snap = await db.collection('site_realtime').get();
+    let cnt = 0, latest = '';
+    snap.forEach(doc => {
+      _realSites.add(doc.id);
+      _realData[doc.id] = doc.data();
+      const c = doc.data().collected || '';
+      if (c > latest) latest = c;
+      cnt++;
+    });
+    renderSiteGrid();
+    if (typeof renderStats === 'function') renderStats();
+    try { renderAlerts(); updateNotifDot(); } catch(_){}
+    const tm = (latest.match(/\d{1,2}:\d{2}/) || [''])[0];
+    showToast(`✅ 已從雲端更新 ${cnt} 個案場${tm ? '（資料時間 ' + tm + '）' : ''}`);
   } catch(e) {
-    showToast('❌ 無法連接後端，請確認後端是否正常運行');
+    showToast('❌ 無法讀取雲端資料，請檢查網路連線後再試');
   } finally {
     btn.style.animation = '';
     btn.disabled = false;

@@ -1,0 +1,84 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Air Painter",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3009", "--no-clipboard"],
+      "port": 3009,
+      "url": "http://localhost:3009/air-magic-painter.html"
+    },
+    {
+      "name": "Solar Planner",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "github/solar-planner", "-p", "3001", "--no-clipboard"],
+      "port": 3001
+    },
+    {
+      "name": "Green Source Tech",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "green-source-tech", "-p", "3002", "--no-clipboard"],
+      "port": 3002
+    },
+    {
+      "name": "Solar Dashboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3003", "--no-clipboard"],
+      "port": 3003
+    },
+    {
+      "name": "Solar Wiring Sim",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "solar_wiring_sim", "-p", "3004", "--no-clipboard"],
+      "port": 3004
+    },
+    {
+      "name": "Solar Layout Planner",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3005", "--no-clipboard"],
+      "port": 3005
+    },
+    {
+      "name": "Ordering System",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["ordering-system/server.js"],
+      "port": 3000
+    },
+    {
+      "name": "Claude ZH-TW Extension",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "claude-zh-tw", "-p", "3006", "--no-clipboard"],
+      "port": 3006
+    },
+    {
+      "name": "ESS Dashboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3007", "--no-clipboard"],
+      "port": 3007,
+      "url": "http://localhost:3007/"
+    },
+    {
+      "name": "Smart Quote AI",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3008", "--no-clipboard"],
+      "port": 3008,
+      "url": "http://localhost:3008/solar-quote-ai.html"
+    },
+    {
+      "name": "BESS Yield Expert",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3010", "--no-clipboard"],
+      "port": 3010,
+      "url": "http://localhost:3010/bess-yield-expert.html"
+    },
+    {
+      "name": "Solar Sim Platform",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "autoPort": false,
+      "cwd": "solar-sim-platform(儲能太陽能發電分析)/frontend",
+      "url": "http://localhost:5173/bess"
+    }
+  ]
+}
