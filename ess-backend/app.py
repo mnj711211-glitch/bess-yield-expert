@@ -701,13 +701,17 @@ if __name__ == "__main__":
     load_cache()
 
     # 定時每 CACHE_MINUTES 分鐘自動刷新
-    # 注意：LINE 告警總覽已改由 GitHub Actions 雲端排程負責（ess-digest.yml，
-    # 09:00/13:00/16:30）。本機不再自行推播，避免本機若被意外啟動時
-    # 跟雲端重複發送、洗版並提早耗盡 LINE 免費月額度(200則)。
+    # 2026-08-05：改為公司伺服器本機常駐執行（24hr 開機），GitHub Actions
+    # 雲端排程已停用（見 .github/workflows/*.yml），避免免費排程延遲。
+    # 本機現在是「唯一」的資料抓取／LINE 推播來源，時間對齊原雲端排程
+    # 09:00/13:00/16:30，避免同時跑本機又跑雲端重複推播、洗版。
     scheduler = BackgroundScheduler()
     scheduler.add_job(fetch_all_sites, "interval", minutes=CACHE_MINUTES, id="refresh")
+    scheduler.add_job(send_daily_alert_digest, "cron", hour=9,  minute=0,  id="digest_0900")
+    scheduler.add_job(send_daily_alert_digest, "cron", hour=13, minute=0,  id="digest_1300")
+    scheduler.add_job(send_daily_alert_digest, "cron", hour=16, minute=30, id="digest_1630")
     scheduler.start()
-    logger.info("本機排程啟動：每 %d 分鐘更新快取（LINE 推播由雲端負責，本機不推播）", CACHE_MINUTES)
+    logger.info("本機排程啟動：每 %d 分鐘更新快取；LINE 告警總覽 09:00/13:00/16:30", CACHE_MINUTES)
 
     # 啟動時立即拉一次（若 PLANT_MAP 已設定）
     if PLANT_MAP:

@@ -1,10 +1,13 @@
 name: ESS 抓取資料
 
 on:
-  schedule:
-    # UTC 時間；台北 = UTC+8。涵蓋台北約 05:00-20:00，每 30 分鐘一次
-    - cron: "*/30 21-23,0-11 * * *"
-  workflow_dispatch: {}   # 允許在 Actions 頁面手動執行
+  # 2026-08-05：改用公司伺服器本機常駐執行 app.py，取代雲端排程
+  # （GitHub 免費排程延遲嚴重）。此 workflow 保留 workflow_dispatch
+  # 僅作緊急手動備援，自動排程(schedule)已停用。
+  # 如需恢復雲端排程，取消下面 schedule 區塊的註解即可。
+  # schedule:
+  #   - cron: "*/30 21-23,0-11 * * *"
+  workflow_dispatch: {}   # 緊急手動備援用
 
 concurrency:
   group: ess-fetch

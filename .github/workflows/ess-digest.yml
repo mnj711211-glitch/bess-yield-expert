@@ -1,12 +1,16 @@
 name: ESS LINE 告警總覽
 
 on:
-  schedule:
-    # 台北時間（UTC+8）→ UTC。每天 3 次推播（控制在 LINE 免費 200 則/月內，約 90 則/月）
-    - cron: "0 1 * * *"    # 09:00
-    - cron: "0 5 * * *"    # 13:00
-    - cron: "30 8 * * *"   # 16:30
-  workflow_dispatch: {}   # 允許手動測試推播
+  # 2026-08-05：LINE 推播改由公司伺服器本機 app.py 負責（見 app.py 內
+  # BackgroundScheduler，09:00/13:00/16:30），避免跟雲端重複發送。
+  # 自動排程(schedule)已停用，僅保留 workflow_dispatch 作緊急手動備援。
+  # 如需恢復雲端排程，取消下面 schedule 區塊的註解即可（記得同時停用
+  # 本機 app.py 的 digest 排程，避免重複推播）。
+  # schedule:
+  #   - cron: "0 1 * * *"    # 09:00
+  #   - cron: "0 5 * * *"    # 13:00
+  #   - cron: "30 8 * * *"   # 16:30
+  workflow_dispatch: {}   # 緊急手動備援用
 
 concurrency:
   group: ess-digest
