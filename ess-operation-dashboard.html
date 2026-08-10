@@ -1131,7 +1131,7 @@ const SITES = [
   {id:25,name:'板橋果菜市場',       group:'綠源科技', region:'北區', loc:'新北板橋',    cap:207.76,  cStart:'2026-02-04', cEnd:'2046-02-04', fee:0, nextBilling:'2026-08-04', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
   // ── SolarEdge 案場 ──
   {id:26,name:'苗栗揚展',   group:'綠源科技', region:'北區', loc:'苗栗',     cap:359.7,   cStart:'2023-03-03', cEnd:'2043-03-03', fee:0, nextBilling:'2026-09-03', status:'normal', moduleSpec:'—', moduleCount:548, cleanFreq:2, pr:75, tariff:0},
-  {id:27,name:'盛餘太陽能', group:'綠源科技', region:'北區', loc:'桃園',     cap:1499.37, cStart:'2021-12-28', cEnd:'2041-12-28', fee:0, nextBilling:'2026-12-28', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
+  {id:27,name:'盛餘', group:'綠源科技', region:'北區', loc:'桃園',     cap:1499.37, cStart:'2021-12-28', cEnd:'2041-12-28', fee:0, nextBilling:'2026-12-28', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
   {id:28,name:'東山1342',   group:'綠源科技', region:'南區', loc:'台南東山', cap:38.35,   cStart:'2021-01-01', cEnd:'2041-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
   {id:29,name:'通霄套房',   group:'綠源科技', region:'北區', loc:'苗栗通霄', cap:17.08,   cStart:'2021-01-01', cEnd:'2041-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
   {id:30,name:'大林薯光案', group:'開陽',     region:'南區', loc:'嘉義大林', cap:140.8,   cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
@@ -1142,6 +1142,9 @@ const SITES = [
   // ── GMS (AUO) 新增案場 ──
   {id:36,name:'萬隆造紙',       group:'東元', region:'北區', loc:'桃園新屋', cap:1811.94, cStart:'2023-06-09', cEnd:'2043-06-09', fee:0, nextBilling:'2026-12-09', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
   {id:37,name:'精湛光學特登廠', group:'東元', region:'南區', loc:'高雄湖內', cap:499.95,  cStart:'2025-12-01', cEnd:'2045-12-01', fee:0, nextBilling:'2026-06-01', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  // ── SPS Taiwan 案場 ──
+  {id:38,name:'盛餘地面', group:'綠源科技', region:'南區', loc:'屏東', cap:7212,  cStart:'2026-02-11', cEnd:'2046-02-11', fee:0, nextBilling:'2026-08-11', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
+  {id:39,name:'盛餘屋頂', group:'綠源科技', region:'南區', loc:'屏東', cap:1202,  cStart:'2026-02-11', cEnd:'2046-02-11', fee:0, nextBilling:'2026-08-11', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
 ];
 
 // 載入使用者自行新增的案場
@@ -1636,7 +1639,7 @@ const PLANT_MAP_FE = {
 function getSitePlatform(siteName) {
   if (PLANT_MAP_FE[siteName]) return 'GMS';
   const se = ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期','台東海端-廣源國小',
-    '台東海端-廣源幼兒園','苗栗揚展','盛餘太陽能','東山1342','通霄套房','大林薯光案'];
+    '台東海端-廣源幼兒園','苗栗揚展','盛餘','東山1342','通霄套房','大林薯光案'];
   if (se.includes(siteName)) return 'SolarEdge';
   const tn = ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)',
     '東元湖口廠','台以八翁一期','板橋果菜市場'];
@@ -1646,6 +1649,8 @@ function getSitePlatform(siteName) {
     '雲林土庫．大荖場（綠源合作案）','雲林虎尾．墾地里（綠源合作案）',
     '屏東枋寮．盟陽二場．追日（統益機電）','台南楠西．楠西（二）','台南楠西．楠西（三）'];
   if (sepv.includes(siteName)) return 'SEPV';
+  const sps = ['盛餘地面','盛餘屋頂'];
+  if (sps.includes(siteName)) return 'SPS';
   return '監控平台';
 }
 
@@ -1655,12 +1660,13 @@ function getAlertPlatformUrl(siteName) {
   if (plantNo) return `https://gms.auo.com/MvcWebPortal/DeviceInfo/index?plantNo=${plantNo}`;
   const seNames = ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期',
     '台東海端-廣源國小','台東海端-廣源幼兒園','苗栗揚展',
-    '盛餘太陽能','東山1342','通霄套房','大林薯光案'];
+    '盛餘','東山1342','通霄套房','大林薯光案'];
   if (seNames.includes(siteName)) return 'https://monitoring.solaredge.com/';
   const tnNames = ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)',
     '東元湖口廠','台以八翁一期','板橋果菜市場'];
   if (tnNames.includes(siteName)) return 'https://www.thingnario.com/';
   if (siteName === '大量科技') return 'https://pvita.cht.com.tw/';
+  if (['盛餘地面','盛餘屋頂'].includes(siteName)) return 'https://pn.cloud.spstaiwan.com.tw/dashboardGS';
   return null;
 }
 
@@ -2029,12 +2035,7 @@ async function openAlertDetail(siteName, alertNum) {
 
   // Fallback：顯示告警數 + 各平台連結
   const s = SITES.find(x => x.name === siteName);
-  const platformName = PLANT_MAP_FE[siteName] ? 'GMS' :
-    ['花蓮-聖若瑟','花蓮-保祿','台東-東職一期','台東-東職二期','台東海端-廣源國小',
-     '台東海端-廣源幼兒園','苗栗揚展','盛餘太陽能','東山1342','通霄套房','大林薯光案'].includes(siteName)
-    ? 'SolarEdge' :
-    ['恩智浦廠一期','東元觀音二廠(高壓)','東元觀音二廠(低壓)','東元湖口廠','台以八翁一期','板橋果菜市場'].includes(siteName)
-    ? 'Thingnario' : siteName === '大量科技' ? 'iPVita' : '監控平台';
+  const platformName = getSitePlatform(siteName);
   document.getElementById('ad-body').innerHTML = `
     <div style="background:var(--amber-d,#fff8e1);border:1px solid var(--amber);border-radius:8px;padding:16px 18px;margin-bottom:16px;font-size:13px;line-height:1.7">
       ⚠️ <strong>${siteName}</strong> 目前有 <strong style="color:var(--red)">${alertNum} 筆</strong> 異常告警。<br>
