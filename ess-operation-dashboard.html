@@ -203,6 +203,41 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
 
 /* ── CALENDAR ── */
 .cal-layout{display:grid;grid-template-columns:1fr 310px;gap:14px;}
+/* ── 近三個月待辦（取代月曆） ── */
+.ag-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ag-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.ag-tile.hot{border-color:var(--red);background:var(--red-d);}
+.ag-tile.warn{border-color:var(--amber);background:var(--amber-d);}
+.ag-tv{font-size:24px;font-weight:700;line-height:1.1;}
+.ag-tl{font-size:11px;color:var(--text2);margin-top:3px;}
+.ag-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.ag-chip{padding:5px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);
+  font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;}
+.ag-chip:hover{border-color:var(--text3);}
+.ag-chip.on{background:var(--brand,#0a7d3f);border-color:var(--brand,#0a7d3f);color:#fff;font-weight:600;}
+.ag-group{margin-bottom:18px;}
+.ag-gh{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:700;}
+.ag-gc{font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2);
+  border-radius:10px;padding:1px 8px;}
+.ag-row{display:flex;align-items:stretch;gap:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);margin-bottom:6px;overflow:hidden;cursor:pointer;transition:box-shadow .15s;}
+.ag-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.09);}
+.ag-row.od{border-color:var(--red);}
+.ag-bar{width:4px;flex-shrink:0;}
+.ag-date{width:62px;flex-shrink:0;text-align:center;padding:9px 0;border-right:1px solid var(--border2);}
+.ag-dd{font-size:19px;font-weight:700;line-height:1;}
+.ag-dw{font-size:10px;color:var(--text3);margin-top:2px;}
+.ag-main{flex:1;padding:9px 12px;min-width:0;}
+.ag-site{font-size:13.5px;font-weight:600;margin-bottom:3px;}
+.ag-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--text2);}
+.ag-badge{padding:1px 7px;border-radius:9px;font-size:10.5px;font-weight:600;}
+.ag-right{flex-shrink:0;text-align:right;padding:9px 12px;display:flex;flex-direction:column;
+  justify-content:center;gap:3px;}
+.ag-cd{font-size:12px;font-weight:700;}
+.ag-st{font-size:10.5px;color:var(--text3);}
+.ag-empty{text-align:center;padding:26px;color:var(--text3);font-size:12.5px;
+  background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);}
+@media(max-width:768px){.ag-sum{grid-template-columns:repeat(2,1fr);}}
 .cal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .cal-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
 .cal-mon{font-size:15px;font-weight:700;color:var(--text);}
@@ -657,40 +692,24 @@ select option{background:var(--surface2);}
       <div class="page" id="p-schedule">
         <div class="ph">
           <h2>維運排程管理</h2>
-          <p>智慧化排程編排、Excel 匯入與行事曆管理</p>
+          <p>近三個月待辦一覽、Excel 匯入與派工追蹤</p>
           <div class="ph-actions">
             <button class="btn-p" onclick="openAddEvent()">＋ 新增工單</button>
             <button class="btn-s" onclick="document.getElementById('excel-input').click()">📊 匯入 Excel</button>
           </div>
         </div>
         <div class="sched-tabs">
-          <div class="sched-tab active" onclick="switchSchedTab('cal',this)">行事曆</div>
+          <div class="sched-tab active" onclick="switchSchedTab('cal',this)">近三個月排程</div>
           <div class="sched-tab" onclick="switchSchedTab('kanban',this)">派工追蹤看板</div>
         </div>
 
         <div class="sched-pane active" id="sched-pane-cal">
         <div class="cal-layout">
           <div>
-            <div class="cal-box">
-              <div class="cal-hd">
-                <div class="cal-mon" id="cal-title"></div>
-                <div class="cal-navs">
-                  <button class="cal-nb" onclick="changeMonth(-1)">‹</button>
-                  <button class="cal-nb" onclick="changeMonth(1)">›</button>
-                </div>
-              </div>
-              <div class="cal-wds">
-                <div class="cal-wd">日</div><div class="cal-wd">一</div><div class="cal-wd">二</div>
-                <div class="cal-wd">三</div><div class="cal-wd">四</div><div class="cal-wd">五</div><div class="cal-wd">六</div>
-              </div>
-              <div class="cal-days" id="cal-days"></div>
-            </div>
-            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--green-d);border:1px solid var(--green);"></div>定期保養 PM</div>
-              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--blue-d);border:1px solid var(--blue);"></div>熱顯像檢測 IR</div>
-              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--purple-d);border:1px solid var(--purple);"></div>SOH 健康度檢測</div>
-              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:var(--red-d);border:1px solid var(--red);"></div>緊急維修</div>
-            </div>
+            <div class="ag-sum" id="ag-summary"></div>
+            <div class="ag-filters" id="ag-filters"></div>
+            <div id="ag-list"></div>
+
           </div>
           <div>
             <div class="imp-panel">
@@ -734,6 +753,32 @@ select option{background:var(--surface2);}
       </div>
 
       <!-- ── ADMIN: ALERTS ── -->
+      <!-- ── ADMIN: 案場資訊 ── -->
+      <div class="page" id="p-siteinfo">
+        <div class="ph">
+          <h2>📋 案場資訊</h2>
+          <p>各案場基本資料與契約資訊一覽</p>
+        </div>
+        <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="siteinfo-q" placeholder="搜尋案場名稱 / 地點 / 群組…"
+                 oninput="renderSiteInfo(this.value)"
+                 style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+          <span id="siteinfo-count" style="font-size:12px;color:var(--text2)"></span>
+        </div>
+        <div class="rpt-table-wrap" style="overflow-x:auto">
+          <table class="rpt-table" id="siteinfo-table" style="min-width:1080px;white-space:nowrap">
+            <thead><tr>
+              <th>案場名稱</th><th style="text-align:center">文件</th><th>群組</th><th>區域</th><th>地點</th>
+              <th style="text-align:right">容量 kWp</th><th>監控平台</th>
+              <th>併網日</th><th>契約到期</th>
+              <th>模組規格</th><th style="text-align:right">片數</th>
+              <th style="text-align:right">清洗 次/年</th><th style="text-align:right">PR 基準</th>
+            </tr></thead>
+            <tbody id="siteinfo-body"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="page" id="p-alerts">
         <div class="ph">
           <h2>🚨 即時告警中心</h2>
@@ -1052,6 +1097,25 @@ select option{background:var(--surface2);}
   </div>
 </div>
 
+<!-- ═══ 案場文件管理 MODAL ═══ -->
+<div class="m-overlay" id="modal-site-docs">
+  <div class="modal" style="max-width:720px">
+    <div class="mhd">
+      <div class="mhd-title">📋 <span id="sd-site-name">—</span> 文件管理</div>
+      <button class="mclose" onclick="closeModal('modal-site-docs')">✕</button>
+    </div>
+    <div style="padding:10px 16px 0;font-size:11.5px;color:var(--text2)">
+      ℹ️ 文件將改由公司 Google 雲端硬碟集中管理，上傳功能建置中。此處顯示各分類的備齊狀態。
+    </div>
+    <div class="mbody" id="sd-body" style="min-height:160px">
+      <div style="text-align:center;padding:40px;color:var(--text3)">載入中…</div>
+    </div>
+    <div class="mfooter">
+      <button class="btn-p" onclick="closeModal('modal-site-docs')">關閉</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ ADD SITE MODAL ═══ -->
 <div class="m-overlay" id="modal-add-site">
   <div class="modal" style="max-width:540px">
@@ -1317,7 +1381,8 @@ function setupNav() {
     nav.innerHTML = `
       <div class="snav-section">
         <div class="snav-label">監控</div>
-        <div class="nitem active" onclick="showPage('overview')"><span class="ni">📊</span>案場概覽</div>
+        <div class="nitem active" onclick="showPage('overview')"><span class="ni">📊</span>案場監控</div>
+        <div class="nitem" onclick="showPage('siteinfo')"><span class="ni">📋</span>案場資訊</div>
         <div class="nitem" onclick="showPage('alerts')"><span class="ni">🚨</span>告警中心<span class="nbadge" id="alert-badge" style="display:none">0</span></div>
       </div>
       <div class="snav-section">
@@ -1335,6 +1400,232 @@ function setupNav() {
         <div class="nitem" onclick="showPage('client-reports')"><span class="ni">📁</span>歷史報告</div>
       </div>`;
   }
+}
+
+// ═══════════════════════════════════════
+// 案場文件管理
+//   固定 7 個分類，每個分類上傳後在案場資訊表上打勾。
+//   檔案：Firebase Storage  site_docs/{案場id}/{分類代碼}/{時間戳}_{檔名}
+//   索引：Firestore        site_docs/{案場id}  → { "01":[{name,url,path,size,at}], ... }
+// ═══════════════════════════════════════
+const DOC_CATS = [
+  { code: '01', name: '案場資料', subs: [
+      { code: '1', name: '單線圖' },
+      { code: '2', name: '光電模組配置圖' },
+      { code: '3', name: '五大圖說' },
+      { code: '4', name: '模組串併圖' },
+  ] },
+  { code: '02', name: '合約' },
+  { code: '03', name: '監控系統' },
+  { code: '04', name: '異常處理' },
+  { code: '05', name: '巡檢&點檢' },
+  { code: '06', name: '月報資料' },
+  { code: '07', name: '年度資料' },
+];
+
+let SITE_DOCS = {};        // { 案場id: { '01':[...], ... } }
+let sdCurrentSiteId = null;
+
+// 某分類的儲存 key：無子分類用 '02'，有子分類用 '01_1' 這種形式
+function docKey(cat, sub) { return sub ? `${cat.code}_${sub.code}` : cat.code; }
+
+// 該分類的檔案數（有子分類者為所有子項加總）
+function catFiles(d, cat) {
+  if (!cat.subs) return (d[cat.code] || []).length;
+  return cat.subs.reduce((n, s) => n + (d[docKey(cat, s)] || []).length, 0);
+}
+
+// 該分類是否算完成：有子分類者，四個子項都要有檔案才算
+function catDone(d, cat) {
+  if (!cat.subs) return (d[cat.code] || []).length > 0;
+  return cat.subs.every(s => (d[docKey(cat, s)] || []).length > 0);
+}
+
+// 表格上的完成度標記：7/7 全綠打勾，部分為進度，0 為灰底
+function docBadge(id) {
+  const d = SITE_DOCS[String(id)] || {};
+  const done = DOC_CATS.filter(c => catDone(d, c)).length;
+  const total = DOC_CATS.length;
+  if (done === 0) return `<span title="尚未上傳任何文件" style="color:var(--text3);font-size:11px">0/${total}</span>`;
+  if (done === total) return `<span title="7 類文件皆已上傳" style="color:#1a9e5c;font-weight:700">✓ ${done}/${total}</span>`;
+  return `<span title="已上傳 ${done} 類，尚缺 ${total - done} 類" style="color:#c98a00;font-weight:600;font-size:11px">${done}/${total}</span>`;
+}
+
+async function loadSiteDocsIndex() {
+  if (typeof db === 'undefined' || !db) return;
+  try {
+    const snap = await db.collection('site_docs').get();
+    const next = {};
+    snap.forEach(doc => { next[doc.id] = doc.data() || {}; });
+    SITE_DOCS = next;
+    if (currentPage === 'siteinfo') {
+      renderSiteInfo(document.getElementById('siteinfo-q')?.value || '');
+    }
+  } catch (err) {
+    console.warn('[site_docs] 載入文件索引失敗', err);
+  }
+}
+
+function openSiteDocs(id) {
+  sdCurrentSiteId = String(id);
+  const site = SITES.find(s => s.id === id);
+  document.getElementById('sd-site-name').textContent = site ? site.name : ('案場 ' + id);
+  renderSiteDocs();
+  openModal('modal-site-docs');
+  // 開窗後再抓一次該案場最新索引，避免看到過期資料
+  if (typeof db !== 'undefined' && db) {
+    db.collection('site_docs').doc(sdCurrentSiteId).get()
+      .then(doc => { SITE_DOCS[sdCurrentSiteId] = doc.exists ? (doc.data() || {}) : {}; renderSiteDocs(); })
+      .catch(err => console.warn('[site_docs] 讀取失敗', err));
+  }
+}
+
+function renderSiteDocs() {
+  const body = document.getElementById('sd-body');
+  if (!body || !sdCurrentSiteId) return;
+  const d = SITE_DOCS[sdCurrentSiteId] || {};
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const kb = n => n ? (n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB') : '';
+
+  const mark = ok => ok
+    ? '<span style="color:#1a9e5c;font-size:16px;font-weight:700" title="已上傳">✓</span>'
+    : '<span style="color:var(--text3);font-size:16px" title="尚未上傳">○</span>';
+
+  const fileList = (files, indent) => files.length
+    ? files.map(f => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0 3px ${indent}px;font-size:12px">
+          <a href="${esc(f.url)}" target="_blank" rel="noopener"
+             style="color:var(--brand,#0a7d3f);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+             title="${esc(f.name)}">📄 ${esc(f.name)}</a>
+          <span style="color:var(--text3);font-size:11px;flex-shrink:0">${esc(kb(f.size))}</span>
+          <span style="color:var(--text3);font-size:11px;flex-shrink:0">${esc((f.at || '').slice(0, 10))}</span>
+        </div>`).join('')
+    : `<div style="padding:3px 0 3px ${indent}px;font-size:12px;color:var(--text3)">尚未上傳</div>`;
+
+  // 上傳暫時停用：Firebase Storage 規則不允許寫入，文件將改存 Google 雲端硬碟。
+  // 恢復方式：把下面這行換回原本的 <label>＋<input type="file"> 版本即可。
+  const uploadBtn = key => `<span style="font-size:10.5px;color:var(--text3);padding:4px 8px;
+      border:1px dashed var(--border);border-radius:6px;white-space:nowrap">建置中</span>`;
+
+  body.innerHTML = DOC_CATS.map(c => {
+    const total = catFiles(d, c);
+    const head = `<div style="display:flex;align-items:center;gap:8px">
+        ${mark(catDone(d, c))}
+        <strong style="font-size:13px;flex:1">${c.code} ${esc(c.name)}</strong>
+        <span style="font-size:11px;color:var(--text3)">${total ? total + ' 個檔案' : ''}</span>
+        ${c.subs ? '' : uploadBtn(c.code)}
+      </div>`;
+
+    // 有子分類：只在子項提供上傳，父層顯示彙總進度
+    const inner = c.subs
+      ? `<div style="font-size:11px;color:var(--text3);padding:2px 0 6px 26px">
+           ${c.subs.filter(s => (d[docKey(c, s)] || []).length).length} / ${c.subs.length} 項已備齊
+         </div>`
+        + c.subs.map(s => {
+            const key = docKey(c, s);
+            const files = d[key] || [];
+            return `<div style="padding:6px 0 6px 26px;border-top:1px dashed var(--border2)">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${mark(files.length > 0)}
+                <span style="font-size:12.5px;flex:1">${s.code}. ${esc(s.name)}</span>
+                <span style="font-size:11px;color:var(--text3)">${files.length ? files.length + ' 個檔案' : ''}</span>
+                ${uploadBtn(key)}
+              </div>
+              ${fileList(files, 52)}
+            </div>`;
+          }).join('')
+      : fileList(d[c.code] || [], 26);
+
+    return `<div style="border-bottom:1px solid var(--border2);padding:10px 0">${head}${inner}</div>`;
+  }).join('');
+}
+
+// key：無子分類為 '02'，有子分類為 '01_1'。Storage 路徑與 Firestore 欄位都用它。
+async function uploadSiteDocs(key, input) {
+  const code = key;
+  const files = [...(input.files || [])];
+  input.value = '';
+  if (!files.length || !sdCurrentSiteId) return;
+  if (typeof storage === 'undefined' || !storage) {
+    showToast('⚠️ 雲端儲存未啟用，無法上傳', 4000);
+    return;
+  }
+
+  for (const file of files) {
+    if (file.size > 25 * 1024 * 1024) {
+      showToast(`⚠️ ${file.name} 超過 25MB，略過`, 4000);
+      continue;
+    }
+    showToast(`☁️ 上傳中：${file.name}`, 2500);
+    try {
+      const safe = file.name.replace(/[\\/:*?"<>|#]/g, '_');
+      const path = `site_docs/${sdCurrentSiteId}/${code}/${Date.now()}_${safe}`;
+      const snap = await storage.ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
+      const url = await snap.ref.getDownloadURL();
+      const entry = { name: file.name, url, path, size: file.size, at: new Date().toISOString() };
+
+      await db.collection('site_docs').doc(sdCurrentSiteId).set({
+        [code]: firebase.firestore.FieldValue.arrayUnion(entry),
+        updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      SITE_DOCS[sdCurrentSiteId] = SITE_DOCS[sdCurrentSiteId] || {};
+      SITE_DOCS[sdCurrentSiteId][code] = [...(SITE_DOCS[sdCurrentSiteId][code] || []), entry];
+      renderSiteDocs();
+      showToast(`✅ ${file.name} 已上傳`, 2500);
+    } catch (err) {
+      console.error('[site_docs] 上傳失敗', err);
+      showToast(`⚠️ ${file.name} 上傳失敗：${err.code || err.message || ''}`, 5000);
+    }
+  }
+  if (currentPage === 'siteinfo') {
+    renderSiteInfo(document.getElementById('siteinfo-q')?.value || '');
+  }
+}
+
+// ═══════════════════════════════════════
+// 案場資訊（基本資料／契約資料一覽）
+// 資料來源就是上面的 SITES 常數，之後新增案場只要加進 SITES，這頁就會跟著出現。
+// ═══════════════════════════════════════
+function renderSiteInfo(q) {
+  const body = document.getElementById('siteinfo-body');
+  if (!body) return;
+  const kw = (q || '').trim().toLowerCase();
+  const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const dash = v => (v === undefined || v === null || v === '' || v === 0) ? '—' : v;
+
+  const rows = SITES
+    .filter(s => !kw || [s.name, s.loc, s.group, s.region].some(
+      v => String(v ?? '').toLowerCase().includes(kw)))
+    .sort((a, b) => a.id - b.id);
+
+  document.getElementById('siteinfo-count').textContent =
+    kw ? `符合 ${rows.length} / ${SITES.length} 個案場` : `共 ${SITES.length} 個案場`;
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text3);padding:24px">找不到符合的案場</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(s => {
+    let platform = '—';
+    try { platform = getSitePlatform(s.name); } catch (e) {}
+    return `<tr>
+      <td style="font-weight:600"><a href="javascript:void(0)" onclick="openSiteDocs(${s.id})"
+          style="color:var(--brand,#0a7d3f);text-decoration:none;border-bottom:1px dashed currentColor">${esc(s.name)}</a></td>
+      <td style="text-align:center">${docBadge(s.id)}</td>
+      <td>${esc(dash(s.group))}</td>
+      <td>${esc(dash(s.region))}</td>
+      <td>${esc(dash(s.loc))}</td>
+      <td style="text-align:right">${s.cap ? Number(s.cap).toLocaleString() : '—'}</td>
+      <td>${esc(platform)}</td>
+      <td>${esc(dash(s.cStart))}</td>
+      <td>${esc(dash(s.cEnd))}</td>
+      <td style="white-space:normal">${esc(dash(s.moduleSpec))}</td>
+      <td style="text-align:right">${s.moduleCount ? Number(s.moduleCount).toLocaleString() : '—'}</td>
+      <td style="text-align:right">${esc(dash(s.cleanFreq))}</td>
+      <td style="text-align:right">${s.pr ? s.pr + '%' : '—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════
@@ -1359,7 +1650,7 @@ function showPage(page) {
   document.getElementById('p-' + page)?.classList.add('active');
   currentPage = page;
   const titles = {
-    'overview':'電站總覽','alerts':'告警中心','schedule':'維運排程管理',
+    'overview':'電站總覽','siteinfo':'案場資訊','alerts':'告警中心','schedule':'維運排程管理',
     'receivables':'收款告警','maintenance':'維運排程',
     'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
     'site-detail':'電站詳情'
@@ -1373,6 +1664,7 @@ function showPage(page) {
   const tp = document.getElementById('tree-panel');
   if (page === 'overview') tp.classList.add('show');
   else tp.classList.remove('show');
+  if (page === 'siteinfo') { renderSiteInfo(document.getElementById('siteinfo-q')?.value || ''); loadSiteDocsIndex(); }
   if (page === 'alerts') loadBackendAlerts();
   if (page === 'receivables') renderKindPage('receivables');
   if (page === 'maintenance') renderKindPage('maintenance');
@@ -2804,37 +3096,149 @@ async function deleteAlert(id) {
 // ═══════════════════════════════════════
 // CALENDAR
 // ═══════════════════════════════════════
-function renderCalendar() {
-  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  document.getElementById('cal-title').textContent = `${calYear} 年 ${months[calMonth]}`;
-  const first = new Date(calYear, calMonth, 1).getDay();
-  const days = new Date(calYear, calMonth+1, 0).getDate();
-  const prevDays = new Date(calYear, calMonth, 0).getDate();
-  let html = '';
-  const eventMap = {};
-  EVENTS.forEach(e => { if (!eventMap[e.date]) eventMap[e.date]=[];  eventMap[e.date].push(e); });
-  let cells = [];
-  for (let i=first-1;i>=0;i--) cells.push({day:prevDays-i,cur:false});
-  for (let i=1;i<=days;i++) cells.push({day:i,cur:true});
-  while (cells.length%7!==0) { cells.push({day:cells.length-days-first+2,cur:false}); }
-  cells.forEach(c => {
-    const dateStr = c.cur ? `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(c.day).padStart(2,'0')}` : '';
-    const isToday = c.cur && calYear===now.getFullYear() && calMonth===now.getMonth() && c.day===now.getDate();
-    const evs = eventMap[dateStr] || [];
-    html += `<div class="cal-day${!c.cur?' other-m':''}${isToday?' today':''}">
-      <div class="cdn">${c.day}</div>
-      ${evs.map(e=>`<div class="cev ${e.type}" title="${e.site}: ${e.person}">${e.site.slice(0,3)}</div>`).join('')}
-    </div>`;
-  });
-  document.getElementById('cal-days').innerHTML = html;
+// ═══════════════════════════════════════
+// 近三個月維運待辦（取代原本的月曆）
+//   設計重點：先看到「逾期」和「這週」，再往下才是之後的月份。
+//   已完成的工單不佔版面，只在該月群組下方以一行帶過。
+// ═══════════════════════════════════════
+const TYPE_META = {
+  pm:  { label: '定期保養 PM',   c: 'var(--green)',  bg: 'var(--green-d)'  },
+  ir:  { label: '熱顯像檢測 IR', c: 'var(--blue)',   bg: 'var(--blue-d)'   },
+  soh: { label: 'SOH 健康度檢測', c: 'var(--purple)', bg: 'var(--purple-d)' },
+  em:  { label: '緊急維修',      c: 'var(--red)',    bg: 'var(--red-d)'    },
+  incident: { label: '突發狀況', c: 'var(--amber)', bg: 'var(--amber-d)' },
+};
+let agTypeFilter = 'all';
+
+function agSetFilter(v) { agTypeFilter = v; renderAgenda(); }
+
+// 以「當天 00:00」為基準算天數差，避免時分秒造成 off-by-one
+function agDays(dateStr) {
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - t0) / 86400000);
 }
 
-function changeMonth(d) {
-  calMonth += d;
-  if (calMonth > 11) { calMonth=0; calYear++; }
-  if (calMonth < 0) { calMonth=11; calYear--; }
-  renderCalendar();
+function renderAgenda() {
+  const list = document.getElementById('ag-list');
+  if (!list) return;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const WD = ['日','一','二','三','四','五','六'];
+
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  // 三個月範圍：本月起算，到第三個月月底
+  const endLimit = new Date(t0.getFullYear(), t0.getMonth() + 3, 0, 23, 59, 59);
+  const monthStart = new Date(t0.getFullYear(), t0.getMonth(), 1);
+
+  const inScope = EVENTS.filter(e => {
+    if (!e.date) return false;
+    if (agTypeFilter === 'other') { if (TYPE_META[e.type]) return false; }
+    else if (agTypeFilter !== 'all' && e.type !== agTypeFilter) return false;
+    const d = new Date(e.date + 'T00:00:00');
+    return d <= endLimit;                       // 逾期的（早於本月）也要看到
+  });
+
+  const undone = inScope.filter(e => (e.status || 'pending') !== 'done');
+  const overdue = undone.filter(e => agDays(e.date) < 0).sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = undone.filter(e => agDays(e.date) >= 0).sort((a, b) => a.date.localeCompare(b.date));
+
+  // ── 摘要 ──
+  const thisWeek = upcoming.filter(e => agDays(e.date) <= 7).length;
+  const thisMonth = upcoming.filter(e => new Date(e.date + 'T00:00:00').getMonth() === t0.getMonth()).length;
+  document.getElementById('ag-summary').innerHTML = `
+    <div class="ag-tile${overdue.length ? ' hot' : ''}">
+      <div class="ag-tv" style="color:${overdue.length ? 'var(--red)' : 'var(--text3)'}">${overdue.length}</div>
+      <div class="ag-tl">逾期未完成</div></div>
+    <div class="ag-tile${thisWeek ? ' warn' : ''}">
+      <div class="ag-tv" style="color:${thisWeek ? 'var(--amber)' : 'var(--text3)'}">${thisWeek}</div>
+      <div class="ag-tl">未來 7 天</div></div>
+    <div class="ag-tile"><div class="ag-tv">${thisMonth}</div><div class="ag-tl">本月剩餘</div></div>
+    <div class="ag-tile"><div class="ag-tv">${undone.length}</div><div class="ag-tl">三個月內合計</div></div>`;
+
+  // ── 類型篩選 ──
+  // 計數要用「未套用類型篩選」的全集，否則切到某類型後其他數字會全變 0
+  const allUndone = EVENTS.filter(e => {
+    if (!e.date || (e.status || 'pending') === 'done') return false;
+    return new Date(e.date + 'T00:00:00') <= endLimit;
+  });
+  const counts = { all: allUndone.length, other: allUndone.filter(e => !TYPE_META[e.type]).length };
+  Object.keys(TYPE_META).forEach(k => counts[k] = allUndone.filter(e => e.type === k).length);
+  const chips = [['all', '全部'], ...Object.entries(TYPE_META).map(([k, m]) => [k, m.label])];
+  if (counts.other) chips.push(['other', '其他']);
+  document.getElementById('ag-filters').innerHTML = chips
+    .map(([k, label]) =>
+      `<div class="ag-chip${agTypeFilter === k ? ' on' : ''}" onclick="agSetFilter('${k}')">${label} ${counts[k] || 0}</div>`
+    ).join('');
+
+  // ── 單列 ──
+  const rowHtml = e => {
+    const m = TYPE_META[e.type]
+      || { label: TYPE_LABEL[e.type] || e.type || '未分類', c: 'var(--text2)', bg: 'var(--surface2)' };
+    const d = new Date(e.date + 'T00:00:00');
+    const n = agDays(e.date);
+    const cd = n < 0 ? `<span style="color:var(--red)">逾期 ${-n} 天</span>`
+             : n === 0 ? `<span style="color:var(--red)">今天</span>`
+             : n === 1 ? `<span style="color:var(--amber)">明天</span>`
+             : n <= 7 ? `<span style="color:var(--amber)">${n} 天後</span>`
+             : `<span style="color:var(--text3)">${n} 天後</span>`;
+    const urg = e.priority === 'urgent'
+      ? `<span class="ag-badge" style="background:var(--red-d);color:var(--red)">緊急</span>` : '';
+    return `<div class="ag-row${n < 0 ? ' od' : ''}" onclick="openWoDetail('${e.id}')" title="點擊查看工單明細">
+      <div class="ag-bar" style="background:${m.c}"></div>
+      <div class="ag-date">
+        <div class="ag-dd" style="color:${n < 0 ? 'var(--red)' : 'inherit'}">${d.getDate()}</div>
+        <div class="ag-dw">${d.getMonth() + 1}月・週${WD[d.getDay()]}</div>
+      </div>
+      <div class="ag-main">
+        <div class="ag-site">${esc(e.site)}</div>
+        <div class="ag-meta">
+          <span class="ag-badge" style="background:${m.bg};color:${m.c}">${m.label}</span>
+          ${urg}
+          <span>👤 ${esc(e.person || '待指定')}</span>
+          ${e.note ? `<span>· ${esc(e.note)}</span>` : ''}
+        </div>
+      </div>
+      <div class="ag-right">
+        <div class="ag-cd">${cd}</div>
+        <div class="ag-st">${STATUS_LABEL[e.status || 'pending'] || ''}</div>
+      </div>
+    </div>`;
+  };
+
+  let html = '';
+  if (overdue.length) {
+    html += `<div class="ag-group">
+      <div class="ag-gh" style="color:var(--red)">⚠️ 逾期未完成 <span class="ag-gc">${overdue.length}</span></div>
+      ${overdue.map(rowHtml).join('')}</div>`;
+  }
+
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  for (let i = 0; i < 3; i++) {
+    const ms = new Date(monthStart.getFullYear(), monthStart.getMonth() + i, 1);
+    const items = upcoming.filter(e => {
+      const d = new Date(e.date + 'T00:00:00');
+      return d.getFullYear() === ms.getFullYear() && d.getMonth() === ms.getMonth();
+    });
+    const doneCount = inScope.filter(e => {
+      const d = new Date(e.date + 'T00:00:00');
+      return (e.status === 'done') && d.getFullYear() === ms.getFullYear() && d.getMonth() === ms.getMonth();
+    }).length;
+    if (!items.length && !doneCount) continue;
+    const tag = i === 0 ? '（本月）' : i === 1 ? '（下個月）' : '';
+    html += `<div class="ag-group">
+      <div class="ag-gh">${ms.getFullYear()} 年 ${months[ms.getMonth()]}${tag}
+        <span class="ag-gc">${items.length}</span></div>
+      ${items.map(rowHtml).join('')}
+      ${doneCount ? `<div style="font-size:11px;color:var(--text3);padding:4px 0 0 6px">✓ 本月另有 ${doneCount} 件已完成</div>` : ''}
+    </div>`;
+  }
+
+  list.innerHTML = html || `<div class="ag-empty">近三個月沒有${agTypeFilter === 'all' ? '' : '這個類型的'}待辦排程</div>`;
 }
+
+// 舊名稱保留，讓既有呼叫點（新增工單、Excel 匯入後）不用改
+function renderCalendar() { renderAgenda(); }
+function changeMonth() { /* 已改為近三個月清單，不再需要換月 */ }
 
 // ═══════════════════════════════════════
 // SCHEDULE TABS
@@ -3329,6 +3733,18 @@ async function loadBackendAlerts(withFallback=false) {
   renderAlerts();
   updateNotifDot();
 }
+
+// ── 直接進入，不顯示角色選擇頁（2026-08-21 使用者要求）──────────────
+// 登入頁的 DOM 保留著，右上角「⇄ 切換角色」仍可叫出來切到業主／客戶檢視。
+// 若日後要恢復選單，把下面這段刪掉即可。
+(function autoEnter() {
+  var go = function () { try { enterApp('admin'); } catch (e) { console.error('自動進入失敗', e); } };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', go);
+  } else {
+    go();
+  }
+})();
 </script>
 </body>
 </html>
