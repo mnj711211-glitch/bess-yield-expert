@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCS 安培計算與選線工具</title>
+<style>
+  :root{
+    --bg:#0f1720; --card:#18222e; --card2:#1e2a38; --line:#2c3b4d;
+    --txt:#e6edf5; --sub:#93a4b8; --acc:#3ddc97; --acc2:#4aa3ff; --warn:#ffb84d; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font-family:"Microsoft JhengHei","Segoe UI",system-ui,sans-serif;padding:18px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:16px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--acc)}
+  label{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
+  input,select{width:100%;padding:9px 10px;background:var(--card2);border:1px solid var(--line);
+       border-radius:8px;color:var(--txt);font-size:14px}
+  input:focus,select:focus{outline:none;border-color:var(--acc2)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .formula{background:#101a24;border:1px dashed var(--line);border-radius:8px;padding:10px;
+       font-size:13px;color:var(--sub);margin-top:14px;line-height:1.7}
+  .formula b{color:var(--acc)}
+  .res{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:700px){.res{grid-template-columns:repeat(2,1fr)}}
+  .box{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .box .k{font-size:12px;color:var(--sub)}
+  .box .v{font-size:22px;font-weight:700;margin-top:4px}
+  .box .u{font-size:12px;color:var(--sub);font-weight:400}
+  .pick{background:linear-gradient(135deg,#12352a,#183f31);border:1px solid var(--acc);
+        border-radius:10px;padding:14px;margin-bottom:14px}
+  .pick .t{font-size:13px;color:var(--acc);margin-bottom:6px}
+  .pick .m{font-size:19px;font-weight:700;line-height:1.6}
+  .pick .n{font-size:13px;color:var(--sub);margin-top:6px;line-height:1.6}
+  .pick.bad{background:linear-gradient(135deg,#3a1b1b,#452020);border-color:var(--bad)}
+  .pick.bad .t{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:center}
+  thead th{background:#22303f;color:var(--sub);font-weight:600;position:sticky;top:0}
+  tbody tr:hover{background:#1c2836}
+  td.sz{text-align:left;font-weight:600}
+  .grp{background:#16202b;color:var(--acc2);font-weight:700;text-align:left}
+  .hit{background:#1d4535 !important;color:#8ef0c4;font-weight:700}
+  .colhit{background:#152736}
+  .na{color:#4d5c6d}
+  .tblbox{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .foot{color:var(--sub);font-size:12px;margin-top:10px;line-height:1.8}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:9px 18px;background:var(--card);border:1px solid var(--line);border-radius:9px;
+       color:var(--sub);font-size:14px;cursor:pointer}
+  .tab.on{background:var(--card2);border-color:var(--acc);color:var(--acc);font-weight:700}
+  .hint{font-size:12px;color:var(--sub);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>儲能工程計算工具</h1>
+  <div class="sub">PCS 安培計算與導線選用　／　基礎水泥方數計算</div>
+
+  <div class="tabs">
+    <div class="tab on" data-p="1">⚡ PCS 安培計算</div>
+    <div class="tab" data-p="2">🧱 水泥方數計算</div>
+  </div>
+
+  <div id="page1"><div class="grid">
+    <!-- 左：輸入 -->
+    <div class="card">
+      <h2>輸入條件</h2>
+
+      <label>PCS 單台功率</label>
+      <div class="row">
+        <input type="number" id="pw" value="125" step="any">
+        <select id="unit">
+          <option value="1000">kW</option>
+          <option value="1">W</option>
+          <option value="1000000">MW</option>
+        </select>
+      </div>
+
+      <label>台數</label>
+      <input type="number" id="qty" value="10" step="1" min="1">
+
+      <label>線電壓 V（三相）</label>
+      <input type="number" id="volt" value="380" step="any">
+
+      <div class="row">
+        <div>
+          <label>功率因數 PF</label>
+          <input type="number" id="pf" value="1" step="0.01">
+        </div>
+        <div>
+          <label>安全係數</label>
+          <input type="number" id="sf" value="1.25" step="0.05">
+        </div>
+      </div>
+
+      <label>同一導線管內導線數／電纜芯數</label>
+      <select id="cond">
+        <option value="0">3 以下</option>
+        <option value="1">4</option>
+        <option value="2">5-6</option>
+        <option value="3">7-9</option>
+      </select>
+
+      <label>每相併聯條數（同管分回路）</label>
+      <input type="number" id="par" value="1" step="1" min="1">
+
+      <div class="formula">
+        I = (P<sub>單台</sub> × 台數) ÷ 1.732 ÷ V ÷ PF<br>
+        I<sub>設計</sub> = I × 安全係數<br>
+        每條電流 = I<sub>設計</sub> ÷ 併聯條數<br>
+        <b>範例：</b>125000W × 10 ÷ 1.732 ÷ 380 = 1899.23 A<br>
+        × 1.25 = <b>2374 A</b>
+      </div>
+    </div>
+
+    <!-- 右：結果 -->
+    <div>
+      <div class="res">
+        <div class="box"><div class="k">總功率</div><div class="v" id="rP">–<span class="u"> kW</span></div></div>
+        <div class="box"><div class="k">額定電流 I</div><div class="v" id="rI">–<span class="u"> A</span></div></div>
+        <div class="box"><div class="k">設計電流 (×係數)</div><div class="v" id="rD" style="color:var(--warn)">–<span class="u"> A</span></div></div>
+        <div class="box"><div class="k">每條負擔電流</div><div class="v" id="rE" style="color:var(--acc2)">–<span class="u"> A</span></div></div>
+      </div>
+
+      <div class="pick" id="pick">
+        <div class="t">建議導線</div>
+        <div class="m" id="pickM">請輸入條件</div>
+        <div class="n" id="pickN"></div>
+      </div>
+
+      <div class="card">
+        <h2>表一六~六　金屬導線管配線導線安培容量表（銅導線）</h2>
+        <div class="tblbox">
+          <table>
+            <thead>
+              <tr>
+                <th rowspan="2">線別</th><th rowspan="2">公稱截面積<br>(mm²)</th><th rowspan="2">根數／直徑<br>(mm)</th>
+                <th colspan="4">同一導線管內之導線數／電纜芯數（安培）</th>
+              </tr>
+              <tr><th>3 以下</th><th>4</th><th>5-6</th><th>7-9</th></tr>
+            </thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          註：本表適用於金屬可撓導線管配線及電纜配線。<br>
+          ※ 綠底＝符合每條負擔電流的最小可用線徑；淺底欄＝目前選定的導線數欄位。<br>
+          ※ 表值為周溫 35°C 以下、90°C 絕緣物之值；周溫更高或多回路密集時需另加降容係數。
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- ===== 水泥方數 ===== -->
+  <div id="page2" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2>尺寸輸入</h2>
+
+        <label>長 L（公尺）</label>
+        <input type="number" id="cL" value="3" step="any">
+
+        <label>寬 W（公尺）</label>
+        <input type="number" id="cW" value="2" step="any">
+
+        <label>厚度／深度 H</label>
+        <div class="row">
+          <input type="number" id="cH" value="20" step="any">
+          <select id="cHu">
+            <option value="0.01">公分 cm</option>
+            <option value="1">公尺 m</option>
+          </select>
+        </div>
+        <div class="hint">預設 20cm（儲能櫃基礎常用 15～30cm），可直接改。</div>
+
+        <div class="row">
+          <div>
+            <label>數量（座／處）</label>
+            <input type="number" id="cQ" value="1" step="1" min="1">
+          </div>
+          <div>
+            <label>損耗係數</label>
+            <input type="number" id="cLoss" value="1.05" step="0.01">
+          </div>
+        </div>
+
+        <label>預拌車單車容量（m³）</label>
+        <input type="number" id="cTruck" value="6" step="any">
+
+        <div class="formula">
+          體積 = 長 × 寬 × 厚 × 數量<br>
+          <b>下料量 = 體積 × 損耗係數</b><br>
+          1 m³ ＝ 1 立方公尺（俗稱 1 方）<br>
+          自拌估算：1 m³ ≒ 水泥 320kg（約 6.4 包 / 50kg）、砂 0.5 m³、碎石 0.85 m³
+        </div>
+      </div>
+
+      <div>
+        <div class="res">
+          <div class="box"><div class="k">澆置面積</div><div class="v" id="cArea">–<span class="u"> m²</span></div></div>
+          <div class="box"><div class="k">淨體積</div><div class="v" id="cVol">–<span class="u"> m³</span></div></div>
+          <div class="box"><div class="k">含損耗下料量</div><div class="v" id="cOrder" style="color:var(--warn)">–<span class="u"> m³</span></div></div>
+          <div class="box"><div class="k">預拌車數</div><div class="v" id="cTrucks" style="color:var(--acc2)">–<span class="u"> 車</span></div></div>
+        </div>
+
+        <div class="pick">
+          <div class="t">下單建議</div>
+          <div class="m" id="cMain">請輸入尺寸</div>
+          <div class="n" id="cNote"></div>
+        </div>
+
+        <div class="card">
+          <h2>材料與附屬數量估算</h2>
+          <table>
+            <thead><tr><th>項目</th><th>數量</th><th>單位</th><th>說明</th></tr></thead>
+            <tbody id="cTb"></tbody>
+          </table>
+          <div class="foot">
+            ※ 自拌配比以 1:2:4（約 210 kgf/cm²）粗估，實際依配比設計書為準。<br>
+            ※ 模板面積 = 周長 × 厚度（僅側模，未含支撐）；PE 布／碎石級配依面積估算。<br>
+            ※ 預拌混凝土多以 0.5 m³ 為級距下單，表列已進位提醒。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// [線別, 公稱截面積, 根數/直徑, [3以下, 4, 5-6, 7-9]]
+const T = [
+  ["單線","－","1.6",[24,21,19,17]],
+  ["單線","－","2.0",[28,25,22,20]],
+  ["單線","－","2.6",[39,35,31,27]],
+  ["絞線","3.5","7/0.8",[30,27,24,21]],
+  ["絞線","5.5","7/1.0",[39,35,31,27]],
+  ["絞線","8","7/1.2",[51,46,41,36]],
+  ["絞線","14","7/1.6",[74,67,59,52]],
+  ["絞線","22","7/2.0",[93,84,74,65]],
+  ["絞線","30","7/2.3",[116,104,93,81]],
+  ["絞線","38","7/2.6",[130,117,104,91]],
+  ["絞線","50","19/1.8",[155,140,124,109]],
+  ["絞線","60","19/2.0",[176,159,141,123]],
+  ["絞線","80","19/2.3",[208,187,167,146]],
+  ["絞線","100","19/2.6",[242,218,194,170]],
+  ["絞線","125","19/2.9",[277,249,221,194]],
+  ["絞線","150","37/2.3",[309,278,247,null]],
+  ["絞線","200","37/2.6",[359,323,287,null]],
+  ["絞線","250","61/2.3",[413,372,null,null]],
+  ["絞線","325","61/2.6",[471,424,null,null]],
+  ["絞線","400","61/2.9",[531,null,null,null]],
+  ["絞線","500","61/3.2",[581,null,null,null]]
+];
+const COLNAME = ["3 以下","4","5-6","7-9"];
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id).value) || 0;
+
+function calc(){
+  const P = num("pw") * parseFloat($("unit").value) * num("qty"); // W
+  const V = num("volt"), pf = num("pf") || 1, sf = num("sf") || 1;
+  const col = parseInt($("cond").value), par = Math.max(1, parseInt($("par").value) || 1);
+
+  const I = (V > 0) ? P / 1.732 / V / pf : 0;
+  const Id = I * sf;
+  const Ie = Id / par;
+
+  $("rP").innerHTML = (P/1000).toLocaleString(undefined,{maximumFractionDigits:2}) + '<span class="u"> kW</span>';
+  $("rI").innerHTML = I.toFixed(2) + '<span class="u"> A</span>';
+  $("rD").innerHTML = Id.toFixed(2) + '<span class="u"> A</span>';
+  $("rE").innerHTML = Ie.toFixed(2) + '<span class="u"> A</span>';
+
+  // 找最小符合線徑
+  let hit = -1;
+  for (let i = 0; i < T.length; i++){
+    const a = T[i][3][col];
+    if (a !== null && a >= Ie){ hit = i; break; }
+  }
+  render(col, hit);
+
+  const box = $("pick");
+  if (Ie <= 0){
+    box.className = "pick";
+    $("pickM").textContent = "請輸入條件";
+    $("pickN").textContent = "";
+    return;
+  }
+  if (hit < 0){
+    // 建議需要幾條併聯
+    const max = T.filter(r => r[3][col] !== null).map(r => r[3][col]).pop();
+    const need = Math.ceil(Id / max);
+    box.className = "pick bad";
+    $("pickM").innerHTML = "本表無單條可承載 " + Ie.toFixed(0) + " A 的導線";
+    $("pickN").innerHTML = "此欄位最大為 500mm² (61/3.2)＝" + max + " A。<br>" +
+      "建議每相至少併聯 <b style='color:#ffb84d'>" + need + " 條 500mm²</b>（" + need + " × " + max +
+      " = " + (need*max) + " A ≥ " + Id.toFixed(0) + " A），或改用匯流排／低壓 CB 分路。";
+    return;
+  }
+  const r = T[hit], a = r[3][col];
+  box.className = "pick";
+  $("pickM").innerHTML = r[0] + "　" + (r[1] === "－" ? "" : r[1] + " mm²　") + r[2] +
+    (r[1] === "－" ? " mm" : "") + "　→ " + a + " A";
+  $("pickN").innerHTML = "導線管內導線數 " + COLNAME[col] + "，每相 " + par + " 條併聯，" +
+    "每條需 " + Ie.toFixed(1) + " A ≤ 容量 " + a + " A（餘裕 " + ((a/Ie-1)*100).toFixed(1) + "%）。<br>" +
+    "全系統合計容量 " + (a*par) + " A ≥ 設計電流 " + Id.toFixed(1) + " A。";
+}
+
+function render(col, hit){
+  let html = "", last = "";
+  T.forEach((r, i) => {
+    if (r[0] !== last){
+      html += '<tr><td class="grp" colspan="7">' + r[0] + '</td></tr>';
+      last = r[0];
+    }
+    html += "<tr>";
+    html += "<td>" + r[0] + "</td><td class='sz'>" + r[1] + "</td><td>" + r[2] + "</td>";
+    for (let c = 0; c < 4; c++){
+      const v = r[3][c];
+      let cls = (c === col) ? "colhit" : "";
+      if (i === hit && c === col) cls = "hit";
+      html += '<td class="' + cls + '">' + (v === null ? '<span class="na">－</span>' : v) + "</td>";
+    }
+    html += "</tr>";
+  });
+  $("tb").innerHTML = html;
+}
+
+/* ===== 水泥方數 ===== */
+function concrete(){
+  const L = num("cL"), W = num("cW");
+  const H = num("cH") * parseFloat($("cHu").value);
+  const q = Math.max(1, parseInt($("cQ").value) || 1);
+  const loss = num("cLoss") || 1;
+  const cap = num("cTruck") || 6;
+
+  const area = L * W * q;
+  const vol = L * W * H * q;
+  const order = vol * loss;
+  const trucks = cap > 0 ? Math.ceil(order / cap) : 0;
+  const round = Math.ceil(order * 2) / 2; // 進位到 0.5 m³
+
+  const f = (n, d = 2) => n.toLocaleString(undefined, {maximumFractionDigits: d});
+  $("cArea").innerHTML = f(area) + '<span class="u"> m²</span>';
+  $("cVol").innerHTML  = f(vol, 3) + '<span class="u"> m³</span>';
+  $("cOrder").innerHTML= f(order, 3) + '<span class="u"> m³</span>';
+  $("cTrucks").innerHTML = trucks + '<span class="u"> 車</span>';
+
+  if (vol <= 0){
+    $("cMain").textContent = "請輸入尺寸";
+    $("cNote").textContent = "";
+    $("cTb").innerHTML = "";
+    return;
+  }
+  $("cMain").innerHTML = "預拌混凝土下單 <b style='color:#3ddc97'>" + f(round, 1) + " m³</b>（" + f(round,1) + " 方）";
+  $("cNote").innerHTML = L + " m × " + W + " m × " + f(H,3) + " m × " + q + " 座 ＝ 淨 " + f(vol,3) +
+    " m³，含 " + ((loss-1)*100).toFixed(0) + "% 損耗 " + f(order,3) + " m³。<br>" +
+    "約需 " + cap + " m³ 預拌車 " + trucks + " 車（最後一車約 " + f(order - cap*(trucks-1), 2) + " m³）。";
+
+  const per = 2 * (L + W) * q;                 // 周長總計
+  const rows = [
+    ["澆置面積", f(area), "m²", "PE 布 / 整地面積"],
+    ["側模板面積", f(per * H, 2), "m²", "周長 " + f(per,2) + " m × 厚 " + f(H,3) + " m"],
+    ["碎石級配底層", f(area * 0.1, 2), "m³", "以厚 10cm 估算"],
+    ["水泥（自拌）", f(order * 320, 0), "kg", "約 " + f(order * 6.4, 1) + " 包（50kg/包）"],
+    ["砂（自拌）", f(order * 0.5, 2), "m³", "配比 1:2:4 粗估"],
+    ["碎石（自拌）", f(order * 0.85, 2), "m³", "配比 1:2:4 粗估"],
+    ["重量參考", f(vol * 2.4, 2), "公噸", "混凝土約 2.4 t/m³"]
+  ];
+  $("cTb").innerHTML = rows.map(r =>
+    "<tr><td class='sz'>" + r[0] + "</td><td style='color:#3ddc97;font-weight:700'>" + r[1] +
+    "</td><td>" + r[2] + "</td><td style='text-align:left;color:#93a4b8'>" + r[3] + "</td></tr>").join("");
+}
+$("cTb") && ["cL","cW","cH","cHu","cQ","cLoss","cTruck"].forEach(id =>
+  $(id).addEventListener("input", concrete));
+
+/* ===== 頁籤 ===== */
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+  t.classList.add("on");
+  $("page1").hidden = t.dataset.p !== "1";
+  $("page2").hidden = t.dataset.p !== "2";
+}));
+
+document.querySelectorAll("#page1 input,#page1 select").forEach(el => el.addEventListener("input", calc));
+calc();
+concrete();
+</script>
+</body>
+</html>
