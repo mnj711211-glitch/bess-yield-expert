@@ -164,6 +164,30 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
 .sched-pane{display:none;}
 .sched-pane.active{display:block;}
 
+/* ── 人員週班表 ── */
+.sg-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;}
+.sg-nav button{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;color:var(--text2);line-height:1;}
+.sg-nav button:hover{background:var(--surface2);border-color:var(--green);color:var(--green);}
+#staff-week-label{font-size:14px;font-weight:700;color:var(--text);min-width:170px;text-align:center;}
+.sg-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);}
+.sg-table{display:grid;min-width:max-content;}
+.sg-cell{border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);padding:7px 6px;font-size:12px;box-sizing:border-box;}
+.sg-head{background:linear-gradient(135deg,#1a3a2a 0%,#2d6b4a 100%);color:#fff;font-weight:700;font-size:12px;text-align:center;padding:10px 6px;position:sticky;top:0;z-index:2;border-right:1px solid rgba(255,255,255,.15);}
+.sg-corner{position:sticky;left:0;z-index:3;}
+.sg-date,.sg-wd{background:var(--surface2);text-align:center;font-weight:700;color:var(--text2);position:sticky;z-index:1;}
+.sg-date{left:0;}
+.sg-wd{left:60px;}
+.sg-weekend{color:var(--red)!important;}
+.sg-today{box-shadow:inset 0 0 0 2px var(--green);}
+.sg-slot{min-height:58px;background:var(--surface);}
+.sg-slot:hover{background:var(--surface2);}
+.sg-item{background:var(--green-d);border-radius:6px;padding:4px 6px;margin-bottom:3px;cursor:pointer;transition:background .12s;}
+.sg-item:hover{background:rgba(39,174,96,.24);}
+.sg-item-site{font-weight:700;color:var(--text);font-size:11.5px;line-height:1.3;}
+.sg-item-note{font-size:10.5px;color:var(--text2);margin-top:1px;line-height:1.3;}
+.sg-add{font-size:11px;color:var(--text3);text-align:center;cursor:pointer;padding:3px;border-radius:4px;border:1px dashed var(--border);}
+.sg-add:hover{color:var(--green);border-color:var(--green);background:var(--green-d);}
+
 /* ── KANBAN BOARD ── */
 .kb-board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
 .kb-col{background:var(--bg);border-radius:var(--r);padding:10px;}
@@ -711,6 +735,7 @@ select option{background:var(--surface2);}
         <div class="sched-tabs">
           <div class="sched-tab active" onclick="switchSchedTab('cal',this)">近三個月排程</div>
           <div class="sched-tab" onclick="switchSchedTab('kanban',this)">派工追蹤看板</div>
+          <div class="sched-tab" onclick="switchSchedTab('staff',this)">人員週班表</div>
         </div>
 
         <div class="sched-pane active" id="sched-pane-cal">
@@ -758,6 +783,17 @@ select option{background:var(--surface2);}
 
         <div class="sched-pane" id="sched-pane-kanban">
           <div class="kb-board" id="kb-board"></div>
+        </div>
+
+        <div class="sched-pane" id="sched-pane-staff">
+          <div class="sg-nav">
+            <button onclick="staffWeekShift(-1)" title="上一週">‹</button>
+            <div id="staff-week-label"></div>
+            <button onclick="staffWeekShift(1)" title="下一週">›</button>
+            <button class="btn-s btn-sm" style="margin-left:14px" onclick="staffWeekShift(0,true)">回到本週</button>
+          </div>
+          <div class="sg-wrap"><div id="staff-grid-wrap"></div></div>
+          <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 點格子裡的「＋」新增當天工作，點已排的項目可查看/修改/刪除</div>
         </div>
 
       </div>
@@ -1299,7 +1335,7 @@ const TYPE_LABEL = {pm:'定期保養',ir:'熱顯像檢測',soh:'SOH 檢測',em:'
 function getTypeLabel(t) { return TYPE_LABEL[t] || t; }
 
 // ── 技師名單（可動態新增，存 localStorage）──────────────
-const TECHNICIANS_DEFAULT = ['王技師','陳工程師','李工程師','張技師'];
+const TECHNICIANS_DEFAULT = ['許白龍','葉祐君','楊宗衛','李汎鎧','鍾璧堯','張哲弦'];
 function getTechnicians() {
   const custom = JSON.parse(localStorage.getItem('ess_technicians') || '[]');
   return [...new Set([...TECHNICIANS_DEFAULT, ...custom])];
@@ -3260,6 +3296,83 @@ function switchSchedTab(name, el) {
   el.classList.add('active');
   document.getElementById(`sched-pane-${name}`).classList.add('active');
   if (name === 'kanban') renderKanban();
+  if (name === 'staff') renderStaffGrid();
+}
+
+// ═══════════════════════════════════════
+// 人員週班表（技師欄 × 日期列，點格子＋編輯，資料來源與「近三個月排程」共用 EVENTS/workorders）
+// ═══════════════════════════════════════
+function getMonday(d) {
+  const x = new Date(d); x.setHours(0,0,0,0);
+  const day = x.getDay();
+  x.setDate(x.getDate() + (day === 0 ? -6 : 1) - day);
+  return x;
+}
+let staffWeekStart = getMonday(new Date());
+
+function staffWeekShift(n, toToday) {
+  staffWeekStart = toToday ? getMonday(new Date()) : (() => {
+    const d = new Date(staffWeekStart); d.setDate(d.getDate() + n * 7); return d;
+  })();
+  renderStaffGrid();
+}
+
+function renderStaffGrid() {
+  const wrap = document.getElementById('staff-grid-wrap');
+  if (!wrap) return;
+  const techs = getTechnicians();
+  const WD = ['日','一','二','三','四','五','六'];
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // 注意：不可用 toISOString()，它會轉成 UTC，在台北時區(+8)會把日期往前推一天
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const todayIso = iso(new Date());
+  const days = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(staffWeekStart); d.setDate(d.getDate() + i); days.push(d); }
+
+  const lbl = document.getElementById('staff-week-label');
+  if (lbl) lbl.textContent = `${days[0].getFullYear()} 年 ${days[0].getMonth()+1}/${days[0].getDate()} － ${days[6].getMonth()+1}/${days[6].getDate()}`;
+
+  let html = `<div class="sg-table" style="grid-template-columns:60px 44px repeat(${techs.length},minmax(150px,1fr))">`;
+  html += `<div class="sg-cell sg-head sg-corner">日期</div><div class="sg-cell sg-head sg-corner">星期</div>`;
+  techs.forEach(t => html += `<div class="sg-cell sg-head">${esc(t)}</div>`);
+
+  days.forEach(d => {
+    const di = iso(d);
+    const weekend = d.getDay() === 0 || d.getDay() === 6;
+    const today = di === todayIso;
+    const cls = (weekend?' sg-weekend':'') + (today?' sg-today':'');
+    html += `<div class="sg-cell sg-date${cls}">${d.getMonth()+1}/${d.getDate()}</div>`;
+    html += `<div class="sg-cell sg-wd${cls}">${WD[d.getDay()]}</div>`;
+    techs.forEach(t => {
+      const items = EVENTS.filter(e => e.date === di && (e.person || '') === t);
+      const itemsHtml = items.map(e => `
+        <div class="sg-item" onclick="openWoDetail('${e.id}')" title="點擊查看/修改/刪除">
+          <div class="sg-item-site">${esc(e.site || '未指定案場')}</div>
+          ${e.note ? `<div class="sg-item-note">${esc(e.note)}</div>` : ''}
+        </div>`).join('');
+      const tEsc = t.replace(/'/g, "\\'");
+      html += `<div class="sg-cell sg-slot${today?' sg-today':''}">
+        ${itemsHtml}
+        <div class="sg-add" onclick="openAddEventForCell('${di}','${tEsc}')">＋</div>
+      </div>`;
+    });
+  });
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+// 從人員週班表的某個「日期 × 人員」格子點 ＋，開新增工單視窗並預填日期/負責技師
+function openAddEventForCell(date, person) {
+  openAddEvent();
+  document.getElementById('ev-date').value = date;
+  const sel = document.getElementById('ev-person');
+  sel.value = person;
+  if (sel.value !== person) {
+    // 理論上 person 一定在技師名單裡；保險起見退回自訂輸入
+    sel.value = '__new__';
+    document.getElementById('ev-person-custom').style.display = '';
+    document.getElementById('ev-person-custom').value = person;
+  }
 }
 
 // ═══════════════════════════════════════
@@ -3678,6 +3791,7 @@ function startWorkordersListener() {
       }
       renderCalendar();
       renderKanban();
+      renderStaffGrid();
     }, err => {
       console.warn('[Firebase] 工單監聽失敗，使用本機資料', err);
     });
