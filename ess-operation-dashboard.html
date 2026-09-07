@@ -432,6 +432,16 @@ select option{background:var(--surface2);}
 .tn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:22px;}
 .tn-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:all .18s;overflow:hidden;box-shadow:0 1px 6px rgba(39,174,96,.06);}
 .tn-card:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(39,174,96,.18);border-color:var(--green);}
+/* 異常案場：紅色外框閃爍提示，一眼抓到重點 */
+.tn-card.alerting{border:2px solid var(--red);animation:cardAlertPulse 1.3s ease-in-out infinite;}
+.tn-card.alerting:hover{animation-play-state:paused;}
+@keyframes cardAlertPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.55);}
+  50%{box-shadow:0 0 14px 4px rgba(192,57,43,.55);}
+}
+@media (prefers-reduced-motion: reduce){
+  .tn-card.alerting{animation:none;box-shadow:0 0 0 3px rgba(192,57,43,.4);}
+}
 .tn-img{height:120px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .tn-img svg{opacity:.25;width:64px;height:64px;}
 .tn-cap{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.48);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;backdrop-filter:blur(3px);}
@@ -1799,7 +1809,8 @@ function siteCard(s, readOnly=false) {
       </svg>`;
   const isMocked = _realSites.size > 0 && !_realSites.has(s.name);
   const mockBadge = isMocked ? `<div class="tn-mock">模擬數據</div>` : '';
-  return `<div class="tn-card" data-id="${s.id}" onclick="showSiteDetail(${s.id})">
+  const isAlerting = alertN > 0 || st === 'offline';
+  return `<div class="tn-card${isAlerting ? ' alerting' : ''}" data-id="${s.id}" onclick="showSiteDetail(${s.id})">
     <div class="tn-img" style="${imgStyle}">
       ${svgHtml}
       <div class="tn-cap">${capLabel}</div>
