@@ -1176,7 +1176,12 @@ select option{background:var(--surface2);}
       <button class="mclose" onclick="closeModal('modal-site-docs')">✕</button>
     </div>
     <div style="padding:10px 16px 0;font-size:11.5px;color:var(--text2)">
-      ℹ️ 文件存放於公司 Google 雲端硬碟「案場資料夾」，依 案場名稱 / 分類 自動歸檔。第一次上傳會請你授權存取雲端硬碟。
+      ℹ️ 文件存放於公司 Google 雲端硬碟「案場資料夾」，依 案場名稱 / 分類 自動歸檔。
+    </div>
+    <div style="padding:8px 16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="sd-drive-btn" class="btn-p" style="font-size:12px;padding:6px 12px"
+              onclick="connectDrive()">🔗 連結 Google 雲端硬碟</button>
+      <span id="sd-drive-state" style="font-size:11.5px;color:var(--text3)">上傳前請先連結一次，之後一小時內免重複授權。</span>
     </div>
     <div class="mbody" id="sd-body" style="min-height:160px">
       <div style="text-align:center;padding:40px;color:var(--text3)">載入中…</div>
@@ -1553,6 +1558,7 @@ function openSiteDocs(id) {
   document.getElementById('sd-site-name').textContent = site ? site.name : ('案場 ' + id);
   renderSiteDocs();
   openModal('modal-site-docs');
+  if (typeof renderDriveState === 'function') renderDriveState();
   // 開窗後再抓一次該案場最新索引，避免看到過期資料
   if (typeof db !== 'undefined' && db) {
     db.collection('site_docs').doc(sdCurrentSiteId).get()
@@ -1648,16 +1654,19 @@ async function uploadSiteDocs(key, input) {
   const parts = docCatFromKey(key);
   if (!parts) { showToast('⚠️ 找不到文件分類', 4000); return; }
 
-  // 先要授權，而且必須在使用者點擊的當下同步發出——中間隔了 await 的話，
-  // 瀏覽器會把 Google 授權視窗當成廣告擋掉（popup_failed_to_open）。
-  const tokenPromise = getDriveToken();
+  // 授權一律走上方的「連結 Google 雲端硬碟」按鈕：檔案選取器的 change 事件
+  // 不算使用者手勢，在這裡開授權視窗會被瀏覽器擋掉（popup_failed_to_open）。
+  if (!driveTokenReady()) {
+    showToast('⚠️ 請先按上方的「🔗 連結 Google 雲端硬碟」完成授權，再上傳', 6000);
+    renderDriveState();
+    return;
+  }
 
   const site = SITES.find(x => String(x.id) === String(sdCurrentSiteId));
   const siteName = site ? site.name : ('案場 ' + sdCurrentSiteId);
 
   let folderId;
   try {
-    await tokenPromise;
     showToast('☁️ 正在準備雲端資料夾…', 2500);
     folderId = await driveEnsurePath(siteName, parts.cat, parts.sub);
   } catch (err) {
@@ -3991,6 +4000,48 @@ function getDriveToken() {
     const u = auth.currentUser;
     _driveTokenClient.requestAccessToken(u ? { hint: u.email } : {});
   });
+}
+
+// 手上是否已有可用的權杖（有的話上傳不必再開授權視窗）
+function driveTokenReady() {
+  return !!_driveToken && Date.now() < _driveTokenExp - 60000;
+}
+
+// 由使用者「真的按下按鈕」時呼叫 —— 這是瀏覽器唯一穩定認可的手勢，
+// 從檔案選取器的 change 事件去開授權視窗，Chrome 不一定買單。
+function connectDrive() {
+  const btn = document.getElementById('sd-drive-btn');
+  const st  = document.getElementById('sd-drive-state');
+  if (!driveConfigured()) {
+    if (st) st.textContent = '尚未設定 Google Drive 用戶端 ID。';
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (st) st.textContent = '授權中…';
+  getDriveToken().then(() => {
+    renderDriveState();
+    showToast('✅ 已連結 Google 雲端硬碟', 2500);
+  }).catch((err) => {
+    if (btn) btn.disabled = false;
+    if (st) st.textContent = '⚠️ ' + (err.message || err);
+    showToast('⚠️ ' + (err.message || err), 7000);
+  });
+}
+
+function renderDriveState() {
+  const btn = document.getElementById('sd-drive-btn');
+  const st  = document.getElementById('sd-drive-state');
+  if (!btn || !st) return;
+  if (driveTokenReady()) {
+    btn.style.display = 'none';
+    st.textContent = '✅ 已連結雲端硬碟，可以上傳了';
+    st.style.color = '#1a9e5c';
+  } else {
+    btn.style.display = '';
+    btn.disabled = false;
+    st.textContent = '上傳前請先連結一次，之後一小時內免重複授權。';
+    st.style.color = 'var(--text3)';
+  }
 }
 
 async function driveFetch(url, opts = {}) {
