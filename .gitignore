@@ -26,3 +26,10 @@ node_modules/
 # 暫存
 *.tmp
 *.log
+
+# 授權名單（含同事 email，不進公開 repo）
+ess-backend/allowed_users.json
+allowed_users.json
+
+# 編輯備份
+*.bak

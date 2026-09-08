@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 app   = Flask(__name__)
 CORS(app)  # 允許前端 HTML 跨域呼叫
 
+# ── 登入驗證：/api/* 需帶 Firebase ID Token（健康檢查與 LINE webhook 除外）──
+from auth_guard import require_auth, AUTH_ENABLED, ALLOWED_DOMAINS
+
+@app.before_request
+def _auth_gate():
+    return require_auth()
+
 PORT           = int(os.getenv("PORT", 5050))
 CACHE_MINUTES  = int(os.getenv("CACHE_MINUTES", 60))
 CACHE_FILE     = Path(__file__).parent / "cache.json"
@@ -368,6 +375,16 @@ def health():
         "cache_age_min": round((time.time() - _cache_time) / 60, 1),
         "plant_map_count": len(PLANT_MAP),
     })
+
+
+@app.get("/api/me")
+def me():
+    """回傳目前登入者的身分（姓名／團隊／角色）。名單只存在後端，前端不放 email。"""
+    from flask import g
+    user = getattr(g, "user", None)
+    if not user:                      # AUTH_ENABLED=0 時沒有 g.user
+        return jsonify({"ok": True, "auth": False, "user": None})
+    return jsonify({"ok": True, "auth": True, "user": user})
 
 
 @app.get("/api/discover")
