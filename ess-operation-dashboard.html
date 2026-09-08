@@ -1648,16 +1648,21 @@ async function uploadSiteDocs(key, input) {
   const parts = docCatFromKey(key);
   if (!parts) { showToast('⚠️ 找不到文件分類', 4000); return; }
 
+  // 先要授權，而且必須在使用者點擊的當下同步發出——中間隔了 await 的話，
+  // 瀏覽器會把 Google 授權視窗當成廣告擋掉（popup_failed_to_open）。
+  const tokenPromise = getDriveToken();
+
   const site = SITES.find(x => String(x.id) === String(sdCurrentSiteId));
   const siteName = site ? site.name : ('案場 ' + sdCurrentSiteId);
 
   let folderId;
   try {
+    await tokenPromise;
     showToast('☁️ 正在準備雲端資料夾…', 2500);
     folderId = await driveEnsurePath(siteName, parts.cat, parts.sub);
   } catch (err) {
-    console.error('[site_docs] 建立資料夾失敗', err);
-    showToast(`⚠️ 無法建立雲端資料夾：${err.message || err}`, 6000);
+    console.error('[site_docs] 授權或建立資料夾失敗', err);
+    showToast(`⚠️ ${err.message || err}`, 7000);
     return;
   }
 
@@ -3963,6 +3968,16 @@ function getDriveToken() {
         client_id: GOOGLE_CLIENT_ID,
         scope: DRIVE_SCOPE,
         callback: () => {},
+        // 沒有這個的話，視窗被擋或使用者關掉時 Promise 會永遠卡住，畫面毫無反應
+        error_callback: (e) => {
+          if (e && e.type === 'popup_failed_to_open') {
+            reject(new Error('Google 授權視窗被瀏覽器擋住了，請允許本站顯示彈出式視窗後再試一次'));
+          } else if (e && e.type === 'popup_closed') {
+            reject(new Error('授權視窗被關閉，尚未完成授權'));
+          } else {
+            reject(new Error((e && (e.message || e.type)) || '無法開啟 Google 授權視窗'));
+          }
+        },
       });
     }
     _driveTokenClient.callback = (resp) => {
