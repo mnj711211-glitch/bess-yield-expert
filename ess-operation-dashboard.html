@@ -1670,8 +1670,8 @@ async function uploadSiteDocs(key, input) {
     showToast('☁️ 正在準備雲端資料夾…', 2500);
     folderId = await driveEnsurePath(siteName, parts.cat, parts.sub);
   } catch (err) {
-    console.error('[site_docs] 授權或建立資料夾失敗', err);
-    showToast(`⚠️ ${err.message || err}`, 7000);
+    console.error('[site_docs] 建立資料夾失敗', err);
+    sdDriveError(err);
     return;
   }
 
@@ -1702,7 +1702,7 @@ async function uploadSiteDocs(key, input) {
       showToast(`✅ ${file.name} 已上傳`, 2500);
     } catch (err) {
       console.error('[site_docs] 上傳失敗', err);
-      showToast(`⚠️ ${file.name} 上傳失敗：${err.message || err.code || ''}`, 6000);
+      sdDriveError(new Error(`${file.name} 上傳失敗：${err.message || err.code || ''}`));
     }
   }
   if (currentPage === 'siteinfo') {
@@ -4018,14 +4018,35 @@ function connectDrive() {
   }
   if (btn) btn.disabled = true;
   if (st) st.textContent = '授權中…';
-  getDriveToken().then(() => {
-    renderDriveState();
-    showToast('✅ 已連結 Google 雲端硬碟', 2500);
-  }).catch((err) => {
-    if (btn) btn.disabled = false;
-    if (st) st.textContent = '⚠️ ' + (err.message || err);
-    showToast('⚠️ ' + (err.message || err), 7000);
-  });
+  getDriveToken()
+    // 授權完馬上讀一次根資料夾，把「API 沒啟用／看不到資料夾」這類問題
+    // 在這裡就講清楚，而不是等到上傳才失敗
+    .then(() => driveFetch(
+      'https://www.googleapis.com/drive/v3/files/' + DRIVE_ROOT_FOLDER_ID +
+      '?fields=id,name,capabilities(canAddChildren)&supportsAllDrives=true'))
+    .then((folder) => {
+      if (folder.capabilities && folder.capabilities.canAddChildren === false) {
+        throw new Error(`你的帳號對「${folder.name}」沒有新增檔案的權限，請改用內容管理員或編輯者權限`);
+      }
+      renderDriveState();
+      showToast(`✅ 已連結雲端硬碟「${folder.name}」`, 3000);
+    })
+    .catch((err) => {
+      if (btn) btn.disabled = false;
+      sdDriveError(err);
+    });
+}
+
+// 把錯誤留在視窗上（浮動訊息幾秒就不見了，看不到就無從判斷）
+function sdDriveError(err) {
+  const msg = (err && (err.message || err.code)) || String(err);
+  const st = document.getElementById('sd-drive-state');
+  if (st) {
+    st.textContent = '⚠️ ' + msg;
+    st.style.color = '#c0392b';
+  }
+  console.error('[Drive]', err);
+  showToast('⚠️ ' + msg, 8000);
 }
 
 function renderDriveState() {
