@@ -1176,7 +1176,7 @@ select option{background:var(--surface2);}
       <button class="mclose" onclick="closeModal('modal-site-docs')">✕</button>
     </div>
     <div style="padding:10px 16px 0;font-size:11.5px;color:var(--text2)">
-      ℹ️ 文件將改由公司 Google 雲端硬碟集中管理，上傳功能建置中。此處顯示各分類的備齊狀態。
+      ℹ️ 文件存放於公司 Google 雲端硬碟「案場資料夾」，依 案場名稱 / 分類 自動歸檔。第一次上傳會請你授權存取雲端硬碟。
     </div>
     <div class="mbody" id="sd-body" style="min-height:160px">
       <div style="text-align:center;padding:40px;color:var(--text3)">載入中…</div>
@@ -1485,8 +1485,9 @@ function setupNav() {
 // ═══════════════════════════════════════
 // 案場文件管理
 //   固定 7 個分類，每個分類上傳後在案場資訊表上打勾。
-//   檔案：Firebase Storage  site_docs/{案場id}/{分類代碼}/{時間戳}_{檔名}
-//   索引：Firestore        site_docs/{案場id}  → { "01":[{name,url,path,size,at}], ... }
+//   檔案：Google 雲端硬碟  案場資料夾/{案場名稱}/{01 案場資料}/{1. 單線圖}/{檔名}
+//   索引：Firestore        site_docs/{案場id}  → { "01":[{name,url,driveId,size,at}], ... }
+//   資料夾不存在時會自動建立；Drive 設定見下方 DRIVE_* 常數。
 // ═══════════════════════════════════════
 const DOC_CATS = [
   { code: '01', name: '案場資料', subs: [
@@ -1581,10 +1582,15 @@ function renderSiteDocs() {
         </div>`).join('')
     : `<div style="padding:3px 0 3px ${indent}px;font-size:12px;color:var(--text3)">尚未上傳</div>`;
 
-  // 上傳暫時停用：Firebase Storage 規則不允許寫入，文件將改存 Google 雲端硬碟。
-  // 恢復方式：把下面這行換回原本的 <label>＋<input type="file"> 版本即可。
-  const uploadBtn = key => `<span style="font-size:10.5px;color:var(--text3);padding:4px 8px;
-      border:1px dashed var(--border);border-radius:6px;white-space:nowrap">建置中</span>`;
+  // 上傳到 Google 雲端硬碟。未完成 Drive 設定時顯示「未設定」而不是可按的按鈕。
+  const uploadBtn = key => driveConfigured()
+    ? `<label style="font-size:10.5px;color:var(--brand,#0a7d3f);padding:4px 8px;cursor:pointer;
+          border:1px solid var(--brand,#0a7d3f);border-radius:6px;white-space:nowrap">
+         ⬆ 上傳
+         <input type="file" multiple style="display:none" onchange="uploadSiteDocs('${key}', this)">
+       </label>`
+    : `<span title="尚未設定 Google Drive OAuth 用戶端 ID" style="font-size:10.5px;color:var(--text3);
+          padding:4px 8px;border:1px dashed var(--border);border-radius:6px;white-space:nowrap">未設定</span>`;
 
   body.innerHTML = DOC_CATS.map(c => {
     const total = catFiles(d, c);
@@ -1619,14 +1625,39 @@ function renderSiteDocs() {
   }).join('');
 }
 
-// key：無子分類為 '02'，有子分類為 '01_1'。Storage 路徑與 Firestore 欄位都用它。
+// key：無子分類為 '02'，有子分類為 '01_1'。Drive 資料夾與 Firestore 欄位都用它。
+// 由 key 反查分類與子分類，用來組出雲端硬碟的資料夾路徑
+function docCatFromKey(key) {
+  const [code, subCode] = String(key).split('_');
+  const cat = DOC_CATS.find(c => c.code === code);
+  if (!cat) return null;
+  const sub = subCode && cat.subs ? cat.subs.find(x => x.code === subCode) : null;
+  return { cat, sub };
+}
+
 async function uploadSiteDocs(key, input) {
   const code = key;
   const files = [...(input.files || [])];
   input.value = '';
   if (!files.length || !sdCurrentSiteId) return;
-  if (typeof storage === 'undefined' || !storage) {
-    showToast('⚠️ 雲端儲存未啟用，無法上傳', 4000);
+
+  if (!driveConfigured()) {
+    showToast('⚠️ 尚未設定 Google Drive，無法上傳', 4000);
+    return;
+  }
+  const parts = docCatFromKey(key);
+  if (!parts) { showToast('⚠️ 找不到文件分類', 4000); return; }
+
+  const site = SITES.find(x => String(x.id) === String(sdCurrentSiteId));
+  const siteName = site ? site.name : ('案場 ' + sdCurrentSiteId);
+
+  let folderId;
+  try {
+    showToast('☁️ 正在準備雲端資料夾…', 2500);
+    folderId = await driveEnsurePath(siteName, parts.cat, parts.sub);
+  } catch (err) {
+    console.error('[site_docs] 建立資料夾失敗', err);
+    showToast(`⚠️ 無法建立雲端資料夾：${err.message || err}`, 6000);
     return;
   }
 
@@ -1637,11 +1668,14 @@ async function uploadSiteDocs(key, input) {
     }
     showToast(`☁️ 上傳中：${file.name}`, 2500);
     try {
-      const safe = file.name.replace(/[\\/:*?"<>|#]/g, '_');
-      const path = `site_docs/${sdCurrentSiteId}/${code}/${Date.now()}_${safe}`;
-      const snap = await storage.ref(path).put(file, { contentType: file.type || 'application/octet-stream' });
-      const url = await snap.ref.getDownloadURL();
-      const entry = { name: file.name, url, path, size: file.size, at: new Date().toISOString() };
+      const uploaded = await driveUploadFile(file, folderId);
+      const entry = {
+        name: file.name,
+        url: uploaded.webViewLink,
+        driveId: uploaded.id,
+        size: file.size,
+        at: new Date().toISOString(),
+      };
 
       await db.collection('site_docs').doc(sdCurrentSiteId).set({
         [code]: firebase.firestore.FieldValue.arrayUnion(entry),
@@ -1654,7 +1688,7 @@ async function uploadSiteDocs(key, input) {
       showToast(`✅ ${file.name} 已上傳`, 2500);
     } catch (err) {
       console.error('[site_docs] 上傳失敗', err);
-      showToast(`⚠️ ${file.name} 上傳失敗：${err.code || err.message || ''}`, 5000);
+      showToast(`⚠️ ${file.name} 上傳失敗：${err.message || err.code || ''}`, 6000);
     }
   }
   if (currentPage === 'siteinfo') {
@@ -3778,6 +3812,7 @@ document.addEventListener('click', e => {
 
 <!-- ═══ FIREBASE SDK ═══ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -3892,6 +3927,134 @@ auth.onAuthStateChanged(async (user) => {
   signinStep.style.display = 'none';
   roleStep.classList.add('on');
 });
+
+// ═══ GOOGLE 雲端硬碟：案場文件上傳 ═══
+// 資料夾結構： 案場資料夾 / {案場名稱} / {01 案場資料} / {1. 單線圖} / 檔案
+// 缺哪一層就自動建立哪一層。
+
+// 你在 https://drive.google.com/drive/folders/... 網址列看到的那串 ID
+const DRIVE_ROOT_FOLDER_ID = '1W-p22Aulzs5nFJKSufTgg16Bp8FC66ga';   // 「案場資料夾」
+
+// Google Cloud 主控台 → API 和服務 → 憑證 → OAuth 2.0 用戶端 ID（網頁應用程式）
+// 建立後把用戶端 ID 貼在這裡，上傳按鈕才會出現。
+const GOOGLE_CLIENT_ID = '';
+
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
+
+let _driveToken = null;
+let _driveTokenExp = 0;
+let _driveTokenClient = null;
+const _driveFolderCache = new Map();   // '父ID/名稱' → 資料夾 ID
+
+function driveConfigured() {
+  return !!GOOGLE_CLIENT_ID && !!DRIVE_ROOT_FOLDER_ID;
+}
+
+// 取得 Drive 存取權杖（第一次會跳 Google 授權視窗，之後一小時內沿用）
+function getDriveToken() {
+  if (_driveToken && Date.now() < _driveTokenExp - 60000) return Promise.resolve(_driveToken);
+  return new Promise((resolve, reject) => {
+    if (!driveConfigured()) return reject(new Error('尚未設定 Google Drive 用戶端 ID'));
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+      return reject(new Error('Google 授權元件尚未載入，請稍候再試'));
+    }
+    if (!_driveTokenClient) {
+      _driveTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: DRIVE_SCOPE,
+        callback: () => {},
+      });
+    }
+    _driveTokenClient.callback = (resp) => {
+      if (resp.error) {
+        return reject(new Error(resp.error_description || resp.error));
+      }
+      _driveToken = resp.access_token;
+      _driveTokenExp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+      resolve(_driveToken);
+    };
+    const u = auth.currentUser;
+    _driveTokenClient.requestAccessToken(u ? { hint: u.email } : {});
+  });
+}
+
+async function driveFetch(url, opts = {}) {
+  const token = await getDriveToken();
+  const headers = new Headers(opts.headers || {});
+  headers.set('Authorization', 'Bearer ' + token);
+  const res = await fetch(url, Object.assign({}, opts, { headers }));
+  if (!res.ok) {
+    let msg = res.status + ' ' + res.statusText;
+    try {
+      const j = await res.json();
+      if (j.error && j.error.message) msg = j.error.message;
+    } catch (e) { /* 回應不是 JSON，沿用狀態碼 */ }
+    if (res.status === 401 || res.status === 403) _driveToken = null;   // 逼下次重新授權
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+// 在 parentId 底下找同名資料夾，沒有就建立
+async function driveFindOrCreateFolder(name, parentId) {
+  const cacheKey = parentId + '/' + name;
+  if (_driveFolderCache.has(cacheKey)) return _driveFolderCache.get(cacheKey);
+
+  const safe = String(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const q = `name='${safe}' and '${parentId}' in parents and ` +
+            `mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const listUrl = 'https://www.googleapis.com/drive/v3/files' +
+    '?q=' + encodeURIComponent(q) +
+    '&fields=files(id,name)&pageSize=1' +
+    '&supportsAllDrives=true&includeItemsFromAllDrives=true';
+
+  const found = await driveFetch(listUrl);
+  let id = (found.files && found.files[0]) ? found.files[0].id : null;
+
+  if (!id) {
+    const created = await driveFetch(
+      'https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(name),
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentId],
+        }),
+      }
+    );
+    id = created.id;
+  }
+  _driveFolderCache.set(cacheKey, id);
+  return id;
+}
+
+// 建出 案場名 / 分類 /（子分類）三層，回傳最底層資料夾 ID
+async function driveEnsurePath(siteName, cat, sub) {
+  const siteFolder = await driveFindOrCreateFolder(siteName, DRIVE_ROOT_FOLDER_ID);
+  const catFolder  = await driveFindOrCreateFolder(`${cat.code} ${cat.name}`, siteFolder);
+  if (!sub) return catFolder;
+  return driveFindOrCreateFolder(`${sub.code}. ${sub.name}`, catFolder);
+}
+
+// multipart 上傳：一個請求同時送中繼資料與檔案內容
+async function driveUploadFile(file, folderId) {
+  const boundary = 'gs' + Math.random().toString(36).slice(2);
+  const meta = { name: file.name, parents: [folderId] };
+  const head =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+    JSON.stringify(meta) +
+    `\r\n--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`;
+  const tail = `\r\n--${boundary}--`;
+  const body = new Blob([head, file, tail], { type: 'multipart/related; boundary=' + boundary });
+
+  return driveFetch(
+    'https://www.googleapis.com/upload/drive/v3/files' +
+    '?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink',
+    { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body }
+  );
+}
 
 // 呼叫後端 API：自動附上 Firebase ID Token
 async function bkFetch(url, opts = {}) {
