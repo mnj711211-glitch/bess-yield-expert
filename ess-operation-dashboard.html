@@ -3842,6 +3842,8 @@ async function signInWithGoogle() {
       _loginErr('');
     } else if (e.code === 'auth/unauthorized-domain') {
       _loginErr('這個網址尚未加入 Firebase 授權網域：請到 Firebase 主控台 → Authentication → Settings → 已授權網域，加入 ' + location.hostname);
+    } else if (e.code === 'auth/configuration-not-found') {
+      _loginErr('Firebase 專案尚未啟用 Authentication。請到 Firebase 主控台 → Authentication → 按「開始使用」，再到 Sign-in method 啟用 Google 登入。');
     } else if (e.code === 'auth/operation-not-allowed') {
       _loginErr('Firebase 尚未啟用 Google 登入方式，請到主控台 → Authentication → Sign-in method 開啟 Google。');
     } else {
