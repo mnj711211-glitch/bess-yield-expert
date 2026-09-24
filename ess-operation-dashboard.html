@@ -760,7 +760,6 @@ select option{background:var(--surface2);}
         <div class="sched-tabs">
           <div class="sched-tab active" onclick="switchSchedTab('cal',this)">近三個月排程</div>
           <div class="sched-tab" onclick="switchSchedTab('kanban',this)">派工追蹤看板</div>
-          <div class="sched-tab" onclick="switchSchedTab('staff',this)">人員週班表</div>
         </div>
 
         <div class="sched-pane active" id="sched-pane-cal">
@@ -810,17 +809,25 @@ select option{background:var(--surface2);}
           <div class="kb-board" id="kb-board"></div>
         </div>
 
-        <div class="sched-pane" id="sched-pane-staff">
-          <div class="sg-nav">
-            <button onclick="staffWeekShift(-1)" title="上一週">‹</button>
-            <div id="staff-week-label"></div>
-            <button onclick="staffWeekShift(1)" title="下一週">›</button>
-            <button class="btn-s btn-sm" style="margin-left:14px" onclick="staffWeekShift(0,true)">回到本週</button>
-          </div>
-          <div class="sg-wrap"><div id="staff-grid-wrap"></div></div>
-          <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 點格子裡的「＋」新增當天工作，點已排的項目可查看/修改/刪除</div>
-        </div>
+      </div>
 
+      <!-- ── ADMIN: 人員週班表（原為排程管理的分頁，已獨立成頁）── -->
+      <div class="page" id="p-staff">
+        <div class="ph">
+          <h2>👷 人員週班表</h2>
+          <p>技師欄 × 日期列，資料與「維運排程管理」共用同一批工單</p>
+          <div class="ph-actions">
+            <button class="btn-p" onclick="openAddEvent()">＋ 新增工單</button>
+          </div>
+        </div>
+        <div class="sg-nav">
+          <button onclick="staffWeekShift(-1)" title="上一週">‹</button>
+          <div id="staff-week-label"></div>
+          <button onclick="staffWeekShift(1)" title="下一週">›</button>
+          <button class="btn-s btn-sm" style="margin-left:14px;white-space:nowrap;flex:none" onclick="staffWeekShift(0,true)">回到本週</button>
+        </div>
+        <div class="sg-wrap"><div id="staff-grid-wrap"></div></div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 點格子裡的「＋」新增當天工作，點已排的項目可查看/修改/刪除</div>
       </div>
 
       <!-- ── ADMIN: ALERTS ── -->
@@ -1276,7 +1283,6 @@ const SITES = [
   {id:29,name:'通霄套房',   group:'綠源科技', region:'北區', loc:'苗栗通霄', cap:17.08,   cStart:'2021-01-01', cEnd:'2041-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
   {id:30,name:'大林薯光案', group:'開陽',     region:'南區', loc:'嘉義大林', cap:140.8,   cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0,   cleanFreq:2, pr:75, tariff:0},
   // ── SEPV solarV4 案場 ──
-  {id:31,name:'雲林土庫．大荖場（綠源合作案）',     group:'綠源科技', region:'北區', loc:'雲林土庫', cap:299.8,  cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
   {id:32,name:'雲林虎尾．墾地里（綠源合作案）',     group:'綠源科技', region:'北區', loc:'雲林虎尾', cap:440.64, cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
   {id:33,name:'屏東枋寮．盟陽二場．追日（統益機電）', group:'統益機電', region:'南區', loc:'屏東枋寮', cap:75.6,   cStart:'2024-01-01', cEnd:'2044-01-01', fee:0, nextBilling:'2026-07-01', status:'normal', moduleSpec:'—', moduleCount:0, cleanFreq:2, pr:75, tariff:0},
   // ── GMS (AUO) 新增案場 ──
@@ -1473,6 +1479,7 @@ function setupNav() {
       <div class="snav-section">
         <div class="snav-label">維運管理</div>
         <div class="nitem" onclick="showPage('schedule')"><span class="ni">📅</span>排程管理</div>
+        <div class="nitem" onclick="showPage('staff')"><span class="ni">👷</span>人員週班表</div>
         <div class="nitem" onclick="showPage('receivables')"><span class="ni">💰</span>收款告警<span class="nbadge" id="recv-badge" style="display:none">0</span></div>
         <div class="nitem" onclick="showPage('maintenance')"><span class="ni">🧹</span>維運排程<span class="nbadge" id="maint-badge" style="display:none">0</span></div>
       </div>`;
@@ -1779,7 +1786,7 @@ function showPage(page) {
   currentPage = page;
   const titles = {
     'overview':'電站總覽','siteinfo':'案場資訊','alerts':'告警中心','schedule':'維運排程管理',
-    'receivables':'收款告警','maintenance':'維運排程',
+    'receivables':'收款告警','maintenance':'維運排程','staff':'人員週班表',
     'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
     'site-detail':'電站詳情'
   };
@@ -1794,6 +1801,7 @@ function showPage(page) {
   else tp.classList.remove('show');
   if (page === 'siteinfo') { renderSiteInfo(document.getElementById('siteinfo-q')?.value || ''); loadSiteDocsIndex(); }
   if (page === 'alerts') loadBackendAlerts();
+  if (page === 'staff') renderStaffGrid();
   if (page === 'receivables') renderKindPage('receivables');
   if (page === 'maintenance') renderKindPage('maintenance');
   if (window.innerWidth <= 768) closeSidebar();
@@ -2067,7 +2075,7 @@ function getSitePlatform(siteName) {
   if (tn.includes(siteName)) return 'Thingnario';
   if (siteName === '大量科技') return 'iPVita';
   const sepv = ['柳營-黃燕良牛舍','西螺-洪慶堂雞舍','台南楠西一',
-    '雲林土庫．大荖場（綠源合作案）','雲林虎尾．墾地里（綠源合作案）',
+    '雲林虎尾．墾地里（綠源合作案）',
     '屏東枋寮．盟陽二場．追日（統益機電）','台南楠西．楠西（二）','台南楠西．楠西（三）'];
   if (sepv.includes(siteName)) return 'SEPV';
   const sps = ['盛餘地面','盛餘屋頂'];
@@ -3378,7 +3386,6 @@ function switchSchedTab(name, el) {
   el.classList.add('active');
   document.getElementById(`sched-pane-${name}`).classList.add('active');
   if (name === 'kanban') renderKanban();
-  if (name === 'staff') renderStaffGrid();
 }
 
 // ═══════════════════════════════════════
