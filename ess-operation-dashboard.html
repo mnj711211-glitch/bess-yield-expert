@@ -191,9 +191,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
 .sg-date{left:0;}
 .sg-wd{left:60px;}
 .sg-weekend{color:var(--red)!important;}
-.sg-today{box-shadow:inset 0 0 0 2px var(--green);}
 .sg-slot{min-height:58px;background:var(--surface);}
 .sg-slot:hover{background:var(--surface2);}
+/* 今天：整欄用淺琥珀底色標示（綠色外框會跟主題色打架，也太搶眼）*/
+.sg-slot.sg-today{background:var(--amber-d);}
+.sg-slot.sg-today:hover{background:rgba(224,120,32,.22);}
+.sg-head.sg-today{background:var(--amber);}
+.sg-date.sg-today{background:var(--amber-d);}
 .sg-item{background:var(--green-d);border-radius:6px;padding:4px 6px;margin-bottom:3px;cursor:pointer;transition:background .12s;}
 .sg-item:hover{background:rgba(39,174,96,.24);}
 .sg-item-site{font-weight:700;color:var(--text);font-size:11.5px;line-height:1.3;}
@@ -240,7 +244,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
 
 /* ── CALENDAR ── */
 .cal-layout{display:grid;grid-template-columns:1fr 310px;gap:14px;}
-/* ── 近三個月待辦（取代月曆） ── */
+/* ── 本月待辦（取代月曆） ── */
 .ag-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 .ag-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
 .ag-tile.hot{border-color:var(--red);background:var(--red-d);}
@@ -252,18 +256,28 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
   font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;}
 .ag-chip:hover{border-color:var(--text3);}
 .ag-chip.on{background:var(--brand,#0a7d3f);border-color:var(--brand,#0a7d3f);color:#fff;font-weight:600;}
-.ag-group{margin-bottom:18px;}
-.ag-gh{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:700;}
-.ag-gc{font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2);
-  border-radius:10px;padding:1px 8px;}
+/* 每個月獨立成一個框，月份標題是框的頂帶，一眼看得出哪幾件屬於哪個月 */
+.ag-group{margin-bottom:20px;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.ag-gh{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;
+  padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.ag-group.od-group .ag-gh{background:var(--red-d);border-bottom-color:rgba(192,57,43,.3);}
+.ag-gc{font-size:12px;font-weight:700;color:#fff;background:var(--brand,#0a7d3f);
+  border-radius:11px;padding:2px 10px;}
+.ag-group.od-group .ag-gc{background:var(--red);}
+.ag-body{padding:10px 12px;}
 .ag-row{display:flex;align-items:stretch;gap:0;background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);margin-bottom:6px;overflow:hidden;cursor:pointer;transition:box-shadow .15s;}
+  border-radius:var(--r);margin-bottom:7px;overflow:hidden;cursor:pointer;transition:box-shadow .15s;}
+.ag-row:last-child{margin-bottom:0;}
 .ag-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.09);}
 .ag-row.od{border-color:var(--red);}
-.ag-bar{width:4px;flex-shrink:0;}
-.ag-date{width:62px;flex-shrink:0;text-align:center;padding:9px 0;border-right:1px solid var(--border2);}
-.ag-dd{font-size:19px;font-weight:700;line-height:1;}
-.ag-dw{font-size:10px;color:var(--text3);margin-top:2px;}
+.ag-bar{width:5px;flex-shrink:0;}
+/* 日期放大：日在上、月/星期在下，直接看得懂 */
+.ag-date{width:84px;flex-shrink:0;text-align:center;padding:10px 0;
+  border-right:1px solid var(--border2);background:var(--surface2);
+  display:flex;flex-direction:column;justify-content:center;}
+.ag-dd{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.5px;}
+.ag-dw{font-size:11.5px;color:var(--text2);margin-top:4px;font-weight:600;}
 .ag-main{flex:1;padding:9px 12px;min-width:0;}
 .ag-site{font-size:13.5px;font-weight:600;margin-bottom:3px;}
 .ag-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--text2);}
@@ -272,6 +286,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
   justify-content:center;gap:3px;}
 .ag-cd{font-size:12px;font-weight:700;}
 .ag-st{font-size:10.5px;color:var(--text3);}
+/* 這頁有 6 格摘要，固定 4 欄會落單；改成依寬度自動排 */
+#plan-summary{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));}
+.plan-tbl-wrap{overflow-x:auto;}
+.plan-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:460px;}
+.plan-tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--text2);
+  padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.plan-tbl td{padding:8px 10px;border-bottom:1px solid var(--border2);}
+.plan-tbl tr:last-child td{border-bottom:none;}
+.plan-tbl .pt-cust{color:var(--text2);font-size:12px;white-space:nowrap;}
+.pt-rg{font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;white-space:nowrap;}
+.pt-rg.north{background:var(--blue-d);color:var(--blue);}
+.pt-rg.south{background:var(--amber-d);color:var(--amber);}
+.plan-tbl .pt-site{font-weight:600;}
+.plan-tbl .pt-cap{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text2);}
 .ag-empty{text-align:center;padding:26px;color:var(--text3);font-size:12.5px;
   background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);}
 @media(max-width:768px){.ag-sum{grid-template-columns:repeat(2,1fr);}}
@@ -299,8 +327,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','P
 .imp-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .imp-hd{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);}
 .imp-body{padding:14px;}
-.dropzone{border:2px dashed var(--border);border-radius:var(--r);padding:24px 12px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px;}
-.dropzone:hover,.dropzone.dg{border-color:var(--blue);background:var(--blue-d);}
 .dz-ic{font-size:28px;margin-bottom:7px;}
 .dz-txt{font-size:12px;color:var(--text2);margin-bottom:3px;}
 .dz-hint{font-size:10px;color:var(--text3);}
@@ -747,75 +773,28 @@ select option{background:var(--surface2);}
         <div class="sd-footer" id="sd-footer"></div>
       </div>
 
-      <!-- ── ADMIN: SCHEDULE ── -->
-      <div class="page" id="p-schedule">
+      <!-- ── ADMIN: 年度計畫（來源：年度維運例行計畫表）── -->
+      <div class="page" id="p-plan">
         <div class="ph">
-          <h2>維運排程管理</h2>
-          <p>近三個月待辦一覽、Excel 匯入與派工追蹤</p>
-          <div class="ph-actions">
-            <button class="btn-p" onclick="openAddEvent()">＋ 新增工單</button>
-            <button class="btn-s" onclick="document.getElementById('excel-input').click()">📊 匯入 Excel</button>
-          </div>
+          <h2>📅 年度維運計畫</h2>
+          <p>依年度例行計畫表，看這個月各案場要做哪些工作</p>
         </div>
-        <div class="sched-tabs">
-          <div class="sched-tab active" onclick="switchSchedTab('cal',this)">近三個月排程</div>
-          <div class="sched-tab" onclick="switchSchedTab('kanban',this)">派工追蹤看板</div>
+        <div class="sg-nav" style="margin-bottom:14px">
+          <button onclick="planShiftMonth(-1)" title="上個月">‹</button>
+          <div id="plan-month-label"></div>
+          <button onclick="planShiftMonth(1)" title="下個月">›</button>
+          <button class="btn-s btn-sm" style="margin-left:14px;white-space:nowrap;flex:none"
+                  onclick="planShiftMonth(0,true)">回到本月</button>
         </div>
-
-        <div class="sched-pane active" id="sched-pane-cal">
-        <div class="cal-layout">
-          <div>
-            <div class="ag-sum" id="ag-summary"></div>
-            <div class="ag-filters" id="ag-filters"></div>
-            <div id="ag-list"></div>
-
-          </div>
-          <div>
-            <div class="imp-panel">
-              <div class="imp-hd">📊 Excel 智能匯入排程</div>
-              <div class="imp-body">
-                <div class="dropzone" id="dropzone" onclick="document.getElementById('excel-input').click()" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
-                  <div class="dz-ic">📑</div>
-                  <div class="dz-txt">拖放 Excel 檔案至此，或點擊上傳</div>
-                  <div class="dz-hint">支援 .xlsx · .xls 格式</div>
-                </div>
-                <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(this)">
-                <div style="margin-bottom:10px;">
-                  <div style="font-size:11px;color:var(--text2);margin-bottom:5px;">📋 標準欄位範本：</div>
-                  <div style="font-size:10px;color:var(--text3);line-height:1.7;">案場名稱 / 工作類型 / 預計執行日 / 負責人 / 備註</div>
-                  <button class="btn-s btn-sm" style="margin-top:6px;" onclick="downloadTemplate()">⬇ 下載範本</button>
-                </div>
-                <div id="preview-section" style="display:none;">
-                  <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;">✅ 解析預覽（共 <span id="row-count">0</span> 筆）</div>
-                  <div class="prev-wrap">
-                    <table class="prev-table">
-                      <thead><tr><th>案場</th><th>類型</th><th>日期</th><th>負責人</th></tr></thead>
-                      <tbody id="preview-body"></tbody>
-                    </table>
-                  </div>
-                  <div class="imp-acts">
-                    <button class="btn-p btn-sm" onclick="importConfirm()">✓ 確認匯入</button>
-                    <button class="btn-s btn-sm" onclick="cancelImport()">取消</button>
-                  </div>
-                  <div class="success-msg" id="import-success">✅ 已成功匯入 <span id="import-count">0</span> 筆排程！行事曆已自動更新。</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        </div><!-- /sched-pane-cal -->
-
-        <div class="sched-pane" id="sched-pane-kanban">
-          <div class="kb-board" id="kb-board"></div>
-        </div>
-
+        <div class="ag-sum" id="plan-summary"></div>
+        <div id="plan-body"></div>
       </div>
 
       <!-- ── ADMIN: 人員週班表（原為排程管理的分頁，已獨立成頁）── -->
       <div class="page" id="p-staff">
         <div class="ph">
           <h2>👷 人員週班表</h2>
-          <p>技師欄 × 日期列，資料與「維運排程管理」共用同一批工單</p>
+          <p>一位技師一橫排，往右看完整一週；資料與「維運排程管理」共用同一批工單</p>
           <div class="ph-actions">
             <button class="btn-p" onclick="openAddEvent()">＋ 新增工單</button>
           </div>
@@ -872,15 +851,6 @@ select option{background:var(--surface2);}
           <p>請款、帳務到期與逾期提醒，獨立追蹤收款作業</p>
         </div>
         <div id="receivables-full"></div>
-      </div>
-
-      <!-- ── ADMIN: 維運排程 ── -->
-      <div class="page" id="p-maintenance">
-        <div class="ph">
-          <h2>🧹 維運排程</h2>
-          <p>清洗、保養、巡檢等維運排程提醒</p>
-        </div>
-        <div id="maintenance-full"></div>
       </div>
 
       <!-- ── CLIENT: MY SITES ── -->
@@ -993,41 +963,27 @@ select option{background:var(--surface2);}
       <div class="form-row">
         <div class="form-group" style="flex:2">
           <label>案場名稱</label>
-          <select id="ev-site" onchange="onSiteChange(this.value)"></select>
-          <input type="text" id="ev-site-custom" placeholder="輸入案場名稱…" style="display:none;margin-top:6px;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+          <input id="ev-site" list="ev-site-list" autocomplete="off" placeholder="選擇或直接輸入案場名稱…">
+          <datalist id="ev-site-list"></datalist>
         </div>
         <div class="form-group"><label>工作類型</label>
-          <select id="ev-type" onchange="onTypeChange(this.value)">
-            <option value="pm">定期保養 PM</option>
-            <option value="ir">熱顯像檢測 IR</option>
-            <option value="soh">SOH 健康度檢測</option>
-            <option value="em">緊急維修</option>
-            <option value="incident">突發狀況</option>
-            <option value="__custom__">＋ 自訂類型…</option>
-          </select>
-          <input type="text" id="ev-type-custom" placeholder="輸入工作類型…" style="display:none;margin-top:6px;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+          <input id="ev-type" list="ev-type-list" autocomplete="off" placeholder="選擇或直接輸入工作類型…">
+          <datalist id="ev-type-list">
+            <option value="定期保養 PM"></option>
+            <option value="熱顯像檢測 IR"></option>
+            <option value="SOH 健康度檢測"></option>
+            <option value="緊急維修"></option>
+            <option value="突發狀況"></option>
+          </datalist>
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>預計執行日</label><input type="date" id="ev-date"></div>
-        <div class="form-group"><label>負責技師</label>
-          <select id="ev-person" onchange="onPersonChange(this.value)">
-            <option value="">— 待指定 —</option>
-          </select>
-          <input type="text" id="ev-person-custom" placeholder="輸入技師姓名" style="display:none;margin-top:4px;">
-        </div>
-        <div class="form-group"><label>緊急程度</label>
-          <select id="ev-priority">
-            <option value="normal">一般</option>
-            <option value="urgent">緊急</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>回報人</label><input type="text" id="ev-reporter" placeholder="業務/客戶姓名"></div>
         <div class="form-group" style="flex:2"><label>備註說明</label><input type="text" id="ev-note" placeholder="選填"></div>
       </div>
-      <div class="form-group"><label>故障描述</label><textarea id="ev-desc" rows="2" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;" placeholder="詳述故障情況或客戶反映問題（選填）"></textarea></div>
+      <!-- 日期與技師不再手動填寫：從人員週班表的格子點「＋」時，
+           會自動帶入那一格的日期與技師。直接按「＋ 新增工單」則預設為今天、待指定。 -->
+      <input type="hidden" id="ev-date" value="">
+      <input type="hidden" id="ev-person" value="">
     </div>
     <div class="mfooter">
       <button class="btn-s" onclick="closeModal('modal-event')">取消</button>
@@ -1076,7 +1032,6 @@ select option{background:var(--surface2);}
         <select id="af-kind">
           <option value="system">🚨 系統／設備告警</option>
           <option value="payment">💰 收款告警</option>
-          <option value="maintenance">🧹 維運排程</option>
         </select>
       </div>
       <div class="form-group"><label>標題</label><input type="text" id="af-title" placeholder="例：請款逾期確認"></div>
@@ -1337,22 +1292,8 @@ const now = new Date(); // 真實今日
 let calYear = 2026, calMonth = 5; // 0-indexed
 
 const EVENTS = [
-  {id:'wo001',date:'2026-06-18',type:'pm',  status:'dispatched',  priority:'normal', site:'東培龍潭',         person:'王技師',   note:'季度例保',   reporter:'',description:''},
-  {id:'wo002',date:'2026-06-20',type:'pm',  status:'dispatched',  priority:'normal', site:'屏東客運',         person:'陳工程師', note:'',           reporter:'',description:''},
-  {id:'wo003',date:'2026-06-23',type:'ir',  status:'dispatched',  priority:'normal', site:'台東-東職二期',    person:'李工程師', note:'紅外線年度檢測',reporter:'',description:''},
-  {id:'wo004',date:'2026-06-25',type:'pm',  status:'pending',     priority:'normal', site:'大量科技',         person:'王技師',   note:'',           reporter:'',description:''},
-  {id:'wo005',date:'2026-06-28',type:'pm',  status:'pending',     priority:'normal', site:'天賜良園',         person:'陳工程師', note:'',           reporter:'',description:''},
-  {id:'wo006',date:'2026-07-03',type:'ir',  status:'pending',     priority:'normal', site:'屏東客運',         person:'李工程師', note:'紅外線巡檢', reporter:'',description:''},
-  {id:'wo007',date:'2026-07-08',type:'pm',  status:'pending',     priority:'normal', site:'台東-東職一期',    person:'陳工程師', note:'',           reporter:'',description:''},
-  {id:'wo008',date:'2026-07-12',type:'pm',  status:'pending',     priority:'normal', site:'大林薯光',         person:'王技師',   note:'',           reporter:'',description:''},
-  {id:'wo009',date:'2026-07-15',type:'ir',  status:'pending',     priority:'normal', site:'東培龍潭',         person:'李工程師', note:'',           reporter:'',description:''},
-  {id:'wo010',date:'2026-07-22',type:'pm',  status:'pending',     priority:'normal', site:'柳營-黃燕良牛舍', person:'陳工程師', note:'含清洗作業', reporter:'',description:''},
-  {id:'wo011',date:'2026-07-28',type:'pm',  status:'pending',     priority:'normal', site:'善化/大欣雞舍',   person:'王技師',   note:'含清洗作業', reporter:'',description:''},
-  {id:'wo012',date:'2026-08-05',type:'ir',  status:'pending',     priority:'normal', site:'大量科技',         person:'李工程師', note:'',           reporter:'',description:''},
-  {id:'wo013',date:'2026-08-12',type:'pm',  status:'pending',     priority:'normal', site:'花蓮-聖若瑟',     person:'陳工程師', note:'',           reporter:'',description:''},
-  {id:'wo014',date:'2026-06-10',type:'pm',  status:'done',        priority:'normal', site:'西螺-洪慶堂雞舍', person:'王技師',   note:'已完成',     reporter:'',description:''},
-  {id:'wo015',date:'2026-06-12',type:'ir',  status:'done',        priority:'normal', site:'台東海端-廣源國小',person:'李工程師',note:'已完成',     reporter:'',description:''},
-  {id:'wo016',date:'2026-06-17',type:'em',  status:'in_progress', priority:'urgent', site:'大量科技',         person:'王技師',   note:'',           reporter:'林業務', description:'客戶反應逆變器報警，顯示 Grid Fault，發電量異常下降'},
+  // 示範工單已移除；實際工單一律來自 Firestore workorders 集合。
+  // 雲端沒有資料時這裡就是空的，畫面會顯示「沒有待辦排程」。
 ];
 
 const REPORTS = [
@@ -1388,6 +1329,96 @@ function buildTechOptions(current) {
   const list = getTechnicians();
   const opts = list.map(t => `<option value="${t}"${t===current?' selected':''}>${t}</option>`).join('');
   return opts + `<option value="__new__">＋ 新增技師…</option>`;
+}
+
+// ═══════════════════════════════════════
+// 年度維運計畫表（來源：全案場年度計畫表202607.xlsx）
+// 格式：[區域, 客戶, 案場, 容量kWp, 主負責人, {月份: [代碼…]}]
+// 區域：Excel 上半部為北部、下半部為南部
+// 代碼：檢=點檢、洗=洗板、高=高壓檢、收=收款、月=月報
+// ═══════════════════════════════════════
+const ANNUAL_PLAN = [["北部","東安","東培龍潭",1279.46,"葉祐君",{"4":["收"],"6":["檢"],"10":["收"],"11":["檢"],"12":["高"]}],["北部","東安","大量科技",667.23,"葉祐君",{"4":["收"],"6":["檢"],"10":["收"],"11":["檢"],"12":["高"]}],["北部","東元","觀音二廠",1011.81,"葉祐君",{}],["北部","東元","湖口廠",1811.34,"葉祐君",{}],["北部","綠源","板橋果菜市場",207.76,"楊宗衛",{"9":["檢"]}],["北部","綠頌","花蓮-聖若瑟",99.02,"楊宗衛",{"6":["檢"],"8":["檢"]}],["北部","綠頌","花蓮-保祿",93.39,"楊宗衛",{"6":["檢"],"8":["檢"]}],["北部","綠拓","蘆竹-億流",64.5,"楊宗衛",{"8":["檢"],"11":["檢"],"12":["檢"]}],["北部","萬隆","新屋廠",1811.92,"楊宗衛",{"6":["檢"],"11":["檢"],"12":["高"]}],["北部","揚展","通霄溫室",359.7,"楊宗衛",{"8":["檢"],"12":["檢"]}],["北部","綠拓","西螺-洪慶堂雞舍",225.0,"楊宗衛",{"7":["檢"],"10":["檢"],"12":["檢"]}],["北部","開陽","大林薯光",1142.68,"楊宗衛",{"2":["收"],"3":["檢"],"6":["檢"],"7":["洗"],"9":["檢"],"12":["洗","檢","高"]}],["北部","大恭","大恭化學",216.0,"楊宗衛",{"9":["檢"]}],["北部","大恭","三芝案",0,"楊宗衛",{}],["南部","東元","盛餘屏南案(地)",7212.0,"李汎鎧",{"9":["月"],"10":["月"],"11":["月"],"12":["月","洗"]}],["南部","東元","盛餘屏南案(屋)",1202.0,"鐘壁堯",{"9":["月"],"10":["月"],"11":["月"],"12":["月","洗"]}],["南部","綠拓","台南-楠西一",310.2,"鐘壁堯",{"9":["檢","洗"]}],["南部","綠拓","柳營-黃燕良牛舍",300.0,"鐘壁堯",{"6":["檢"],"10":["檢"],"12":["高"]}],["南部","綠源","天賜良園",24.0,"鐘壁堯",{"6":["檢"],"10":["檢"]}],["南部","東元","屏東客運",1571.39,"鐘壁堯",{"6":["檢"],"11":["檢"],"12":["高"]}],["南部","綠頌","台東-東職一期",489.21,"鐘壁堯",{"6":["檢"],"10":["檢"]}],["南部","綠頌","台東-東職二期",576.5,"鐘壁堯",{"6":["檢"],"10":["檢"],"12":["高"]}],["南部","綠頌","台東-廣源國小",99.66,"張哲弦",{"6":["檢"],"10":["檢"]}],["南部","綠頌","台東-廣源幼兒園",60.06,"張哲弦",{"6":["檢"],"10":["檢"]}],["南部","綠拓","善化-大欣雞舍",86.4,"張哲弦",{"6":["檢"],"9":["檢"]}],["南部","綠拓","新營-心德教養院",48.96,"張哲弦",{"6":["檢"],"9":["檢"]}],["南部","恩智浦","楠梓一期",701.96,"張哲弦",{"5":["檢"],"10":["檢","洗"]}],["南部","盛餘","小港一期",471.36,"張哲弦",{"4":["檢"],"9":["檢"],"11":["洗"]}],["南部","安華","小港二期",1499.37,"張哲弦",{"4":["檢"],"9":["檢"],"11":["洗"]}],["南部","台以","台以八翁",62.37,"張哲弦",{"11":["檢"]}]];
+
+const PLAN_CODES = {
+  '檢': { name: '點檢',   icon: '\u{1F50D}', c: 'var(--green)', bg: 'var(--green-d)' },
+  '洗': { name: '洗板',   icon: '\u{1F4A7}', c: 'var(--blue)',  bg: 'var(--blue-d)'  },
+  '高': { name: '高壓檢', icon: '\u{26A1}',  c: 'var(--amber)', bg: 'var(--amber-d)' },
+  '收': { name: '收款',   icon: '\u{1F4B0}', c: 'var(--red)',   bg: 'var(--red-d)'   },
+  '月': { name: '月報',   icon: '\u{1F4C4}', c: 'var(--text2)', bg: 'var(--surface2)'},
+};
+// 「檢驗類」＝實際要出隊的工作；月報與收款是文書作業，分開看
+const PLAN_FIELD_CODES = ['檢', '洗', '高'];
+
+let planMonth = new Date().getMonth() + 1;   // 1–12，預設本月
+
+function planShiftMonth(delta, reset) {
+  const now = new Date().getMonth() + 1;
+  planMonth = reset ? now : ((planMonth - 1 + delta + 12) % 12) + 1;
+  renderAnnualPlan();
+}
+
+// 取某月的計畫，依代碼分組
+function planByCode(month) {
+  const out = {};
+  ANNUAL_PLAN.forEach(([region, cust, site, cap, owner, plan]) => {
+    (plan[String(month)] || []).forEach(code => {
+      (out[code] = out[code] || []).push({ region, cust, site, cap, owner });
+    });
+  });
+  // 北部排前面、南部在後，跟計畫表的上下半部一致
+  Object.values(out).forEach(list =>
+    list.sort((a, b) => (a.region === b.region ? 0 : a.region === '北部' ? -1 : 1)));
+  return out;
+}
+
+function renderAnnualPlan() {
+  const wrap = document.getElementById('plan-body');
+  if (!wrap) return;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const now = new Date().getMonth() + 1;
+
+  const lbl = document.getElementById('plan-month-label');
+  if (lbl) lbl.textContent = `2026 年 ${planMonth} 月${planMonth === now ? '（本月）' : ''}`;
+
+  const groups = planByCode(planMonth);
+  const fieldCount = PLAN_FIELD_CODES.reduce((n, c) => n + (groups[c] || []).length, 0);
+
+  // 摘要：檢驗類合計擺第一個，這是最常問的「這個月要出幾趟」
+  document.getElementById('plan-summary').innerHTML =
+    `<div class="ag-tile${fieldCount ? ' warn' : ''}">
+       <div class="ag-tv" style="color:${fieldCount ? 'var(--amber)' : 'var(--text3)'}">${fieldCount}</div>
+       <div class="ag-tl">檢驗類合計</div></div>` +
+    Object.entries(PLAN_CODES).map(([code, m]) => {
+      const n = (groups[code] || []).length;
+      return `<div class="ag-tile"><div class="ag-tv" style="color:${n ? m.c : 'var(--text3)'}">${n}</div>
+        <div class="ag-tl">${m.icon} ${m.name}</div></div>`;
+    }).join('');
+
+  const table = list => `<div class="ag-body"><div class="plan-tbl-wrap"><table class="plan-tbl">
+      <thead><tr><th>區域</th><th>客戶</th><th>案場</th><th style="text-align:right">設置容量</th><th>主負責人</th></tr></thead>
+      <tbody>${list.map(r => `<tr>
+        <td><span class="pt-rg ${r.region === '北部' ? 'north' : 'south'}">${esc(r.region)}</span></td>
+        <td class="pt-cust">${esc(r.cust)}</td>
+        <td class="pt-site">${esc(r.site)}</td>
+        <td class="pt-cap">${r.cap ? r.cap.toLocaleString() + ' kWp' : '—'}</td>
+        <td>${esc(r.owner)}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+
+  let html = '';
+  Object.entries(PLAN_CODES).forEach(([code, m]) => {
+    const list = groups[code] || [];
+    if (!list.length) return;
+    const nN = list.filter(r => r.region === '北部').length;
+    const nS = list.length - nN;
+    html += `<div class="ag-group">
+      <div class="ag-gh" style="color:${m.c}">${m.icon} ${m.name}
+        <span class="ag-gc" style="background:${m.c}">${list.length}</span>
+        <span style="font-size:11.5px;font-weight:500;color:var(--text2)">北部 ${nN}・南部 ${nS}</span></div>
+      ${table(list)}</div>`;
+  });
+
+  wrap.innerHTML = html ||
+    `<div class="ag-empty">${planMonth} 月沒有排定的例行工作</div>`;
 }
 
 // ═══════════════════════════════════════
@@ -1478,10 +1509,9 @@ function setupNav() {
       </div>
       <div class="snav-section">
         <div class="snav-label">維運管理</div>
-        <div class="nitem" onclick="showPage('schedule')"><span class="ni">📅</span>排程管理</div>
+        <div class="nitem" onclick="showPage('plan')"><span class="ni">📅</span>年度計畫</div>
         <div class="nitem" onclick="showPage('staff')"><span class="ni">👷</span>人員週班表</div>
         <div class="nitem" onclick="showPage('receivables')"><span class="ni">💰</span>收款告警<span class="nbadge" id="recv-badge" style="display:none">0</span></div>
-        <div class="nitem" onclick="showPage('maintenance')"><span class="ni">🧹</span>維運排程<span class="nbadge" id="maint-badge" style="display:none">0</span></div>
       </div>`;
   } else {
     nav.innerHTML = `
@@ -1785,8 +1815,8 @@ function showPage(page) {
   document.getElementById('p-' + page)?.classList.add('active');
   currentPage = page;
   const titles = {
-    'overview':'電站總覽','siteinfo':'案場資訊','alerts':'告警中心','schedule':'維運排程管理',
-    'receivables':'收款告警','maintenance':'維運排程','staff':'人員週班表',
+    'overview':'電站總覽','siteinfo':'案場資訊','alerts':'告警中心',
+    'receivables':'收款告警','staff':'人員週班表','plan':'年度維運計畫',
     'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
     'site-detail':'電站詳情'
   };
@@ -1802,8 +1832,8 @@ function showPage(page) {
   if (page === 'siteinfo') { renderSiteInfo(document.getElementById('siteinfo-q')?.value || ''); loadSiteDocsIndex(); }
   if (page === 'alerts') loadBackendAlerts();
   if (page === 'staff') renderStaffGrid();
+  if (page === 'plan') renderAnnualPlan();
   if (page === 'receivables') renderKindPage('receivables');
-  if (page === 'maintenance') renderKindPage('maintenance');
   if (window.innerWidth <= 768) closeSidebar();
 }
 
@@ -3234,7 +3264,7 @@ async function deleteAlert(id) {
 // CALENDAR
 // ═══════════════════════════════════════
 // ═══════════════════════════════════════
-// 近三個月維運待辦（取代原本的月曆）
+// 本月維運待辦（取代原本的月曆）
 //   設計重點：先看到「逾期」和「這週」，再往下才是之後的月份。
 //   已完成的工單不佔版面，只在該月群組下方以一行帶過。
 // ═══════════════════════════════════════
@@ -3290,7 +3320,7 @@ function renderAgenda() {
       <div class="ag-tv" style="color:${thisWeek ? 'var(--amber)' : 'var(--text3)'}">${thisWeek}</div>
       <div class="ag-tl">未來 7 天</div></div>
     <div class="ag-tile"><div class="ag-tv">${thisMonth}</div><div class="ag-tl">本月剩餘</div></div>
-    <div class="ag-tile"><div class="ag-tv">${undone.length}</div><div class="ag-tl">三個月內合計</div></div>`;
+    <div class="ag-tile"><div class="ag-tv">${undone.length}</div><div class="ag-tl">本月合計</div></div>`;
 
   // ── 類型篩選 ──
   // 計數要用「未套用類型篩選」的全集，否則切到某類型後其他數字會全變 0
@@ -3344,13 +3374,14 @@ function renderAgenda() {
 
   let html = '';
   if (overdue.length) {
-    html += `<div class="ag-group">
+    html += `<div class="ag-group od-group">
       <div class="ag-gh" style="color:var(--red)">⚠️ 逾期未完成 <span class="ag-gc">${overdue.length}</span></div>
-      ${overdue.map(rowHtml).join('')}</div>`;
+      <div class="ag-body">${overdue.map(rowHtml).join('')}</div></div>`;
   }
 
   const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  for (let i = 0; i < 3; i++) {
+  // 只列本月。要看未來幾個月請改回 i < 3。
+  for (let i = 0; i < 1; i++) {
     const ms = new Date(monthStart.getFullYear(), monthStart.getMonth() + i, 1);
     const items = upcoming.filter(e => {
       const d = new Date(e.date + 'T00:00:00');
@@ -3365,31 +3396,23 @@ function renderAgenda() {
     html += `<div class="ag-group">
       <div class="ag-gh">${ms.getFullYear()} 年 ${months[ms.getMonth()]}${tag}
         <span class="ag-gc">${items.length}</span></div>
-      ${items.map(rowHtml).join('')}
-      ${doneCount ? `<div style="font-size:11px;color:var(--text3);padding:4px 0 0 6px">✓ 本月另有 ${doneCount} 件已完成</div>` : ''}
+      <div class="ag-body">
+        ${items.length ? items.map(rowHtml).join('')
+                       : `<div style="font-size:12px;color:var(--text3);padding:6px 4px">這個月沒有待辦排程</div>`}
+        ${doneCount ? `<div style="font-size:11.5px;color:var(--text3);padding:8px 4px 2px">✓ 本月另有 ${doneCount} 件已完成</div>` : ''}
+      </div>
     </div>`;
   }
 
-  list.innerHTML = html || `<div class="ag-empty">近三個月沒有${agTypeFilter === 'all' ? '' : '這個類型的'}待辦排程</div>`;
+  list.innerHTML = html || `<div class="ag-empty">本月沒有${agTypeFilter === 'all' ? '' : '這個類型的'}待辦排程</div>`;
 }
 
 // 舊名稱保留，讓既有呼叫點（新增工單、Excel 匯入後）不用改
 function renderCalendar() { renderAgenda(); }
-function changeMonth() { /* 已改為近三個月清單，不再需要換月 */ }
+function changeMonth() { /* 已改為本月清單，不再需要換月 */ }
 
 // ═══════════════════════════════════════
-// SCHEDULE TABS
-// ═══════════════════════════════════════
-function switchSchedTab(name, el) {
-  document.querySelectorAll('.sched-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.sched-pane').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(`sched-pane-${name}`).classList.add('active');
-  if (name === 'kanban') renderKanban();
-}
-
-// ═══════════════════════════════════════
-// 人員週班表（技師欄 × 日期列，點格子＋編輯，資料來源與「近三個月排程」共用 EVENTS/workorders）
+// 人員週班表（技師欄 × 日期列，點格子＋編輯，資料來源與「本月排程」共用 EVENTS/workorders）
 // ═══════════════════════════════════════
 function getMonday(d) {
   const x = new Date(d); x.setHours(0,0,0,0);
@@ -3421,18 +3444,22 @@ function renderStaffGrid() {
   const lbl = document.getElementById('staff-week-label');
   if (lbl) lbl.textContent = `${days[0].getFullYear()} 年 ${days[0].getMonth()+1}/${days[0].getDate()} － ${days[6].getMonth()+1}/${days[6].getDate()}`;
 
-  let html = `<div class="sg-table" style="grid-template-columns:60px 44px repeat(${techs.length},minmax(150px,1fr))">`;
-  html += `<div class="sg-cell sg-head sg-corner">日期</div><div class="sg-cell sg-head sg-corner">星期</div>`;
-  techs.forEach(t => html += `<div class="sg-cell sg-head">${esc(t)}</div>`);
-
+  // 人員為列、日期為欄（一般週班表的看法：一個人一橫排，往右看完整一週）
+  let html = `<div class="sg-table" style="grid-template-columns:104px repeat(7,minmax(128px,1fr))">`;
+  html += `<div class="sg-cell sg-head sg-corner">技師</div>`;
   days.forEach(d => {
-    const di = iso(d);
     const weekend = d.getDay() === 0 || d.getDay() === 6;
-    const today = di === todayIso;
-    const cls = (weekend?' sg-weekend':'') + (today?' sg-today':'');
-    html += `<div class="sg-cell sg-date${cls}">${d.getMonth()+1}/${d.getDate()}</div>`;
-    html += `<div class="sg-cell sg-wd${cls}">${WD[d.getDay()]}</div>`;
-    techs.forEach(t => {
+    const today = iso(d) === todayIso;
+    const cls = (weekend ? ' sg-weekend' : '') + (today ? ' sg-today' : '');
+    html += `<div class="sg-cell sg-head${cls}">${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）</div>`;
+  });
+
+  techs.forEach(t => {
+    html += `<div class="sg-cell sg-date">${esc(t)}</div>`;
+    days.forEach(d => {
+      const di = iso(d);
+      const weekend = d.getDay() === 0 || d.getDay() === 6;
+      const today = di === todayIso;
       const items = EVENTS.filter(e => e.date === di && (e.person || '') === t);
       const itemsHtml = items.map(e => `
         <div class="sg-item" onclick="openWoDetail('${e.id}')" title="點擊查看/修改/刪除">
@@ -3440,7 +3467,7 @@ function renderStaffGrid() {
           ${e.note ? `<div class="sg-item-note">${esc(e.note)}</div>` : ''}
         </div>`).join('');
       const tEsc = t.replace(/'/g, "\\'");
-      html += `<div class="sg-cell sg-slot${today?' sg-today':''}">
+      html += `<div class="sg-cell sg-slot${today ? ' sg-today' : ''}${weekend ? ' sg-weekend' : ''}">
         ${itemsHtml}
         <div class="sg-add" onclick="openAddEventForCell('${di}','${tEsc}')">＋</div>
       </div>`;
@@ -3454,14 +3481,7 @@ function renderStaffGrid() {
 function openAddEventForCell(date, person) {
   openAddEvent();
   document.getElementById('ev-date').value = date;
-  const sel = document.getElementById('ev-person');
-  sel.value = person;
-  if (sel.value !== person) {
-    // 理論上 person 一定在技師名單裡；保險起見退回自訂輸入
-    sel.value = '__new__';
-    document.getElementById('ev-person-custom').style.display = '';
-    document.getElementById('ev-person-custom').value = person;
-  }
+  document.getElementById('ev-person').value = person;
 }
 
 // ═══════════════════════════════════════
@@ -3476,6 +3496,8 @@ const WO_COLS = [
 const STATUS_LABEL = {pending:'待受理',dispatched:'已派工',in_progress:'執行中',done:'已完成'};
 
 function renderKanban() {
+  // 派工追蹤看板的版面已移除，但工單新增/更新/刪除與雲端同步仍會呼叫這裡
+  if (!document.getElementById('kb-board')) return;
   const html = WO_COLS.map(col => {
     const cards = EVENTS.filter(e => (e.status || 'pending') === col.key);
     return `<div class="kb-col">
@@ -3587,72 +3609,52 @@ function deleteWo() {
 // ═══════════════════════════════════════
 // ADD EVENT
 // ═══════════════════════════════════════
-function onSiteChange(val) {
-  const custom = document.getElementById('ev-site-custom');
-  custom.style.display = val === '__custom__' ? 'block' : 'none';
-  if (val === '__custom__') custom.focus();
-}
-
-function onPersonChange(val) {
-  const custom = document.getElementById('ev-person-custom');
-  custom.style.display = val === '__new__' ? 'block' : 'none';
-  if (val === '__new__') custom.focus();
-}
-
-function onTypeChange(val) {
-  const custom = document.getElementById('ev-type-custom');
-  custom.style.display = val === '__custom__' ? 'block' : 'none';
-  if (val === '__custom__') custom.focus();
-}
+// 工作類型：清單上的中文標籤 ↔ 內部代碼。自己打的文字就原樣存，
+// 顯示時各處都是 TYPE_LABEL[t] || t，不會壞掉。
+const TYPE_INPUT_LABEL = {
+  pm: '定期保養 PM', ir: '熱顯像檢測 IR', soh: 'SOH 健康度檢測',
+  em: '緊急維修', incident: '突發狀況',
+};
+const TYPE_LABEL_TO_CODE = Object.fromEntries(
+  Object.entries(TYPE_INPUT_LABEL).map(([code, label]) => [label, code])
+);
 
 function openAddEvent() {
-  const sel = document.getElementById('ev-site');
-  sel.innerHTML = SITES.map(s => `<option value="${s.name}">${s.name}</option>`).join('')
-    + `<option value="__custom__">＋ 輸入其他案場名稱…</option>`;
-  document.getElementById('ev-site-custom').style.display = 'none';
-  document.getElementById('ev-site-custom').value = '';
-  document.getElementById('ev-type-custom').style.display = 'none';
-  document.getElementById('ev-type-custom').value = '';
-  document.getElementById('ev-date').value = new Date().toISOString().split('T')[0];
-  const personSel = document.getElementById('ev-person');
-  personSel.innerHTML = `<option value="">— 待指定 —</option>${buildTechOptions('')}<option value="__new__">＋ 新增技師…</option>`;
-  personSel.value = '';
-  document.getElementById('ev-person-custom').style.display = 'none';
-  document.getElementById('ev-person-custom').value = '';
-  document.getElementById('ev-reporter').value = '';
+  // 案場：可直接打字，也可從清單挑
+  document.getElementById('ev-site-list').innerHTML =
+    SITES.map(s => `<option value="${s.name}"></option>`).join('');
+  document.getElementById('ev-site').value = '';
+  // 不可用 toISOString()：它會轉成 UTC，台北時區早上 8 點前會變成昨天
+  const _t = new Date();
+  document.getElementById('ev-date').value =
+    `${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
+  document.getElementById('ev-person').value = '';   // 由班表格子帶入，表單上不顯示
   document.getElementById('ev-note').value = '';
-  document.getElementById('ev-desc').value = '';
-  document.getElementById('ev-priority').value = 'normal';
-  document.getElementById('ev-type').value = 'pm';
+  // 留空並顯示提示字，讓人一眼看出這格可以直接打字（填了預設值會像鎖死的選單）
+  document.getElementById('ev-type').value = '';
   openModal('modal-event');
 }
 
 function addEvent() {
-  let site = document.getElementById('ev-site').value;
-  let type = document.getElementById('ev-type').value;
-  if (site === '__custom__') {
-    site = document.getElementById('ev-site-custom').value.trim();
-    if (!site) { alert('請輸入案場名稱'); return; }
-  }
-  if (type === '__custom__') {
-    type = document.getElementById('ev-type-custom').value.trim();
-    if (!type) { alert('請輸入工作類型'); return; }
-  }
+  const site = document.getElementById('ev-site').value.trim();
+  if (!site) { alert('請選擇或輸入案場名稱'); return; }
+
+  const typeInput = document.getElementById('ev-type').value.trim();
+  if (!typeInput) { alert('請選擇或輸入工作類型'); return; }
+  // 打的是標準類型就存代碼（顏色/篩選才會正確），其他就原樣存文字
+  const type = TYPE_LABEL_TO_CODE[typeInput] || typeInput;
   const date     = document.getElementById('ev-date').value;
-  let person = document.getElementById('ev-person').value;
-  if (person === '__new__') {
-    person = document.getElementById('ev-person-custom').value.trim();
-    if (person) addTechnician(person);
-  }
-  person = person || '';
-  const priority = document.getElementById('ev-priority').value;
-  const reporter = document.getElementById('ev-reporter').value;
-  const note     = document.getElementById('ev-note').value;
-  const desc     = document.getElementById('ev-desc').value;
+  // 技師由班表格子帶入，表單上不再填寫；留空＝待指定
+  const person = document.getElementById('ev-person').value.trim();
+  if (person && !getTechnicians().includes(person)) addTechnician(person);
+  const note = document.getElementById('ev-note').value;
   if (!date) { alert('請選擇日期'); return; }
   const id = 'wo' + Date.now();
   const status = (type === 'em' || type === 'incident') ? 'pending' : 'dispatched';
-  const wo = {id, date, type, status, priority, site, person, reporter, note, description: desc};
+  // 緊急程度／回報人／故障描述已從表單移除，一律留預設值；
+  // 舊工單既有的值不受影響，工單詳情仍會顯示。
+  const wo = {id, date, type, status, priority: 'normal', site, person,
+              reporter: '', note, description: ''};
   // 存到 Firestore（監聽器會自動更新畫面）
   workordersRef.doc(id).set({
     ...wo,
@@ -3723,56 +3725,6 @@ function addSite() {
 }
 
 // ═══════════════════════════════════════
-// EXCEL IMPORT (SIMULATED)
-// ═══════════════════════════════════════
-const MOCK_IMPORT = [
-  {site:'東培龍潭',       type:'定期保養 PM',  date:'2026-09-05',person:'王技師'},
-  {site:'大量科技',       type:'熱顯像檢測 IR',date:'2026-09-10',person:'陳工程師'},
-  {site:'屏東客運',       type:'定期保養 PM',  date:'2026-09-15',person:'李工程師'},
-  {site:'大林薯光',       type:'定期保養 PM',  date:'2026-09-20',person:'王技師'},
-  {site:'台東-東職一期',  type:'熱顯像檢測 IR',date:'2026-09-25',person:'陳工程師'},
-];
-
-function handleFileUpload(input) {
-  if (!input.files.length) return;
-  setTimeout(showPreview, 600); // simulate parsing
-}
-
-function dzDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('dg'); }
-function dzDragLeave() { document.getElementById('dropzone').classList.remove('dg'); }
-function dzDrop(e) { e.preventDefault(); dzDragLeave(); setTimeout(showPreview, 600); }
-
-function showPreview() {
-  document.getElementById('preview-section').style.display='block';
-  document.getElementById('row-count').textContent = MOCK_IMPORT.length;
-  document.getElementById('preview-body').innerHTML = MOCK_IMPORT.map(r=>`
-    <tr><td>${r.site}</td><td>${r.type}</td><td>${r.date}</td><td>${r.person}</td></tr>`).join('');
-}
-
-function importConfirm() {
-  MOCK_IMPORT.forEach(r=>{
-    const typeMap={'定期保養 PM':'pm','熱顯像檢測 IR':'ir','SOH 健康度檢測':'soh'};
-    EVENTS.push({date:r.date,type:typeMap[r.type]||'pm',site:r.site,person:r.person,note:''});
-  });
-  document.getElementById('import-count').textContent = MOCK_IMPORT.length;
-  document.getElementById('import-success').style.display='block';
-  document.getElementById('preview-section').style.display='none';
-  renderCalendar();
-  setTimeout(()=>{ document.getElementById('import-success').style.display='none'; }, 4000);
-}
-
-function cancelImport() {
-  document.getElementById('preview-section').style.display='none';
-}
-
-function downloadTemplate() {
-  const csv = '案場名稱,工作類型,預計執行日,負責人,備註\n台南仁德廠,定期保養 PM,2026-07-05,王技師,季度例保';
-  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='ESS_排程匯入範本.csv'; a.click();
-}
-
-// ═══════════════════════════════════════
 // TIMELINE (CLIENT)
 // ═══════════════════════════════════════
 function renderTimeline() {
@@ -3786,7 +3738,7 @@ function renderTimeline() {
       <div class="tl-connector"><div class="tl-dot ${e.type}"></div><div class="tl-line"></div></div>
       <div class="tl-card">
         <div class="tc-hd">
-          <span class="tc-tag ${e.type}">${TYPE_LABEL[e.type]}</span>
+          <span class="tc-tag ${e.type}">${TYPE_LABEL[e.type] || e.type}</span>
           <span class="tc-date">📅 ${e.date}</span>
         </div>
         <div class="tc-title">${e.site}</div>
@@ -3804,7 +3756,7 @@ function renderReports() {
   document.getElementById('rpt-tbody').innerHTML = rpts.map(r=>`
     <tr>
       <td>${r.name}</td>
-      <td><span class="rtype ${r.type}">${TYPE_LABEL[r.type]}</span></td>
+      <td><span class="rtype ${r.type}">${TYPE_LABEL[r.type] || r.type}</span></td>
       <td>${r.site}</td>
       <td>${r.date}</td>
       <td><button class="dl-btn" onclick="fakeDownload('${r.name}')">⬇ 下載 (${r.size})</button></td>
