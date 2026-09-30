@@ -3805,7 +3805,11 @@ const storage = firebase.storage();
 const auth = firebase.auth();
 
 // ═══ GOOGLE 登入（限公司網域）═══
-const ALLOWED_DOMAIN = 'greensource-tech.com';
+// 允許登入的公司網域。公司若有第二個網域（例如 .com.tw），加進這個陣列即可。
+const ALLOWED_DOMAINS = ['greensource-tech.com'];
+const ALLOWED_DOMAIN = ALLOWED_DOMAINS[0];          // 提示文字用
+const isCompanyEmail = (email) =>
+  ALLOWED_DOMAINS.some(d => String(email).toLowerCase().endsWith('@' + d));
 
 // 授權名單只存在後端（ess-backend/allowed_users.json）— 這份原始碼是公開的，
 // 不放任何同事的 email。前端只擋公司網域，實際的個人授權與管理者判定由 /api/me 決定。
@@ -3842,7 +3846,10 @@ async function signInWithGoogle() {
   btn.disabled = true;
   _loginErr('');
   const provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({ hd: ALLOWED_DOMAIN, prompt: 'select_account' });
+  // 不加 hd 參數：它會過濾 Google 的帳號選擇器，非該網域的 Workspace 帳號
+  // 會直接看不到自己的帳號、也不會顯示我們的錯誤訊息，很難查。
+  // 網域檢查仍由下方 onAuthStateChanged 把關，安全性不變。
+  provider.setCustomParameters({ prompt: 'select_account' });
   try {
     await auth.signInWithPopup(provider);   // 成功後交給 onAuthStateChanged
   } catch (e) {
@@ -3881,9 +3888,11 @@ auth.onAuthStateChanged(async (user) => {
   }
 
   const email = (user.email || '').toLowerCase();
-  if (!email.endsWith('@' + ALLOWED_DOMAIN)) {
+  if (!isCompanyEmail(email)) {
+    console.warn('[Auth] 網域不符，已拒絕登入：', email);
     await auth.signOut();
-    _loginErr(email + ' 不是公司帳號，僅限 @' + ALLOWED_DOMAIN + ' 登入。');
+    _loginErr(`「${email}」不在允許的公司網域內（目前只接受 @${ALLOWED_DOMAINS.join('、@')}）。`
+              + '若這是公司帳號，請把這整句話回報給管理者。');
     return;
   }
   // 個人授權由後端把關：拿不到 /api/me 也能進畫面，但 API 資料一律取不到
