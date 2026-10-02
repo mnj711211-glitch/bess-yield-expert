@@ -4162,8 +4162,13 @@ function renderMonthlyReports() {
         <td class="pt-cap">${Number(r.total_kwh || 0).toLocaleString()} kWh</td>
         <td class="pt-cap">${r.pr != null ? Number(r.pr).toFixed(2) + ' %' : '—'}</td>
         <td class="pt-cap">${(Number(r.revenue || 0) / 10000).toFixed(2)} 萬</td>
-        <td><a href="${esc(r.link)}" target="_blank" rel="noopener"
-               style="color:var(--brand,#0a7d3f);font-weight:600;text-decoration:none">📄 開啟月報</a></td>
+        <td style="white-space:nowrap">
+          <a href="${esc(r.link)}" target="_blank" rel="noopener"
+             style="color:var(--brand,#0a7d3f);font-weight:600;text-decoration:none">📄 開啟</a>
+          <a href="https://drive.google.com/uc?export=download&id=${esc(r.drive_id)}"
+             title="直接下載 Word 檔"
+             style="margin-left:12px;color:var(--text2);font-weight:600;text-decoration:none">⬇ 下載</a>
+        </td>
       </tr>`).join('');
     return `<div class="ag-group">
       <div class="ag-gh">${y} 年<span class="ag-gc">${byYear[y].length}</span></div>
