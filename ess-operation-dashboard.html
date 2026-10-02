@@ -773,6 +773,15 @@ select option{background:var(--surface2);}
         <div class="sd-footer" id="sd-footer"></div>
       </div>
 
+      <!-- ── ADMIN: 發電月報（後端每月自動產生並上傳雲端硬碟）── -->
+      <div class="page" id="p-reports">
+        <div class="ph">
+          <h2>📄 發電月報</h2>
+          <p>每月 1 號自動產生上個月月報，存放於公司雲端硬碟「發電月報」資料夾</p>
+        </div>
+        <div id="mr-body"></div>
+      </div>
+
       <!-- ── ADMIN: 年度計畫（來源：年度維運例行計畫表）── -->
       <div class="page" id="p-plan">
         <div class="ph">
@@ -1510,6 +1519,7 @@ function setupNav() {
       <div class="snav-section">
         <div class="snav-label">維運管理</div>
         <div class="nitem" onclick="showPage('plan')"><span class="ni">📅</span>年度計畫</div>
+        <div class="nitem" onclick="showPage('reports')"><span class="ni">📄</span>發電月報</div>
         <div class="nitem" onclick="showPage('staff')"><span class="ni">👷</span>人員週班表</div>
         <div class="nitem" onclick="showPage('receivables')"><span class="ni">💰</span>收款告警<span class="nbadge" id="recv-badge" style="display:none">0</span></div>
       </div>`;
@@ -1816,7 +1826,7 @@ function showPage(page) {
   currentPage = page;
   const titles = {
     'overview':'電站總覽','siteinfo':'案場資訊','alerts':'告警中心',
-    'receivables':'收款告警','staff':'人員週班表','plan':'年度維運計畫',
+    'receivables':'收款告警','staff':'人員週班表','plan':'年度維運計畫','reports':'發電月報',
     'client-overview':'我的案場','client-schedule':'維運排程','client-reports':'歷史報告庫',
     'site-detail':'電站詳情'
   };
@@ -1833,6 +1843,7 @@ function showPage(page) {
   if (page === 'alerts') loadBackendAlerts();
   if (page === 'staff') renderStaffGrid();
   if (page === 'plan') renderAnnualPlan();
+  if (page === 'reports') loadMonthlyReports();
   if (page === 'receivables') renderKindPage('receivables');
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -4109,6 +4120,58 @@ async function driveUploadFile(file, folderId) {
     '?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink',
     { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body }
   );
+}
+
+// ═══ 發電月報清單 ═══
+// 後端每月產生月報後會在 Firestore monthly_reports 寫一筆索引，
+// 這裡直接讀那份索引——不經過後端，所以線上版（GitHub Pages）也能用。
+let MONTHLY_REPORTS = [];
+
+async function loadMonthlyReports() {
+  const wrap = document.getElementById('mr-body');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="ag-empty">載入中…</div>';
+  try {
+    const snap = await db.collection('monthly_reports').get();
+    MONTHLY_REPORTS = snap.docs.map(d => d.data())
+      .sort((a, b) => String(b.ym).localeCompare(String(a.ym))
+                      || String(a.site).localeCompare(String(b.site)));
+    renderMonthlyReports();
+  } catch (e) {
+    console.warn('[月報] 讀取失敗', e);
+    wrap.innerHTML = '<div class="ag-empty">月報清單讀取失敗，請重新整理</div>';
+  }
+}
+
+function renderMonthlyReports() {
+  const wrap = document.getElementById('mr-body');
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  if (!MONTHLY_REPORTS.length) {
+    wrap.innerHTML = `<div class="ag-empty">尚無月報。後端每月 1 號 06:00 會自動產生上個月月報。</div>`;
+    return;
+  }
+
+  // 依年份分組，最新的年在最上面
+  const byYear = {};
+  MONTHLY_REPORTS.forEach(r => (byYear[r.year] = byYear[r.year] || []).push(r));
+
+  wrap.innerHTML = Object.keys(byYear).sort((a, b) => b - a).map(y => {
+    const rows = byYear[y].map(r => `<tr>
+        <td class="pt-site">${esc(r.month)} 月</td>
+        <td>${esc(r.site)}</td>
+        <td class="pt-cap">${Number(r.total_kwh || 0).toLocaleString()} kWh</td>
+        <td class="pt-cap">${r.pr != null ? Number(r.pr).toFixed(2) + ' %' : '—'}</td>
+        <td class="pt-cap">${(Number(r.revenue || 0) / 10000).toFixed(2)} 萬</td>
+        <td><a href="${esc(r.link)}" target="_blank" rel="noopener"
+               style="color:var(--brand,#0a7d3f);font-weight:600;text-decoration:none">📄 開啟月報</a></td>
+      </tr>`).join('');
+    return `<div class="ag-group">
+      <div class="ag-gh">${y} 年<span class="ag-gc">${byYear[y].length}</span></div>
+      <div class="ag-body"><div class="plan-tbl-wrap"><table class="plan-tbl">
+        <thead><tr><th>月份</th><th>案場</th><th style="text-align:right">發電量</th>
+          <th style="text-align:right">PR</th><th style="text-align:right">售電金額</th><th>檔案</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div></div>`;
+  }).join('');
 }
 
 // 呼叫後端 API：自動附上 Firebase ID Token
