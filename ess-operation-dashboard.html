@@ -983,6 +983,7 @@ select option{background:var(--surface2);}
             <option value="SOH 健康度檢測"></option>
             <option value="緊急維修"></option>
             <option value="突發狀況"></option>
+            <option value="文書處理"></option>
           </datalist>
         </div>
       </div>
@@ -3630,9 +3631,10 @@ const TYPE_LABEL_TO_CODE = Object.fromEntries(
   Object.entries(TYPE_INPUT_LABEL).map(([code, label]) => [label, code])
 );
 
-// 不屬於任何案場的排班項目。選了這些就不必再填工作類型，
-// 系統會把類型帶成同樣的名稱。
-const NON_SITE_ENTRIES = ['休假', '辦公室文書處理'];
+// 不屬於任何案場的地點／狀態，排在案場清單最後
+const NON_SITE_ENTRIES = ['休假', '辦公室'];
+// 這些選了之後沒有合適的工作類型可填，留空時自動帶成同樣名稱
+const AUTO_TYPE_ENTRIES = ['休假'];
 
 function openAddEvent() {
   // 案場：可直接打字，也可從清單挑。清單最後附上非案場的排班項目，
@@ -3657,8 +3659,8 @@ function addEvent() {
   if (!site) { alert('請選擇或輸入案場名稱'); return; }
 
   let typeInput = document.getElementById('ev-type').value.trim();
-  // 休假、辦公室文書處理這類非案場項目，不必再填一次工作類型
-  if (!typeInput && NON_SITE_ENTRIES.includes(site)) typeInput = site;
+  // 休假這類沒有對應工作類型的項目，留空就帶成同樣名稱
+  if (!typeInput && AUTO_TYPE_ENTRIES.includes(site)) typeInput = site;
   if (!typeInput) { alert('請選擇或輸入工作類型'); return; }
   // 打的是標準類型就存代碼（顏色/篩選才會正確），其他就原樣存文字
   const type = TYPE_LABEL_TO_CODE[typeInput] || typeInput;
