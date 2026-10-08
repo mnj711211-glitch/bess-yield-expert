@@ -3630,10 +3630,16 @@ const TYPE_LABEL_TO_CODE = Object.fromEntries(
   Object.entries(TYPE_INPUT_LABEL).map(([code, label]) => [label, code])
 );
 
+// 不屬於任何案場的排班項目。選了這些就不必再填工作類型，
+// 系統會把類型帶成同樣的名稱。
+const NON_SITE_ENTRIES = ['休假', '辦公室文書處理'];
+
 function openAddEvent() {
-  // 案場：可直接打字，也可從清單挑
+  // 案場：可直接打字，也可從清單挑。清單最後附上非案場的排班項目，
+  // 技師休假或在辦公室時一樣能排進週班表。
   document.getElementById('ev-site-list').innerHTML =
-    SITES.map(s => `<option value="${s.name}"></option>`).join('');
+    SITES.map(s => `<option value="${s.name}"></option>`).join('')
+    + NON_SITE_ENTRIES.map(n => `<option value="${n}"></option>`).join('');
   document.getElementById('ev-site').value = '';
   // 不可用 toISOString()：它會轉成 UTC，台北時區早上 8 點前會變成昨天
   const _t = new Date();
@@ -3650,7 +3656,9 @@ function addEvent() {
   const site = document.getElementById('ev-site').value.trim();
   if (!site) { alert('請選擇或輸入案場名稱'); return; }
 
-  const typeInput = document.getElementById('ev-type').value.trim();
+  let typeInput = document.getElementById('ev-type').value.trim();
+  // 休假、辦公室文書處理這類非案場項目，不必再填一次工作類型
+  if (!typeInput && NON_SITE_ENTRIES.includes(site)) typeInput = site;
   if (!typeInput) { alert('請選擇或輸入工作類型'); return; }
   // 打的是標準類型就存代碼（顏色/篩選才會正確），其他就原樣存文字
   const type = TYPE_LABEL_TO_CODE[typeInput] || typeInput;
